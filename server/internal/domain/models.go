@@ -24,20 +24,24 @@ type Assignment struct {
 type DimensionScore struct {
 	Key        string `json:"key"`
 	Name       string `json:"name"`
+	Criterion  string `json:"criterion"`
 	Score      int    `json:"score"`
 	MaxScore   int    `json:"maxScore"`
 	Evidence   string `json:"evidence"`
 	Suggestion string `json:"suggestion"`
 }
 type Evaluation struct {
-	Total      int              `json:"total"`
-	MaxTotal   int              `json:"maxTotal"`
-	Status     string           `json:"status"`
-	Summary    string           `json:"summary"`
-	Dimensions []DimensionScore `json:"dimensions"`
-	ReviewedAt time.Time        `json:"reviewedAt"`
-	Provider   string           `json:"provider"`
-	Model      string           `json:"model,omitempty"`
+	Total        int              `json:"total"`
+	MaxTotal     int              `json:"maxTotal"`
+	Status       string           `json:"status"`
+	Summary      string           `json:"summary"`
+	Strengths    []string         `json:"strengths"`
+	Issues       []string         `json:"issues"`
+	Improvements []string         `json:"improvements"`
+	Dimensions   []DimensionScore `json:"dimensions"`
+	ReviewedAt   time.Time        `json:"reviewedAt"`
+	Provider     string           `json:"provider"`
+	Model        string           `json:"model,omitempty"`
 }
 type Submission struct {
 	ID           string      `json:"id"`
@@ -45,6 +49,7 @@ type Submission struct {
 	StudentName  string      `json:"studentName"`
 	Code         string      `json:"code"`
 	Status       string      `json:"status"`
+	Progress     int         `json:"progress"`
 	SubmittedAt  time.Time   `json:"submittedAt"`
 	Evaluation   *Evaluation `json:"evaluation,omitempty"`
 }

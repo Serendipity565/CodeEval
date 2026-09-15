@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -39,6 +40,7 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	secured.GET("/dashboard", h.dashboard)
 	secured.POST("/assignments", h.requireRole("teacher"), h.createAssignment)
 	secured.PATCH("/assignments/:id/status", h.requireRole("teacher"), h.updateAssignmentStatus)
+	secured.PATCH("/assignments/:id/max-submissions", h.requireRole("teacher"), h.updateAssignmentMaxSubmissions)
 	secured.POST("/submissions", h.requireRole("student"), h.createSubmission)
 }
 func (h *Handler) login(c *gin.Context) {
@@ -158,6 +160,24 @@ func (h *Handler) updateAssignmentStatus(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"id": c.Param("id"), "status": in.Status})
 }
+func (h *Handler) updateAssignmentMaxSubmissions(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	var in struct {
+		MaxSubmissions int `json:"maxSubmissions"`
+	}
+	if err != nil || c.ShouldBindJSON(&in) != nil || in.MaxSubmissions < 1 || in.MaxSubmissions > 100 {
+		c.JSON(400, gin.H{"error": "maxSubmissions must be between 1 and 100"})
+		return
+	}
+	if err = h.store.UpdateAssignmentMaxSubmissions(uint(id), current(c).ID, in.MaxSubmissions); errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(404, gin.H{"error": "assignment not found"})
+		return
+	} else if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"id": c.Param("id"), "maxSubmissions": in.MaxSubmissions})
+}
 func (h *Handler) submissions(c *gin.Context) {
 	i := current(c)
 	items, err := h.store.ListSubmissions(i.ID, i.Role)
@@ -203,18 +223,26 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "已达到该作业的提交次数上限", "submitted": count, "limit": a.MaxSubmissions})
 		return
 	}
-	evaluation, err := h.evaluator.Evaluate(c.Request.Context(), a, in.Code)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "大模型评估失败", "detail": err.Error()})
-		return
-	}
-	sub := domain.Submission{AssignmentID: in.AssignmentID, StudentName: current(c).Name, Code: in.Code, Status: "graded", SubmittedAt: time.Now(), Evaluation: &evaluation}
+	sub := domain.Submission{AssignmentID: in.AssignmentID, StudentName: current(c).Name, Code: in.Code, Status: "queued", Progress: 10, SubmittedAt: time.Now()}
 	sub, err = h.store.CreateSubmission(current(c).ID, sub)
 	if err != nil {
 		serverError(c, err)
 		return
 	}
-	c.JSON(201, sub)
+	submissionID, _ := strconv.ParseUint(sub.ID, 10, 64)
+	go h.evaluateSubmission(context.Background(), uint(submissionID), a, in.Code)
+	c.JSON(http.StatusAccepted, sub)
+}
+func (h *Handler) evaluateSubmission(ctx context.Context, submissionID uint, assignment domain.Assignment, code string) {
+	if err := h.store.UpdateSubmissionProgress(submissionID, "evaluating", 35); err != nil {
+		return
+	}
+	evaluation, err := h.evaluator.Evaluate(ctx, assignment, code)
+	if err != nil {
+		_ = h.store.UpdateSubmissionProgress(submissionID, "failed", 100)
+		return
+	}
+	_ = h.store.CompleteSubmission(submissionID, evaluation)
 }
 func (h *Handler) dashboard(c *gin.Context) {
 	i := current(c)

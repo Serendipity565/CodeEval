@@ -1,0 +1,33 @@
+.atable .row {
+  grid-template-columns: minmax(250px, 2fr) 1fr .45fr .5fr .8fr .7fr;
+}
+
+.limit-editor {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.limit-editor input {
+  width: 48px;
+  border: 1px solid #d7dfda;
+  border-radius: 6px;
+  padding: 5px;
+}
+
+.limit-editor button {
+  border: 0;
+  border-radius: 6px;
+  background: #e8f1ec;
+  color: #32694f;
+  padding: 6px;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.limit-editor button:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.limit-editor button { font-size: 12px; }

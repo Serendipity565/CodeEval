@@ -36,7 +36,7 @@ func SeedMockData(s *MySQLStore) error {
 			return err
 		}
 
-		evaluation, _ := json.Marshal(domain.Evaluation{Total: 92, MaxTotal: 100, Status: "graded", Provider: "rules", Summary: "示例提交结构清晰，建议补充无解场景的约定。", ReviewedAt: time.Now(), Dimensions: []domain.DimensionScore{
+		evaluation, _ := json.Marshal(domain.Evaluation{Total: 92, MaxTotal: 100, Status: "graded", Provider: "rules", Summary: "示例提交结构清晰，建议补充无解场景的约定。", Strengths: []string{"使用哈希表一次遍历，结构简洁。"}, Issues: []string{"无解时返回 nil 的约定未说明。"}, Improvements: []string{"补充函数注释和无解场景测试。"}, ReviewedAt: time.Now(), Dimensions: []domain.DimensionScore{
 			{Key: "correctness", Name: "功能正确性", Score: 45, MaxScore: 45, Evidence: "示例测试全部通过。", Suggestion: "保持。"},
 			{Key: "robustness", Name: "鲁棒性", Score: 18, MaxScore: 20, Evidence: "无解时安全返回 nil。", Suggestion: "在注释中说明返回约定。"},
 			{Key: "quality", Name: "代码质量", Score: 16, MaxScore: 20, Evidence: "职责明确，缺少函数注释。", Suggestion: "补充接口注释。"},

@@ -2,19 +2,33 @@ package evaluator
 
 import (
 	"codeeval/server/internal/domain"
-	"strings"
+	"strconv"
 	"time"
 )
 
 // Evaluate is intentionally deterministic for the starter project. Replace it with
 // a queue-backed evidence pipeline before connecting a real sandbox or LLM provider.
 func Evaluate(code string, rubric []domain.RubricItem) domain.Evaluation {
-	score := 74
-	if strings.Contains(code, "map[") {
-		score += 12
+	evidence := AnalyzeStatic("unknown", code)
+	dimensions := make([]domain.DimensionScore, 0, len(rubric))
+	total := 0
+	for _, item := range rubric {
+		// The local path is deliberately conservative: without a compiler and
+		// tests it must not manufacture a functional-correctness score.
+		score := item.Weight / 2
+		total += score
+		dimensions = append(dimensions, domain.DimensionScore{
+			Key: item.Key, Name: item.Name, Criterion: item.Description, Score: score, MaxScore: item.Weight,
+			Evidence:   "仅完成静态词法扫描，未编译或运行代码。",
+			Suggestion: "启用大模型评估，或接入隔离测试执行器后再确认该项。",
+		})
 	}
-	if strings.Contains(code, "//") {
-		score += 4
+	return domain.Evaluation{
+		Total: total, MaxTotal: 100, Status: "needs_review", Provider: "rules",
+		Summary:      "本地扫描发现 " + strconv.Itoa(len(evidence.Warnings)) + " 条提示；当前分数是待复核占位值，不能作为功能正确性结论。",
+		Strengths:    []string{"已完成代码提交，可按教师量规进一步复核。"},
+		Issues:       []string{"未编译或运行代码，当前无法验证功能正确性。"},
+		Improvements: []string{"启用大模型评估或接入隔离测试执行器，再按教师量规确认得分。"},
+		ReviewedAt:   time.Now(), Dimensions: dimensions,
 	}
-	return domain.Evaluation{Total: score, MaxTotal: 100, Status: "graded", Provider: "rules", Summary: "规则评估已生成，等待教师按证据复核。", ReviewedAt: time.Now(), Dimensions: []domain.DimensionScore{{Key: "correctness", Name: "功能正确性", Score: 36, MaxScore: 45, Evidence: "演示评估尚未运行真实测试。", Suggestion: "接入隔离测试执行器后确认。"}, {Key: "robustness", Name: "边界与鲁棒性", Score: 15, MaxScore: 20, Evidence: "已完成基础结构扫描。", Suggestion: "补充空输入与无解用例。"}, {Key: "quality", Name: "代码质量", Score: 14, MaxScore: 20, Evidence: "已完成基础代码结构检查。", Suggestion: "补充命名与关键决策的注释。"}, {Key: "efficiency", Name: "算法效率", Score: score - 65, MaxScore: 15, Evidence: "基于语法特征的暂估。", Suggestion: "在反馈中展示复杂度推导证据。"}}}
 }

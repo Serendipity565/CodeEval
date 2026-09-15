@@ -8,6 +8,7 @@ import (
 
 	"codeeval/server/internal/config"
 	"codeeval/server/internal/domain"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -38,13 +39,15 @@ type SubmissionRecord struct {
 	StudentID      uint   `gorm:"index"`
 	Code           string `gorm:"type:longtext"`
 	Status         string
+	Progress       int
 	EvaluationJSON []byte `gorm:"type:json"`
 	SubmittedAt    time.Time
 }
 type MySQLStore struct{ db *gorm.DB }
 
 func NewMySQL(cfg config.Config) (*MySQLStore, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local&timeout=10s&readTimeout=30s&writeTimeout=30s", cfg.Database.Username, cfg.Database.Password, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name, cfg.Database.Charset)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local&timeout=10s&readTimeout=30s&writeTimeout=30s",
+		cfg.Database.Username, cfg.Database.Password, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name, cfg.Database.Charset)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("connect mysql: %w", err)
@@ -125,12 +128,32 @@ func (s *MySQLStore) UpdateAssignmentStatus(id, teacherID uint, status string) e
 	}
 	return nil
 }
+func (s *MySQLStore) UpdateAssignmentMaxSubmissions(id, teacherID uint, maxSubmissions int) error {
+	result := s.db.Model(&AssignmentRecord{}).Where("id = ? AND teacher_id = ?", id, teacherID).Update("max_submissions", maxSubmissions)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
 func (s *MySQLStore) CreateSubmission(studentID uint, sub domain.Submission) (domain.Submission, error) {
 	eval, _ := json.Marshal(sub.Evaluation)
-	r := SubmissionRecord{AssignmentID: mustID(sub.AssignmentID), StudentID: studentID, Code: sub.Code, Status: sub.Status, EvaluationJSON: eval, SubmittedAt: sub.SubmittedAt}
+	r := SubmissionRecord{AssignmentID: mustID(sub.AssignmentID), StudentID: studentID, Code: sub.Code, Status: sub.Status, Progress: sub.Progress, EvaluationJSON: eval, SubmittedAt: sub.SubmittedAt}
 	err := s.db.Create(&r).Error
 	sub.ID = fmt.Sprint(r.ID)
 	return sub, err
+}
+func (s *MySQLStore) UpdateSubmissionProgress(id uint, status string, progress int) error {
+	return s.db.Model(&SubmissionRecord{}).Where("id = ?", id).Updates(map[string]any{"status": status, "progress": progress}).Error
+}
+func (s *MySQLStore) CompleteSubmission(id uint, evaluation domain.Evaluation) error {
+	data, err := json.Marshal(evaluation)
+	if err != nil {
+		return err
+	}
+	return s.db.Model(&SubmissionRecord{}).Where("id = ?", id).Updates(map[string]any{"status": "graded", "progress": 100, "evaluation_json": data}).Error
 }
 func (s *MySQLStore) SubmissionCount(studentID, assignmentID uint) (int64, error) {
 	var count int64
@@ -168,10 +191,13 @@ func assignmentFrom(r AssignmentRecord) domain.Assignment {
 	return domain.Assignment{ID: fmt.Sprint(r.ID), TeacherID: fmt.Sprint(r.TeacherID), Title: r.Title, Language: r.Language, Description: r.Description, Status: r.Status, MaxSubmissions: r.MaxSubmissions, DueAt: r.DueAt, Rubric: rubric, LLMEvaluationEnabled: r.LLMEvaluationEnabled}
 }
 func submissionFrom(r SubmissionRecord, name string) domain.Submission {
-	var e domain.Evaluation
-	if len(r.EvaluationJSON) > 0 {
-		_ = json.Unmarshal(r.EvaluationJSON, &e)
+	var evaluation *domain.Evaluation
+	if len(r.EvaluationJSON) > 0 && string(r.EvaluationJSON) != "null" {
+		var e domain.Evaluation
+		if json.Unmarshal(r.EvaluationJSON, &e) == nil {
+			evaluation = &e
+		}
 	}
-	return domain.Submission{ID: fmt.Sprint(r.ID), AssignmentID: fmt.Sprint(r.AssignmentID), StudentName: name, Code: r.Code, Status: r.Status, SubmittedAt: r.SubmittedAt, Evaluation: &e}
+	return domain.Submission{ID: fmt.Sprint(r.ID), AssignmentID: fmt.Sprint(r.AssignmentID), StudentName: name, Code: r.Code, Status: r.Status, Progress: r.Progress, SubmittedAt: r.SubmittedAt, Evaluation: evaluation}
 }
 func mustID(raw string) uint { var id uint; _, _ = fmt.Sscan(raw, &id); return id }
