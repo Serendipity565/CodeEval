@@ -6,6 +6,7 @@ import type {
   AuthState as Auth,
   Rubric,
   Submission,
+  TestCase,
   View,
 } from "./types";
 import { login } from "./api/auth";
@@ -934,6 +935,25 @@ function Detail({
                   />
                 ) : null}
               </div>
+              {sub.evaluation.execution && (
+                <details className="agent-analysis">
+                  <summary>
+                    沙箱测试：{sub.evaluation.execution.passed}/
+                    {sub.evaluation.execution.total} 通过
+                  </summary>
+                  {sub.evaluation.execution.results.map((result, index) => (
+                    <article key={`${result.name}-${index}`}>
+                      <b>
+                        {result.passed ? "✓" : "✕"} {result.name}
+                      </b>
+                      <span>
+                        {result.durationMs}ms
+                        {result.error ? ` · ${result.error}` : ""}
+                      </span>
+                    </article>
+                  ))}
+                </details>
+              )}
               <div className="dimension-list">
                 {sub.evaluation.dimensions.map((d) => {
                   const criterion =
@@ -1140,6 +1160,7 @@ function Publish({
 }) {
   const [t, setT] = useState(""),
     [lang, setLang] = useState("Python"),
+    [languages, setLanguages] = useState<string[]>([]),
     [desc, setDesc] = useState(""),
     [referenceSolution, setReferenceSolution] = useState(""),
     [knowledgeBase, setKnowledgeBase] = useState(""),
@@ -1147,6 +1168,8 @@ function Publish({
     [max, setMax] = useState(3),
     [status, setStatus] = useState<Assignment["status"]>("open"),
     [llm, setLlm] = useState(true),
+    [tests, setTests] = useState<TestCase[]>([]),
+    [generatingTests, setGeneratingTests] = useState(false),
     [err, setErr] = useState(""),
     [rubric, setRubric] = useState<Rubric[]>([
       {
@@ -1162,6 +1185,20 @@ function Publish({
         weight: 40,
       },
     ]);
+  useEffect(() => {
+    void req<{ supportedLanguages: string[] }>("/capabilities", token)
+      .then((result) => {
+        setLanguages(result.supportedLanguages);
+        if (
+          result.supportedLanguages.length &&
+          !result.supportedLanguages.includes(lang)
+        )
+          setLang(result.supportedLanguages[0]);
+      })
+      .catch((e) =>
+        setErr(e instanceof Error ? e.message : "读取服务器语言配置失败"),
+      );
+  }, [token]);
   const total = rubric.reduce((n, r) => n + r.weight, 0),
     update = (index: number, patch: Partial<Rubric>) =>
       setRubric((items) =>
@@ -1179,6 +1216,50 @@ function Publish({
           weight: 0,
         },
       ]);
+  const addTest = () =>
+    setTests((items) => [
+      ...items,
+      {
+        name: `测试 ${items.length + 1}`,
+        input: "",
+        expected: "",
+        hidden: true,
+        weight: 1,
+        timeoutMs: 2000,
+      },
+    ]);
+  const updateTest = (index: number, patch: Partial<TestCase>) =>
+    setTests((items) =>
+      items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  async function generateTests() {
+    if (!t.trim() || !desc.trim()) {
+      setErr("请先填写作业标题和说明，再生成测试用例");
+      return;
+    }
+    setGeneratingTests(true);
+    setErr("");
+    try {
+      const result = await req<{ testCases: TestCase[] }>(
+        "/assignments/generate-tests",
+        token,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title: t,
+            language: lang,
+            description: desc,
+            referenceSolution,
+          }),
+        },
+      );
+      setTests(result.testCases);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "AI 生成测试用例失败");
+    } finally {
+      setGeneratingTests(false);
+    }
+  }
   async function go(e: FormEvent) {
     e.preventDefault();
     if (total !== 100) {
@@ -1198,6 +1279,7 @@ function Publish({
           llmEvaluationEnabled: llm,
           referenceSolution,
           knowledgeBase,
+          testCases: tests,
           rubric,
         }),
       });
@@ -1225,10 +1307,9 @@ function Publish({
         <label>
           编程语言
           <select value={lang} onChange={(e) => setLang(e.target.value)}>
-            <option>Python</option>
-            <option>Go</option>
-            <option>Java</option>
-            <option>C++</option>
+            {languages.map((language) => (
+              <option key={language}>{language}</option>
+            ))}
           </select>
         </label>
         <label>
@@ -1335,6 +1416,87 @@ function Publish({
             ＋ 添加评分项
           </button>
         </section>
+        <section className="rubric-editor wide">
+          <header>
+            <span>
+              <b>沙箱测试用例</b>
+              <small>
+                AI
+                生成的是可编辑草稿；程序从标准输入读取，隐藏用例不会展示给学生
+              </small>
+            </span>
+            <button
+              className="add-criterion"
+              type="button"
+              disabled={generatingTests}
+              onClick={generateTests}
+            >
+              {generatingTests
+                ? "生成中…"
+                : tests.length
+                  ? "AI 重新生成"
+                  : "AI 生成用例"}
+            </button>
+          </header>
+          {tests.map((test, index) => (
+            <div
+              className="rubric-row test-case-row"
+              key={`${test.name}-${index}`}
+            >
+              <input
+                required
+                value={test.name}
+                onChange={(e) => updateTest(index, { name: e.target.value })}
+                placeholder="用例名称"
+              />
+              <input
+                value={test.input}
+                onChange={(e) => updateTest(index, { input: e.target.value })}
+                placeholder="标准输入（可空）"
+              />
+              <input
+                value={test.expected}
+                onChange={(e) =>
+                  updateTest(index, { expected: e.target.value })
+                }
+                placeholder="期望输出（可空）"
+              />
+              <label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={test.weight}
+                  onChange={(e) =>
+                    updateTest(index, { weight: Number(e.target.value) })
+                  }
+                />
+                <span>权重</span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={test.hidden}
+                  onChange={(e) =>
+                    updateTest(index, { hidden: e.target.checked })
+                  }
+                />
+                <span>隐藏</span>
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setTests((items) => items.filter((_, i) => i !== index))
+                }
+              >
+                删除
+              </button>
+            </div>
+          ))}
+          <button className="add-criterion" type="button" onClick={addTest}>
+            ＋ 添加测试用例
+          </button>
+        </section>
         <label className="toggle wide">
           <input
             type="checkbox"
@@ -1349,7 +1511,10 @@ function Publish({
         </label>
         {err && <i className="error wide">{err}</i>}
         <footer className="wide">
-          <button className="primary" disabled={total !== 100}>
+          <button
+            className="primary"
+            disabled={total !== 100 || !languages.length}
+          >
             发布作业
           </button>
         </footer>

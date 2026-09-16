@@ -33,8 +33,10 @@ database:
 ```text
 users (teacher)
   └── assignment_records.teacher_id
+        ├── test_case_records.assignment_id
         └── submission_records.assignment_id
               └── submission_records.student_id → users (student)
+                    └── evaluation_jobs.submission_id → submission_records.id
 ```
 
 当前通过索引字段维护逻辑关联，尚未创建物理外键约束。
@@ -90,6 +92,33 @@ users (teacher)
 | `status` | 评估状态 | 当前使用 `graded` |
 | `evaluation_json` | 评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本 |
 | `submitted_at` | 提交时间 | 由后端写入 |
+
+### test_case_records
+
+教师配置的标准输入/输出测试。`hidden=true` 的输入与期望输出不会经作业 API 返回给学生；评估结果只保存用例名称、通过状态、退出码和耗时。
+
+| 字段 | 含义 |
+| --- | --- |
+| `assignment_id` | 所属作业 |
+| `name` | 用例名称，作业内唯一 |
+| `input`、`expected` | 标准输入与期望输出 |
+| `hidden` | 是否为隐藏用例 |
+| `weight` | 计算功能得分的相对权重 |
+| `timeout_ms` | 单个用例时间限制，100–10000ms |
+
+### evaluation_jobs
+
+持久化评估任务队列。学生提交与队列任务在同一个数据库事务中创建，服务重启不会丢失尚未处理的作业。
+
+| 字段 | 含义 | 约束/说明 |
+| --- | --- | --- |
+| `submission_id` | 待评估提交 | 唯一索引 |
+| `assignment_id` | 作业 ID | 普通索引 |
+| `student_id` | 学生 ID | 普通索引 |
+| `status` | `queued`、`running`、`completed` 或 `failed` | 普通索引 |
+| `attempts` | 已领取次数 | 达到配置上限后不再重试 |
+| `locked_by`、`locked_at` | Worker 租约信息 | 用于并发领取和崩溃恢复 |
+| `last_error` | 最近一次失败原因 | TEXT |
 
 ## 4. Mock 数据
 

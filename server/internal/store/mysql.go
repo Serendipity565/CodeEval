@@ -12,6 +12,7 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type User struct {
@@ -36,6 +37,16 @@ type AssignmentRecord struct {
 	LLMEvaluationEnabled bool   `gorm:"not null;default:false"`
 	CreatedAt            time.Time
 }
+type TestCaseRecord struct {
+	ID           uint `gorm:"primaryKey"`
+	AssignmentID uint `gorm:"index;not null"`
+	Name         string
+	Input        string `gorm:"type:longtext"`
+	Expected     string `gorm:"type:longtext"`
+	Hidden       bool
+	Weight       int
+	TimeoutMS    int
+}
 type SubmissionRecord struct {
 	ID             uint   `gorm:"primaryKey"`
 	AssignmentID   uint   `gorm:"index"`
@@ -45,6 +56,23 @@ type SubmissionRecord struct {
 	Progress       int
 	EvaluationJSON []byte `gorm:"type:json"`
 	SubmittedAt    time.Time
+}
+type EvaluationJobRecord struct {
+	ID           uint   `gorm:"primaryKey"`
+	SubmissionID uint   `gorm:"uniqueIndex;not null"`
+	AssignmentID uint   `gorm:"index;not null"`
+	StudentID    uint   `gorm:"index;not null"`
+	Status       string `gorm:"size:20;index;not null"`
+	Attempts     int
+	LockedBy     string `gorm:"size:80"`
+	LockedAt     *time.Time
+	LastError    string `gorm:"type:text"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+type EvaluationJob struct {
+	ID, SubmissionID, AssignmentID, StudentID uint
+	Attempts                                  int
 }
 type MySQLStore struct{ db *gorm.DB }
 
@@ -67,7 +95,7 @@ func NewMySQL(cfg config.Config) (*MySQLStore, error) {
 	if err := sqlDB.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("ping mysql: %w", err)
 	}
-	if err := db.AutoMigrate(&User{}, &AssignmentRecord{}, &SubmissionRecord{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &AssignmentRecord{}, &TestCaseRecord{}, &SubmissionRecord{}, &EvaluationJobRecord{}); err != nil {
 		return nil, fmt.Errorf("migrate mysql: %w", err)
 	}
 	return &MySQLStore{db: db}, nil
@@ -83,7 +111,18 @@ func (s *MySQLStore) CreateAssignment(teacherID uint, a domain.Assignment) (doma
 		return a, e
 	}
 	r := AssignmentRecord{TeacherID: teacherID, Title: a.Title, Language: a.Language, Description: a.Description, ReferenceSolution: a.ReferenceSolution, KnowledgeBase: a.KnowledgeBase, Status: a.Status, MaxSubmissions: a.MaxSubmissions, DueAt: a.DueAt, RubricJSON: b, LLMEvaluationEnabled: a.LLMEvaluationEnabled}
-	e = s.db.Create(&r).Error
+	e = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&r).Error; err != nil {
+			return err
+		}
+		for _, test := range a.TestCases {
+			row := TestCaseRecord{AssignmentID: r.ID, Name: test.Name, Input: test.Input, Expected: test.Expected, Hidden: test.Hidden, Weight: test.Weight, TimeoutMS: test.TimeoutMS}
+			if err := tx.Create(&row).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	a.ID = fmt.Sprint(r.ID)
 	a.HasReferenceMaterial = strings.TrimSpace(a.ReferenceSolution) != "" || strings.TrimSpace(a.KnowledgeBase) != ""
 	return a, e
@@ -115,6 +154,21 @@ func (s *MySQLStore) Assignment(id uint) (domain.Assignment, error) {
 	err := s.db.First(&r, id).Error
 	assignment := assignmentFrom(r)
 	if err == nil {
+		var tests []TestCaseRecord
+		if testErr := s.db.Where("assignment_id = ?", r.ID).Order("id asc").Find(&tests).Error; testErr != nil {
+			return assignment, testErr
+		}
+		assignment.TestCases = make([]domain.TestCase, 0, len(tests))
+		assignment.PublicTestCases = make([]domain.TestCase, 0)
+		for _, test := range tests {
+			item := domain.TestCase{Name: test.Name, Input: test.Input, Expected: test.Expected, Hidden: test.Hidden, Weight: test.Weight, TimeoutMS: test.TimeoutMS}
+			assignment.TestCases = append(assignment.TestCases, item)
+			if test.Hidden {
+				assignment.HasHiddenTests = true
+			} else {
+				assignment.PublicTestCases = append(assignment.PublicTestCases, item)
+			}
+		}
 		var teacher User
 		if teacherErr := s.db.First(&teacher, r.TeacherID).Error; teacherErr == nil {
 			assignment.TeacherName = teacher.DisplayName
@@ -149,6 +203,128 @@ func (s *MySQLStore) CreateSubmission(studentID uint, sub domain.Submission) (do
 	sub.ID = fmt.Sprint(r.ID)
 	return sub, err
 }
+func (s *MySQLStore) CreateSubmissionWithJob(studentID uint, sub domain.Submission) (domain.Submission, error) {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		eval, err := json.Marshal(sub.Evaluation)
+		if err != nil {
+			return err
+		}
+		record := SubmissionRecord{AssignmentID: mustID(sub.AssignmentID), StudentID: studentID, Code: sub.Code, Status: sub.Status, Progress: sub.Progress, EvaluationJSON: eval, SubmittedAt: sub.SubmittedAt}
+		if err := tx.Create(&record).Error; err != nil {
+			return err
+		}
+		sub.ID = fmt.Sprint(record.ID)
+		job := EvaluationJobRecord{SubmissionID: record.ID, AssignmentID: record.AssignmentID, StudentID: studentID, Status: "queued"}
+		return tx.Create(&job).Error
+	})
+	return sub, err
+}
+
+func (s *MySQLStore) RequeueStaleJobs(staleBefore time.Time) error {
+	return s.db.Model(&EvaluationJobRecord{}).
+		Where("status = ? AND (locked_at IS NULL OR locked_at < ?)", "running", staleBefore).
+		Updates(map[string]any{"status": "queued", "locked_by": "", "locked_at": nil}).Error
+}
+
+func (s *MySQLStore) FailExhaustedEvaluationJobs(maxAttempts int) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var jobs []EvaluationJobRecord
+		if err := tx.Where("status = ? AND attempts >= ?", "queued", maxAttempts).Find(&jobs).Error; err != nil {
+			return err
+		}
+		for _, job := range jobs {
+			if err := tx.Model(&EvaluationJobRecord{}).Where("id = ?", job.ID).Updates(map[string]any{"status": "failed", "last_error": "maximum evaluation attempts reached"}).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&SubmissionRecord{}).Where("id = ?", job.SubmissionID).Updates(map[string]any{"status": "failed", "progress": 100}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// BackfillPendingEvaluationJobs upgrades submissions created by the former
+// in-memory goroutine implementation without losing them during deployment.
+func (s *MySQLStore) BackfillPendingEvaluationJobs() error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var submissions []SubmissionRecord
+		if err := tx.Where("status IN ?", []string{"queued", "evaluating"}).Find(&submissions).Error; err != nil {
+			return err
+		}
+		for _, submission := range submissions {
+			job := EvaluationJobRecord{SubmissionID: submission.ID, AssignmentID: submission.AssignmentID, StudentID: submission.StudentID, Status: "queued"}
+			result := tx.Where("submission_id = ?", submission.ID).FirstOrCreate(&job)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				continue
+			}
+			if err := tx.Model(&SubmissionRecord{}).Where("id = ?", submission.ID).Updates(map[string]any{"status": "queued", "progress": 10}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (s *MySQLStore) ClaimEvaluationJob(workerID string, maxAttempts int) (EvaluationJob, error) {
+	var claimed EvaluationJobRecord
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("status = ? AND attempts < ?", "queued", maxAttempts).
+			Order("created_at asc").First(&claimed).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		return tx.Model(&EvaluationJobRecord{}).Where("id = ?", claimed.ID).Updates(map[string]any{
+			"status": "running", "attempts": gorm.Expr("attempts + 1"), "locked_by": workerID, "locked_at": &now,
+		}).Error
+	})
+	claimed.Attempts++
+	return EvaluationJob{ID: claimed.ID, SubmissionID: claimed.SubmissionID, AssignmentID: claimed.AssignmentID, StudentID: claimed.StudentID, Attempts: claimed.Attempts}, err
+}
+
+func (s *MySQLStore) EvaluationJobPayload(job EvaluationJob) (domain.Assignment, domain.Submission, []domain.Submission, error) {
+	assignment, err := s.Assignment(job.AssignmentID)
+	if err != nil {
+		return domain.Assignment{}, domain.Submission{}, nil, err
+	}
+	var record SubmissionRecord
+	if err := s.db.First(&record, job.SubmissionID).Error; err != nil {
+		return domain.Assignment{}, domain.Submission{}, nil, err
+	}
+	history, err := s.submissionHistoryExcluding(job.StudentID, job.AssignmentID, job.SubmissionID, 3)
+	return assignment, submissionFrom(record, ""), history, err
+}
+
+func (s *MySQLStore) CompleteEvaluationJob(jobID, submissionID uint, evaluation domain.Evaluation) error {
+	data, err := json.Marshal(evaluation)
+	if err != nil {
+		return err
+	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&SubmissionRecord{}).Where("id = ?", submissionID).Updates(map[string]any{"status": evaluation.Status, "progress": 100, "evaluation_json": data}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&EvaluationJobRecord{}).Where("id = ?", jobID).Updates(map[string]any{"status": "completed", "locked_by": "", "locked_at": nil, "last_error": ""}).Error
+	})
+}
+
+func (s *MySQLStore) FailEvaluationJob(job EvaluationJob, maxAttempts int, cause error) error {
+	retry := job.Attempts < maxAttempts
+	jobStatus, submissionStatus, progress := "failed", "failed", 100
+	if retry {
+		jobStatus, submissionStatus, progress = "queued", "queued", 10
+	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&SubmissionRecord{}).Where("id = ?", job.SubmissionID).Updates(map[string]any{"status": submissionStatus, "progress": progress}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&EvaluationJobRecord{}).Where("id = ?", job.ID).Updates(map[string]any{"status": jobStatus, "locked_by": "", "locked_at": nil, "last_error": cause.Error()}).Error
+	})
+}
 func (s *MySQLStore) UpdateSubmissionProgress(id uint, status string, progress int) error {
 	return s.db.Model(&SubmissionRecord{}).Where("id = ?", id).Updates(map[string]any{"status": status, "progress": progress}).Error
 }
@@ -165,8 +341,14 @@ func (s *MySQLStore) SubmissionCount(studentID, assignmentID uint) (int64, error
 	return count, err
 }
 func (s *MySQLStore) SubmissionHistory(studentID, assignmentID uint, limit int) ([]domain.Submission, error) {
+	return s.submissionHistoryExcluding(studentID, assignmentID, 0, limit)
+}
+func (s *MySQLStore) submissionHistoryExcluding(studentID, assignmentID, excludedSubmissionID uint, limit int) ([]domain.Submission, error) {
 	var rows []SubmissionRecord
 	q := s.db.Where("student_id = ? AND assignment_id = ? AND evaluation_json IS NOT NULL", studentID, assignmentID).Order("submitted_at desc")
+	if excludedSubmissionID != 0 {
+		q = q.Where("id <> ?", excludedSubmissionID)
+	}
 	if limit > 0 {
 		q = q.Limit(limit)
 	}

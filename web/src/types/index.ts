@@ -4,6 +4,14 @@ export type Rubric = {
   description: string;
   weight: number;
 };
+export type TestCase = {
+  name: string;
+  input: string;
+  expected: string;
+  hidden: boolean;
+  weight: number;
+  timeoutMs: number;
+};
 export type Assignment = {
   id: string;
   teacherId: string;
@@ -17,6 +25,8 @@ export type Assignment = {
   rubric: Rubric[];
   llmEvaluationEnabled: boolean;
   hasReferenceMaterial: boolean;
+  testCases: TestCase[];
+  hasHiddenTests: boolean;
 };
 export type Evaluation = {
   total: number;
@@ -32,6 +42,22 @@ export type Evaluation = {
   promptVersion: string;
   evaluatorVersion: string;
   modelCalls: number;
+  execution?: {
+    language: string;
+    compileOk: boolean;
+    compileError?: string;
+    passed: number;
+    total: number;
+    passedWeight: number;
+    totalWeight: number;
+    results: {
+      name: string;
+      passed: boolean;
+      exitCode: number;
+      durationMs: number;
+      error?: string;
+    }[];
+  };
   analysis?: {
     category: string;
     severity: string;

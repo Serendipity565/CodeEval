@@ -41,6 +41,55 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      sandbox-runner:
+        condition: service_healthy
+
+  sandbox-runner:
+    build:
+      context: ./sandbox
+      dockerfile: runner/Dockerfile
+    container_name: codeeval-sandbox-runner
+    restart: unless-stopped
+    environment:
+      RUNNER_TOKEN: codeeval-compose-internal
+      # Runner 的硬上限；实际并发由 server/config.docker.yaml 中的值控制。
+      MAX_CONCURRENT_SANDBOXES: 2
+      JOB_TIMEOUT_SECONDS: 180
+    expose:
+      - "8090"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8090/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    depends_on:
+      sandbox-go-image:
+        condition: service_completed_successfully
+      sandbox-python-image:
+        condition: service_completed_successfully
+      sandbox-java-image:
+        condition: service_completed_successfully
+      sandbox-cpp-image:
+        condition: service_completed_successfully
+
+  sandbox-go-image:
+    image: codeeval-sandbox-go:local
+    build: { context: ./sandbox, dockerfile: images/Dockerfile, target: go }
+    entrypoint: ["/bin/true"]
+  sandbox-python-image:
+    image: codeeval-sandbox-python:local
+    build: { context: ./sandbox, dockerfile: images/Dockerfile, target: python }
+    entrypoint: ["/bin/true"]
+  sandbox-java-image:
+    image: codeeval-sandbox-java:local
+    build: { context: ./sandbox, dockerfile: images/Dockerfile, target: java }
+    entrypoint: ["/bin/true"]
+  sandbox-cpp-image:
+    image: codeeval-sandbox-cpp:local
+    build: { context: ./sandbox, dockerfile: images/Dockerfile, target: cpp }
+    entrypoint: ["/bin/true"]
 
   web:
     build:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -36,7 +37,10 @@ func main() {
 	}
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery(), cors(cfg.Server.CORSOrigins))
-	handler := api.New(db, auth.New(cfg.JWT.Secret, cfg.JWT.ExpiresHours), evaluator.NewService(cfg))
+	handler := api.New(db, auth.New(cfg.JWT.Secret, cfg.JWT.ExpiresHours), evaluator.NewService(cfg), cfg)
+	if err := handler.StartEvaluationWorkers(context.Background()); err != nil {
+		panic(err)
+	}
 	router.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
 	handler.Register(router.Group("/api/v1"))
 	if err := router.Run(fmt.Sprintf(":%d", cfg.Server.Port)); err != nil {

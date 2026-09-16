@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -39,6 +40,16 @@ type Config struct {
 		MaxTokens    int    `yaml:"max_tokens"`
 		MaxCodeBytes int    `yaml:"max_code_bytes"`
 	} `yaml:"deepseek"`
+	Sandbox struct {
+		Enabled                bool     `yaml:"enabled"`
+		MaxConcurrentSandboxes int      `yaml:"max_concurrent_sandboxes"`
+		SupportedLanguages     []string `yaml:"supported_languages"`
+		QueuePollIntervalMS    int      `yaml:"queue_poll_interval_ms"`
+		JobTimeoutSeconds      int      `yaml:"job_timeout_seconds"`
+		MaxAttempts            int      `yaml:"max_attempts"`
+		RunnerURL              string   `yaml:"runner_url"`
+		RunnerToken            string   `yaml:"runner_token"`
+	} `yaml:"sandbox"`
 }
 
 func Load(path string) (Config, error) {
@@ -108,6 +119,44 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.DeepSeek.MaxCodeBytes == 0 {
 		cfg.DeepSeek.MaxCodeBytes = 100000
+	}
+	if cfg.Sandbox.MaxConcurrentSandboxes == 0 {
+		cfg.Sandbox.MaxConcurrentSandboxes = 1
+	}
+	if cfg.Sandbox.MaxConcurrentSandboxes < 1 || cfg.Sandbox.MaxConcurrentSandboxes > 2 {
+		return cfg, fmt.Errorf("sandbox.max_concurrent_sandboxes must be 1 or 2 on this deployment")
+	}
+	if len(cfg.Sandbox.SupportedLanguages) == 0 {
+		cfg.Sandbox.SupportedLanguages = []string{"Go", "Python", "Java", "C++"}
+	}
+	if cfg.Sandbox.QueuePollIntervalMS == 0 {
+		cfg.Sandbox.QueuePollIntervalMS = 1000
+	}
+	if cfg.Sandbox.QueuePollIntervalMS < 100 {
+		return cfg, fmt.Errorf("sandbox.queue_poll_interval_ms must be at least 100")
+	}
+	if cfg.Sandbox.JobTimeoutSeconds == 0 {
+		cfg.Sandbox.JobTimeoutSeconds = 180
+	}
+	if cfg.Sandbox.JobTimeoutSeconds < 30 {
+		return cfg, fmt.Errorf("sandbox.job_timeout_seconds must be at least 30")
+	}
+	if cfg.Sandbox.MaxAttempts == 0 {
+		cfg.Sandbox.MaxAttempts = 2
+	}
+	if cfg.Sandbox.MaxAttempts < 1 || cfg.Sandbox.MaxAttempts > 5 {
+		return cfg, fmt.Errorf("sandbox.max_attempts must be between 1 and 5")
+	}
+	if cfg.Sandbox.Enabled && (strings.TrimSpace(cfg.Sandbox.RunnerURL) == "" || strings.TrimSpace(cfg.Sandbox.RunnerToken) == "") {
+		return cfg, fmt.Errorf("sandbox.runner_url and sandbox.runner_token are required when sandbox is enabled")
+	}
+	seenLanguages := map[string]bool{}
+	for _, language := range cfg.Sandbox.SupportedLanguages {
+		normalized := strings.ToLower(strings.TrimSpace(language))
+		if normalized == "" || seenLanguages[normalized] {
+			return cfg, fmt.Errorf("sandbox.supported_languages must contain unique non-empty names")
+		}
+		seenLanguages[normalized] = true
 	}
 	return cfg, nil
 }

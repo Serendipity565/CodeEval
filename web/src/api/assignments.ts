@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { Assignment, Rubric } from "../types";
+import type { Assignment, Rubric, TestCase } from "../types";
 export type CreateAssignmentInput = Pick<
   Assignment,
   | "title"
@@ -9,7 +9,7 @@ export type CreateAssignmentInput = Pick<
   | "maxSubmissions"
   | "dueAt"
   | "llmEvaluationEnabled"
-> & { rubric: Rubric[]; referenceSolution?: string; knowledgeBase?: string };
+> & { rubric: Rubric[]; testCases?: TestCase[]; referenceSolution?: string; knowledgeBase?: string };
 export const listAssignments = (token: string) =>
   apiRequest<Assignment[]>("/assignments", token);
 export const createAssignment = (token: string, input: CreateAssignmentInput) =>

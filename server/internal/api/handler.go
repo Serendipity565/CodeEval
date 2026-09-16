@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"math"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"codeeval/server/internal/auth"
+	"codeeval/server/internal/config"
 	"codeeval/server/internal/domain"
 	"codeeval/server/internal/evaluator"
 	"codeeval/server/internal/store"
@@ -19,17 +19,27 @@ import (
 )
 
 type Handler struct {
-	store     *store.MySQLStore
-	auth      auth.Service
-	evaluator *evaluator.Service
+	store                 *store.MySQLStore
+	auth                  auth.Service
+	evaluator             *evaluator.Service
+	supportedLanguages    map[string]bool
+	supportedLanguageList []string
+	maxWorkers            int
+	pollInterval          time.Duration
+	jobTimeout            time.Duration
+	maxAttempts           int
 }
 type identity struct {
 	ID         uint
 	Role, Name string
 }
 
-func New(s *store.MySQLStore, authService auth.Service, evaluationService *evaluator.Service) *Handler {
-	return &Handler{store: s, auth: authService, evaluator: evaluationService}
+func New(s *store.MySQLStore, authService auth.Service, evaluationService *evaluator.Service, cfg config.Config) *Handler {
+	languages := make(map[string]bool, len(cfg.Sandbox.SupportedLanguages))
+	for _, language := range cfg.Sandbox.SupportedLanguages {
+		languages[strings.ToLower(strings.TrimSpace(language))] = true
+	}
+	return &Handler{store: s, auth: authService, evaluator: evaluationService, supportedLanguages: languages, supportedLanguageList: append([]string(nil), cfg.Sandbox.SupportedLanguages...), maxWorkers: cfg.Sandbox.MaxConcurrentSandboxes, pollInterval: time.Duration(cfg.Sandbox.QueuePollIntervalMS) * time.Millisecond, jobTimeout: time.Duration(cfg.Sandbox.JobTimeoutSeconds) * time.Second, maxAttempts: cfg.Sandbox.MaxAttempts}
 }
 func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/auth/login", h.login)
@@ -39,10 +49,34 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	secured.GET("/assignments/:id", h.assignment)
 	secured.GET("/submissions", h.submissions)
 	secured.GET("/dashboard", h.dashboard)
+	secured.GET("/capabilities", h.capabilities)
 	secured.POST("/assignments", h.requireRole("teacher"), h.createAssignment)
+	secured.POST("/assignments/generate-tests", h.requireRole("teacher"), h.generateTests)
 	secured.PATCH("/assignments/:id/status", h.requireRole("teacher"), h.updateAssignmentStatus)
 	secured.PATCH("/assignments/:id/max-submissions", h.requireRole("teacher"), h.updateAssignmentMaxSubmissions)
 	secured.POST("/submissions", h.requireRole("student"), h.createSubmission)
+}
+
+func (h *Handler) generateTests(c *gin.Context) {
+	var in struct {
+		Title             string `json:"title"`
+		Language          string `json:"language"`
+		Description       string `json:"description"`
+		ReferenceSolution string `json:"referenceSolution"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil || !h.supportedLanguages[strings.ToLower(strings.TrimSpace(in.Language))] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "valid title, description and supported language are required"})
+		return
+	}
+	tests, err := h.evaluator.GenerateTestCases(c.Request.Context(), in.Title, in.Language, in.Description, in.ReferenceSolution)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"testCases": tests})
+}
+func (h *Handler) capabilities(c *gin.Context) {
+	c.JSON(200, gin.H{"supportedLanguages": h.supportedLanguageList, "maxConcurrentEvaluations": h.maxWorkers})
 }
 func (h *Handler) login(c *gin.Context) {
 	var in struct {
@@ -133,21 +167,45 @@ func (h *Handler) createAssignment(c *gin.Context) {
 		LLMEvaluationEnabled bool                `json:"llmEvaluationEnabled"`
 		ReferenceSolution    string              `json:"referenceSolution"`
 		KnowledgeBase        string              `json:"knowledgeBase"`
+		TestCases            []domain.TestCase   `json:"testCases"`
 	}
 	if err := c.ShouldBindJSON(&in); err != nil || in.Title == "" || in.Language == "" || !validAssignmentStatus(in.Status) || in.MaxSubmissions < 1 || in.MaxSubmissions > 100 || !validRubric(in.Rubric) {
 		c.JSON(400, gin.H{"error": "title, language, 1-100 submissions and a 100-point rubric are required"})
+		return
+	}
+	if !h.supportedLanguages[strings.ToLower(strings.TrimSpace(in.Language))] {
+		c.JSON(400, gin.H{"error": "language is not enabled by sandbox.supported_languages"})
 		return
 	}
 	if len([]byte(in.ReferenceSolution))+len([]byte(in.KnowledgeBase)) > 200000 {
 		c.JSON(400, gin.H{"error": "reference material exceeds 200000 bytes"})
 		return
 	}
-	a, err := h.store.CreateAssignment(current(c).ID, domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase})
+	if !validTestCases(in.TestCases) {
+		c.JSON(400, gin.H{"error": "test cases require unique names, positive weights, expected output and 100-10000ms timeout"})
+		return
+	}
+	a, err := h.store.CreateAssignment(current(c).ID, domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, TestCases: in.TestCases, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase})
 	if err != nil {
 		serverError(c, err)
 		return
 	}
 	c.JSON(201, a)
+}
+
+func validTestCases(items []domain.TestCase) bool {
+	if len(items) > 100 {
+		return false
+	}
+	names := map[string]bool{}
+	for _, item := range items {
+		name := strings.TrimSpace(item.Name)
+		if name == "" || names[name] || item.Weight < 1 || item.Weight > 100 || item.TimeoutMS < 100 || item.TimeoutMS > 10000 {
+			return false
+		}
+		names[name] = true
+	}
+	return true
 }
 func (h *Handler) updateAssignmentStatus(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -221,6 +279,10 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "该作业当前未开放提交"})
 		return
 	}
+	if !h.supportedLanguages[strings.ToLower(strings.TrimSpace(a.Language))] {
+		c.JSON(http.StatusConflict, gin.H{"error": "该作业语言当前未在服务器配置中启用"})
+		return
+	}
 	count, err := h.store.SubmissionCount(current(c).ID, uint(id))
 	if err != nil {
 		serverError(c, err)
@@ -230,31 +292,13 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "已达到该作业的提交次数上限", "submitted": count, "limit": a.MaxSubmissions})
 		return
 	}
-	history, err := h.store.SubmissionHistory(current(c).ID, uint(id), 3)
-	if err != nil {
-		serverError(c, err)
-		return
-	}
 	sub := domain.Submission{AssignmentID: in.AssignmentID, StudentName: current(c).Name, Code: in.Code, Status: "queued", Progress: 10, SubmittedAt: time.Now()}
-	sub, err = h.store.CreateSubmission(current(c).ID, sub)
+	sub, err = h.store.CreateSubmissionWithJob(current(c).ID, sub)
 	if err != nil {
 		serverError(c, err)
 		return
 	}
-	submissionID, _ := strconv.ParseUint(sub.ID, 10, 64)
-	go h.evaluateSubmission(context.Background(), uint(submissionID), a, in.Code, history)
 	c.JSON(http.StatusAccepted, sub)
-}
-func (h *Handler) evaluateSubmission(ctx context.Context, submissionID uint, assignment domain.Assignment, code string, history []domain.Submission) {
-	if err := h.store.UpdateSubmissionProgress(submissionID, "evaluating", 35); err != nil {
-		return
-	}
-	evaluation, err := h.evaluator.Evaluate(ctx, assignment, code, history)
-	if err != nil {
-		_ = h.store.UpdateSubmissionProgress(submissionID, "failed", 100)
-		return
-	}
-	_ = h.store.CompleteSubmission(submissionID, evaluation)
 }
 func (h *Handler) dashboard(c *gin.Context) {
 	i := current(c)

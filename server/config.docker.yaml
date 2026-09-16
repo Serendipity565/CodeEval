@@ -25,3 +25,16 @@ deepseek:
   timeout_seconds: 60
   max_tokens: 4096
   max_code_bytes: 100000
+sandbox:
+  enabled: true
+  max_concurrent_sandboxes: 1
+  supported_languages:
+    - Go
+    - Python
+    - Java
+    - C++
+  queue_poll_interval_ms: 1000
+  job_timeout_seconds: 180
+  max_attempts: 2
+  runner_url: http://sandbox-runner:8090
+  runner_token: codeeval-compose-internal
