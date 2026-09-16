@@ -1,6 +1,4 @@
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type {
   Assignment,
   AuthState as Auth,
@@ -14,7 +12,10 @@ import { apiRequest as req } from "./api/client";
 import { clearAuth, loadAuth, saveAuth } from "./auth/storage";
 import { useCourseData } from "./hooks/useCourseData";
 import { Empty, Head, Score, Title } from "./components/ui";
-import { editorTemplate } from "./components/editor/templates";
+import {
+  editorTemplate,
+  executionContract,
+} from "./components/editor/templates";
 const CodeEditor = lazy(() => import("./components/editor/CodeEditor"));
 const ico: Record<string, string> = {
   home: "⌂",
@@ -805,6 +806,10 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
             </b>
           </span>
         </div>
+        <div className="execution-contract">
+          <b>运行约定</b>
+          <p>{executionContract(assignment?.language ?? "")}</p>
+        </div>
         <h4>评分标准</h4>
         <div className="brief-rubric">
           {assignment?.rubric.map((r) => (
@@ -817,6 +822,31 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
             </div>
           ))}
         </div>
+        {assignment?.testCases.length ? (
+          <>
+            <h4>公开测试用例</h4>
+            <div className="brief-tests">
+              {assignment.testCases.map((test, index) => (
+                <article key={`${test.name}-${index}`}>
+                  <b>{test.name}</b>
+                  <span>
+                    <em>输入</em>
+                    <pre>{test.input || "（空输入）"}</pre>
+                  </span>
+                  <span>
+                    <em>期望</em>
+                    <pre>{test.expected || "（无输出）"}</pre>
+                  </span>
+                </article>
+              ))}
+            </div>
+          </>
+        ) : null}
+        {assignment?.hasHiddenTests && (
+          <small className="hidden-tests-hint">
+            另有隐藏测试用例，其输入输出不会公开。
+          </small>
+        )}
       </aside>
       <section className="panel submitbox">
         <Title title="编写并提交" note="支持语法高亮、自动缩进与代码格式化" />
@@ -950,6 +980,26 @@ function Detail({
                         {result.durationMs}ms
                         {result.error ? ` · ${result.error}` : ""}
                       </span>
+                      {result.hidden ? (
+                        <small className="hidden-test-note">
+                          隐藏用例 · 输入输出不公开
+                        </small>
+                      ) : (
+                        <div className="test-result-io">
+                          <section>
+                            <em>输入</em>
+                            <pre>{result.input || "（空输入）"}</pre>
+                          </section>
+                          <section>
+                            <em>期望输出</em>
+                            <pre>{result.expected || "（无输出）"}</pre>
+                          </section>
+                          <section>
+                            <em>实际输出</em>
+                            <pre>{result.actual || "（无输出）"}</pre>
+                          </section>
+                        </div>
+                      )}
                     </article>
                   ))}
                 </details>
@@ -979,12 +1029,10 @@ function Detail({
                           style={{ width: `${(d.score / d.maxScore) * 100}%` }}
                         />
                       </i>
-                      <div className="evaluation-evidence markdown-content">
+                      <p>
                         <em>评价依据</em>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {d.evidence}
-                        </ReactMarkdown>
-                      </div>
+                        {d.evidence}
+                      </p>
                       <small>
                         <b>改进建议</b>
                         {d.suggestion}
@@ -1010,11 +1058,7 @@ function Detail({
                         {finding.category} · {finding.severity}
                       </b>
                       <small>{finding.location || "未标注位置"}</small>
-                      <div className="agent-evidence markdown-content">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {finding.evidence}
-                        </ReactMarkdown>
-                      </div>
+                      <p>{finding.evidence}</p>
                       <span>{finding.explanation}</span>
                     </article>
                   ))}
@@ -1438,6 +1482,7 @@ function Publish({
                   : "AI 生成用例"}
             </button>
           </header>
+          <p className="execution-contract-inline">{executionContract(lang)}</p>
           <div className="test-case-list">
             {tests.map((test, index) => (
               <article className="test-case-card" key={`${test.name}-${index}`}>

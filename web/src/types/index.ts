@@ -53,6 +53,10 @@ export type Evaluation = {
     results: {
       name: string;
       passed: boolean;
+      hidden: boolean;
+      input?: string;
+      expected?: string;
+      actual?: string;
       exitCode: number;
       durationMs: number;
       error?: string;

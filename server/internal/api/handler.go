@@ -2,8 +2,12 @@ package api
 
 import (
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"math"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -284,6 +288,10 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "该作业语言当前未在服务器配置中启用"})
 		return
 	}
+	if err := validateProgramEntrypoint(a.Language, in.Code); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	count, err := h.store.SubmissionCount(current(c).ID, uint(id))
 	if err != nil {
 		serverError(c, err)
@@ -301,6 +309,40 @@ func (h *Handler) createSubmission(c *gin.Context) {
 	}
 	h.signalEvaluationWorkers()
 	c.JSON(http.StatusAccepted, sub)
+}
+
+var (
+	javaClassPattern = regexp.MustCompile(`(?m)\bclass\s+Main\b`)
+	javaMainPattern  = regexp.MustCompile(`(?m)\bpublic\s+static\s+void\s+main\s*\(`)
+	cppMainPattern   = regexp.MustCompile(`(?m)\bint\s+main\s*\(`)
+)
+
+func validateProgramEntrypoint(language, code string) error {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "go":
+		file, err := parser.ParseFile(token.NewFileSet(), "main.go", code, 0)
+		if err != nil {
+			return nil
+		} // 沙箱编译器会返回更准确的语法错误。
+		if file.Name.Name != "main" {
+			return errors.New("Go 提交必须是完整程序：需要 package main 和 func main()，不能只提交函数")
+		}
+		for _, declaration := range file.Decls {
+			if fn, ok := declaration.(*ast.FuncDecl); ok && fn.Recv == nil && fn.Name.Name == "main" {
+				return nil
+			}
+		}
+		return errors.New("Go 提交必须包含 func main()，从标准输入读取并向标准输出写入答案")
+	case "java":
+		if !javaClassPattern.MatchString(code) || !javaMainPattern.MatchString(code) {
+			return errors.New("Java 提交必须包含 class Main 和 public static void main(String[] args)")
+		}
+	case "c++":
+		if !cppMainPattern.MatchString(code) {
+			return errors.New("C++ 提交必须包含 int main()，不能只提交函数")
+		}
+	}
+	return nil
 }
 func (h *Handler) dashboard(c *gin.Context) {
 	i := current(c)

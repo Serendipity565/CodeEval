@@ -73,7 +73,8 @@ func main() {
 		if ctx.Err() == context.DeadlineExceeded {
 			message = "time limit exceeded"
 		}
-		passed := err == nil && normalize(stdout.String()) == normalize(test.Expected)
+		actual := normalize(stdout.String())
+		passed := err == nil && actual == normalize(test.Expected)
 		if err == nil && !passed {
 			message = "output mismatch"
 		}
@@ -81,7 +82,11 @@ func main() {
 			response.Passed++
 			response.PassedWeight += test.Weight
 		}
-		response.Results = append(response.Results, protocol.TestResult{Name: test.Name, Passed: passed, ExitCode: exit, DurationMS: time.Since(started).Milliseconds(), Error: message})
+		visibleActual := ""
+		if !test.Hidden {
+			visibleActual = truncate(actual, 4000)
+		}
+		response.Results = append(response.Results, protocol.TestResult{Name: test.Name, Passed: passed, Actual: visibleActual, ExitCode: exit, DurationMS: time.Since(started).Milliseconds(), Error: message})
 	}
 	emit(response)
 }
@@ -102,6 +107,12 @@ func commands(language string) (string, []string, []string, error) {
 }
 func normalize(value string) string {
 	return strings.TrimSpace(strings.ReplaceAll(value, "\r\n", "\n"))
+}
+func truncate(value string, limit int) string {
+	if len(value) <= limit {
+		return value
+	}
+	return value[:limit] + "\n…（输出已截断）"
 }
 func limited(output []byte, err error) string {
 	text := strings.TrimSpace(string(output))

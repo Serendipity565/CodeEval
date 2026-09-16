@@ -53,5 +53,30 @@ func (c *Client) Run(ctx context.Context, language, code string, tests []domain.
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("decode sandbox result: %w", err)
 	}
+	if err := redactTestResults(&result, tests); err != nil {
+		return nil, err
+	}
 	return &result, nil
+}
+
+func redactTestResults(result *domain.ExecutionEvidence, tests []domain.TestCase) error {
+	for i := range result.Results {
+		if i >= len(tests) {
+			return fmt.Errorf("sandbox returned more test results than requested")
+		}
+		test := tests[i]
+		result.Results[i].Hidden = test.Hidden
+		if test.Hidden {
+			result.Results[i].Input, result.Results[i].Expected, result.Results[i].Actual = "", "", ""
+			switch result.Results[i].Error {
+			case "", "output mismatch", "time limit exceeded":
+			default:
+				result.Results[i].Error = "runtime error"
+			}
+		} else {
+			result.Results[i].Input = test.Input
+			result.Results[i].Expected = test.Expected
+		}
+	}
+	return nil
 }

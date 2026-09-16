@@ -16,6 +16,7 @@ type Request struct {
 type TestResult struct {
 	Name       string `json:"name"`
 	Passed     bool   `json:"passed"`
+	Actual     string `json:"actual,omitempty"`
 	ExitCode   int    `json:"exitCode"`
 	DurationMS int64  `json:"durationMs"`
 	Error      string `json:"error,omitempty"`

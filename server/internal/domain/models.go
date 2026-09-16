@@ -19,6 +19,10 @@ type TestCase struct {
 type TestResult struct {
 	Name       string `json:"name"`
 	Passed     bool   `json:"passed"`
+	Hidden     bool   `json:"hidden"`
+	Input      string `json:"input,omitempty"`
+	Expected   string `json:"expected,omitempty"`
+	Actual     string `json:"actual,omitempty"`
 	ExitCode   int    `json:"exitCode"`
 	DurationMS int64  `json:"durationMs"`
 	Error      string `json:"error,omitempty"`

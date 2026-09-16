@@ -89,67 +89,6 @@
   line-height: 1.75;
 }
 
-.feedback-panel .evaluation-evidence {
-  margin: 12px 0 4px;
-  color: #536159;
-  font-size: 15px;
-  line-height: 1.75;
-}
-
-.feedback-panel .evaluation-evidence > em {
-  display: block;
-  margin-bottom: 6px;
-  color: #35694f;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 700;
-}
-
-.feedback-panel .markdown-content p {
-  margin: 6px 0 !important;
-}
-
-.feedback-panel .markdown-content pre {
-  max-width: 100%;
-  margin: 10px 0;
-  padding: 15px 17px;
-  overflow-x: auto;
-  border: 1px solid #29463a;
-  border-radius: 8px;
-  background: #132a21;
-  color: #dcebe2;
-  font: 14px/1.7 "DM Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
-  white-space: pre;
-}
-
-.feedback-panel .markdown-content :not(pre) > code {
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: #eaf0ec;
-  color: #235c43;
-  font: 0.92em/1.5 "DM Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
-}
-
-.feedback-panel .markdown-content pre code {
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}
-
-.feedback-panel .markdown-content ul,
-.feedback-panel .markdown-content ol {
-  margin: 8px 0;
-  padding-left: 24px;
-}
-
-.feedback-panel .markdown-content blockquote {
-  margin: 10px 0;
-  padding: 2px 12px;
-  border-left: 3px solid #70a88a;
-  color: #64756c;
-}
-
 .feedback-panel .dimension-list .dimension p em {
   font-size: 12px !important;
 }
@@ -180,8 +119,7 @@
 }
 
 .feedback-panel .agent-analysis article b,
-.feedback-panel .agent-analysis article p,
-.feedback-panel .agent-evidence {
+.feedback-panel .agent-analysis article p {
   font-size: 14px !important;
   line-height: 1.7;
 }
