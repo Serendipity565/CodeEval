@@ -28,6 +28,7 @@ type Handler struct {
 	pollInterval          time.Duration
 	jobTimeout            time.Duration
 	maxAttempts           int
+	evaluationWake        chan struct{}
 }
 type identity struct {
 	ID         uint
@@ -39,7 +40,7 @@ func New(s *store.MySQLStore, authService auth.Service, evaluationService *evalu
 	for _, language := range cfg.Sandbox.SupportedLanguages {
 		languages[strings.ToLower(strings.TrimSpace(language))] = true
 	}
-	return &Handler{store: s, auth: authService, evaluator: evaluationService, supportedLanguages: languages, supportedLanguageList: append([]string(nil), cfg.Sandbox.SupportedLanguages...), maxWorkers: cfg.Sandbox.MaxConcurrentSandboxes, pollInterval: time.Duration(cfg.Sandbox.QueuePollIntervalMS) * time.Millisecond, jobTimeout: time.Duration(cfg.Sandbox.JobTimeoutSeconds) * time.Second, maxAttempts: cfg.Sandbox.MaxAttempts}
+	return &Handler{store: s, auth: authService, evaluator: evaluationService, supportedLanguages: languages, supportedLanguageList: append([]string(nil), cfg.Sandbox.SupportedLanguages...), maxWorkers: cfg.Sandbox.MaxConcurrentSandboxes, pollInterval: time.Duration(cfg.Sandbox.QueuePollIntervalMS) * time.Millisecond, jobTimeout: time.Duration(cfg.Sandbox.JobTimeoutSeconds) * time.Second, maxAttempts: cfg.Sandbox.MaxAttempts, evaluationWake: make(chan struct{}, cfg.Sandbox.MaxConcurrentSandboxes)}
 }
 func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/auth/login", h.login)
@@ -298,6 +299,7 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		serverError(c, err)
 		return
 	}
+	h.signalEvaluationWorkers()
 	c.JSON(http.StatusAccepted, sub)
 }
 func (h *Handler) dashboard(c *gin.Context) {

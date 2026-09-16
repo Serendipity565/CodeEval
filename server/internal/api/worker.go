@@ -61,14 +61,14 @@ func (h *Handler) evaluationWorker(ctx context.Context, workerID string) {
 		}
 		job, err := h.store.ClaimEvaluationJob(workerID, h.maxAttempts)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			if !waitForNextPoll(ctx, h.pollInterval) {
+			if !h.waitForEvaluationWork(ctx) {
 				return
 			}
 			continue
 		}
 		if err != nil {
 			log.Printf("evaluation worker %s failed to claim job: %v", workerID, err)
-			if !waitForNextPoll(ctx, h.pollInterval) {
+			if !h.waitForEvaluationWork(ctx) {
 				return
 			}
 			continue
@@ -102,12 +102,24 @@ func (h *Handler) processEvaluationJob(parent context.Context, job store.Evaluat
 	_ = h.store.FailEvaluationJob(job, h.maxAttempts, err)
 }
 
-func waitForNextPoll(ctx context.Context, interval time.Duration) bool {
-	timer := time.NewTimer(interval)
+func (h *Handler) signalEvaluationWorkers() {
+	for i := 0; i < h.maxWorkers; i++ {
+		select {
+		case h.evaluationWake <- struct{}{}:
+		default:
+			return
+		}
+	}
+}
+
+func (h *Handler) waitForEvaluationWork(ctx context.Context) bool {
+	timer := time.NewTimer(h.pollInterval)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		return false
+	case <-h.evaluationWake:
+		return true
 	case <-timer.C:
 		return true
 	}

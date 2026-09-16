@@ -11,7 +11,7 @@ services:
       MYSQL_ROOT_PASSWORD: codeeval-root-internal-password
     ports:
       # 直接映射到宿主机公网网卡；请自行通过防火墙和安全组做好访问控制。
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -21,6 +21,7 @@ services:
       retries: 12
       start_period: 30s
 
+  # 只部署数据库和沙箱时，可注释掉整个 server 服务段。
   server:
     build:
       context: ./server
@@ -30,7 +31,13 @@ services:
       TZ: Asia/Shanghai
       GIN_MODE: release
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
     depends_on:
       mysql:
         condition: service_healthy
@@ -48,8 +55,9 @@ services:
       # Runner 的硬上限；实际并发由 server/config.yaml 中的值控制。
       MAX_CONCURRENT_SANDBOXES: 2
       JOB_TIMEOUT_SECONDS: 180
-    expose:
-      - "8090"
+    # 供直接运行在宿主机上的 Go 后端访问；仅绑定回环地址，不对外网开放。
+    ports:
+      - "127.0.0.1:8090:8090"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
@@ -84,17 +92,19 @@ services:
     build: { context: ./sandbox, dockerfile: images/Dockerfile, target: cpp }
     entrypoint: ["/bin/true"]
 
+  # 只部署数据库和沙箱时，可注释掉整个 web 服务段。
   web:
     build:
       context: ./web
       args:
-        VITE_API_BASE_URL: http://localhost:8080/api/v1
+        VITE_API_BASE_URL: /api/v1
     container_name: codeeval-web
     restart: unless-stopped
     ports:
       - "3000:80"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
 
 volumes:
   mysql_data:

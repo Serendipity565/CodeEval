@@ -1438,61 +1438,89 @@ function Publish({
                   : "AI 生成用例"}
             </button>
           </header>
-          {tests.map((test, index) => (
-            <div
-              className="rubric-row test-case-row"
-              key={`${test.name}-${index}`}
-            >
-              <input
-                required
-                value={test.name}
-                onChange={(e) => updateTest(index, { name: e.target.value })}
-                placeholder="用例名称"
-              />
-              <input
-                value={test.input}
-                onChange={(e) => updateTest(index, { input: e.target.value })}
-                placeholder="标准输入（可空）"
-              />
-              <input
-                value={test.expected}
-                onChange={(e) =>
-                  updateTest(index, { expected: e.target.value })
-                }
-                placeholder="期望输出（可空）"
-              />
-              <label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={test.weight}
-                  onChange={(e) =>
-                    updateTest(index, { weight: Number(e.target.value) })
-                  }
-                />
-                <span>权重</span>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={test.hidden}
-                  onChange={(e) =>
-                    updateTest(index, { hidden: e.target.checked })
-                  }
-                />
-                <span>隐藏</span>
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  setTests((items) => items.filter((_, i) => i !== index))
-                }
-              >
-                删除
-              </button>
-            </div>
-          ))}
+          <div className="test-case-list">
+            {tests.map((test, index) => (
+              <article className="test-case-card" key={`${test.name}-${index}`}>
+                <header>
+                  <input
+                    required
+                    value={test.name}
+                    onChange={(e) =>
+                      updateTest(index, { name: e.target.value })
+                    }
+                    placeholder="用例名称"
+                  />
+                  <label className="test-hidden">
+                    <input
+                      type="checkbox"
+                      checked={test.hidden}
+                      onChange={(e) =>
+                        updateTest(index, { hidden: e.target.checked })
+                      }
+                    />
+                    <span>隐藏用例</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTests((items) => items.filter((_, i) => i !== index))
+                    }
+                  >
+                    删除
+                  </button>
+                </header>
+                <div className="test-case-io">
+                  <label>
+                    标准输入
+                    <textarea
+                      value={test.input}
+                      onChange={(e) =>
+                        updateTest(index, { input: e.target.value })
+                      }
+                      placeholder="可为空，换行会原样传入 stdin"
+                    />
+                  </label>
+                  <label>
+                    期望输出
+                    <textarea
+                      value={test.expected}
+                      onChange={(e) =>
+                        updateTest(index, { expected: e.target.value })
+                      }
+                      placeholder="可为空，按标准输出比较"
+                    />
+                  </label>
+                </div>
+                <footer>
+                  <label>
+                    权重
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={test.weight}
+                      onChange={(e) =>
+                        updateTest(index, { weight: Number(e.target.value) })
+                      }
+                    />
+                  </label>
+                  <label>
+                    超时（毫秒）
+                    <input
+                      type="number"
+                      min="100"
+                      max="10000"
+                      step="100"
+                      value={test.timeoutMs}
+                      onChange={(e) =>
+                        updateTest(index, { timeoutMs: Number(e.target.value) })
+                      }
+                    />
+                  </label>
+                </footer>
+              </article>
+            ))}
+          </div>
           <button className="add-criterion" type="button" onClick={addTest}>
             ＋ 添加测试用例
           </button>

@@ -272,18 +272,30 @@ func (s *MySQLStore) BackfillPendingEvaluationJobs() error {
 func (s *MySQLStore) ClaimEvaluationJob(workerID string, maxAttempts int) (EvaluationJob, error) {
 	var claimed EvaluationJobRecord
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+		result := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 			Where("status = ? AND attempts < ?", "queued", maxAttempts).
-			Order("created_at asc").First(&claimed).Error; err != nil {
-			return err
+			Order("created_at asc").Limit(1).Find(&claimed)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			// An empty queue is expected. Avoid First so GORM does not log a
+			// misleading "record not found" query every poll.
+			return nil
 		}
 		now := time.Now()
 		return tx.Model(&EvaluationJobRecord{}).Where("id = ?", claimed.ID).Updates(map[string]any{
 			"status": "running", "attempts": gorm.Expr("attempts + 1"), "locked_by": workerID, "locked_at": &now,
 		}).Error
 	})
+	if err != nil {
+		return EvaluationJob{}, err
+	}
+	if claimed.ID == 0 {
+		return EvaluationJob{}, gorm.ErrRecordNotFound
+	}
 	claimed.Attempts++
-	return EvaluationJob{ID: claimed.ID, SubmissionID: claimed.SubmissionID, AssignmentID: claimed.AssignmentID, StudentID: claimed.StudentID, Attempts: claimed.Attempts}, err
+	return EvaluationJob{ID: claimed.ID, SubmissionID: claimed.SubmissionID, AssignmentID: claimed.AssignmentID, StudentID: claimed.StudentID, Attempts: claimed.Attempts}, nil
 }
 
 func (s *MySQLStore) EvaluationJobPayload(job EvaluationJob) (domain.Assignment, domain.Submission, []domain.Submission, error) {

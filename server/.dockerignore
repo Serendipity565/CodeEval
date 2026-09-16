@@ -1,6 +1,5 @@
 .git
 .idea
 Dockerfile
-config.yaml
 *.log
 tmp/

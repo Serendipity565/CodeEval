@@ -1,0 +1,51 @@
+server:
+  port: 8080
+  cors_origins:
+    - http://localhost:3000
+    - http://localhost:5173
+
+database:
+  # 后端在 Compose 中运行时填 mysql；后端在服务器宿主机运行时填 127.0.0.1。
+  host: mysql
+  port: 3306
+  name: codeeval
+  username: codeeval
+  # 必须与 docker-compose.yaml 中 MYSQL_PASSWORD 一致。
+  password: change-this-database-password
+  charset: utf8mb4
+  max_idle_conns: 5
+  max_open_conns: 20
+  conn_max_lifetime_minutes: 30
+
+jwt:
+  secret: change-this-to-a-long-random-secret
+  expires_hours: 24
+
+seed:
+  enabled: false
+
+deepseek:
+  base_url: https://api.deepseek.com
+  api_key: paste-your-deepseek-api-key-here
+  model: deepseek-v4-flash
+  timeout_seconds: 60
+  max_tokens: 4096
+  max_code_bytes: 100000
+
+sandbox:
+  enabled: true
+  # 4C4G 建议保持 1，资源充足时最多设置为 2。
+  max_concurrent_sandboxes: 1
+  supported_languages:
+    - Go
+    - Python
+    - Java
+    - C++
+  # 新提交会立即唤醒 Worker；此值仅用于服务恢复和漏通知兜底。
+  queue_poll_interval_ms: 30000
+  job_timeout_seconds: 180
+  max_attempts: 2
+  # 后端在 Compose 中运行时填 http://sandbox-runner:8090；在宿主机运行时填 http://localhost:8090。
+  runner_url: http://sandbox-runner:8090
+  # 必须与 docker-compose.yaml 中 RUNNER_TOKEN 一致。
+  runner_token: change-this-runner-token

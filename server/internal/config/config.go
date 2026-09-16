@@ -106,10 +106,10 @@ func Load(path string) (Config, error) {
 		cfg.Sandbox.SupportedLanguages = []string{"Go", "Python", "Java", "C++"}
 	}
 	if cfg.Sandbox.QueuePollIntervalMS == 0 {
-		cfg.Sandbox.QueuePollIntervalMS = 1000
+		cfg.Sandbox.QueuePollIntervalMS = 30000
 	}
-	if cfg.Sandbox.QueuePollIntervalMS < 100 {
-		return cfg, fmt.Errorf("sandbox.queue_poll_interval_ms must be at least 100")
+	if cfg.Sandbox.QueuePollIntervalMS < 1000 {
+		return cfg, fmt.Errorf("sandbox.queue_poll_interval_ms must be at least 1000")
 	}
 	if cfg.Sandbox.JobTimeoutSeconds == 0 {
 		cfg.Sandbox.JobTimeoutSeconds = 180

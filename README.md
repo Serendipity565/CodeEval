@@ -18,23 +18,51 @@ sourcecode/
 └── web/          # React + Vite + TypeScript 管理端
 ```
 
-## 本地运行
+## 部署方式
 
 需要 Go 1.23+、Node 20+ 和 MySQL 8.0+。
 
-在服务器上用 Docker Compose 启动 MySQL：
+先从模板创建唯一配置文件：
 
 ```bash
-cd sourcecode
-docker compose up -d
-docker compose ps
+cp server/config.example.yaml server/config.yaml
 ```
 
-数据库数据保存在 Docker 命名卷 `mysql_data` 中。MySQL 直接映射服务器的 `3306` 端口，可供本地开发机连接；请自行通过防火墙和云安全组限制访问来源。
+连接地址完全由 `config.yaml` 控制：
+
+- 后端在 Compose 中运行：`database.host: mysql`，`sandbox.runner_url: http://sandbox-runner:8090`。
+- 后端在服务器宿主机运行：`database.host: 127.0.0.1`，`sandbox.runner_url: http://localhost:8090`。
+
+### 完整项目容器化
+
+```bash
+docker compose up -d --build
+docker compose ps -a
+```
+
+访问入口为 `http://服务器地址:3000`。Web 通过 Nginx 将同源 `/api` 请求转发给后端；后端、MySQL 和 Runner 端口只绑定服务器回环地址。
+
+### 只部署 MySQL 和 Sandbox，后端在宿主机运行
+
+按需要在 `docker-compose.yaml` 中注释掉完整的 `server:` 和 `web:` 服务段，然后执行：
+
+```bash
+docker compose up -d --build
+docker compose ps -a
+```
+
+将 `config.yaml` 的连接地址改为宿主机方式，再启动后端：
+
+```bash
+cd server
+go run .
+```
+
+MySQL 和 Runner 分别绑定 `127.0.0.1:3306`、`127.0.0.1:8090`。若还要在宿主机运行前端开发服务器，Vite 会自动将 `/api` 转发到 `localhost:8080`。
 
 ### 配置
 
-项目不再使用 `.env`，本地开发和 Docker 部署统一读取被 Git 忽略的 `server/config.yaml`。`docker-compose.yaml` 只是部署示例；部署前请自行修改其中的 MySQL 初始化密码，并确保数据库名、账号和密码与 `config.yaml` 的 `database` 段一致，同时修改 JWT 密钥、`sandbox.runner_url` 和 Runner token。
+项目不使用 `.env`。实际配置保存在被 Git 忽略的 `server/config.yaml`，可提交模板为 `server/config.example.yaml`。`docker-compose.yaml` 是部署示例；部署前请自行修改其中的 MySQL 初始化密码，并确保数据库名、账号和密码与 `config.yaml` 一致，同时修改 JWT 密钥和 Runner token。
 
 服务启动时使用 GORM `AutoMigrate` 自动创建或增量更新 `users`、`assignment_records`、`submission_records` 表，不需要手工执行建表 SQL。
 
@@ -62,32 +90,17 @@ sandbox:
   enabled: true
   max_concurrent_sandboxes: 1
   supported_languages: [Go, Python, Java, C++]
-  queue_poll_interval_ms: 1000
+  # 新提交会立即唤醒 Worker；这里只是异常恢复的兜底间隔。
+  queue_poll_interval_ms: 30000
   job_timeout_seconds: 180
   max_attempts: 2
   runner_url: http://sandbox-runner:8090
   runner_token: codeeval-compose-internal
 ```
 
-Docker Compose 会构建并启动独立 `sandbox-runner`，同时构建 Go、Python、Java、C++ 四个执行镜像。Runner 不暴露宿主机端口，只接受服务端携带令牌的请求；每次执行都使用一次性容器，并设置无网络、只读根文件系统、256MB 内存、0.75 CPU、64 PID、移除 Linux capabilities 和超时限制。Runner 与服务端各自限制并发，默认均为 1，其他提交进入 MySQL 队列。
-
-首次部署或修改沙箱镜像后执行：
-
-```bash
-docker compose up -d --build
-docker compose ps
-```
+Docker Compose 会构建并启动独立 `sandbox-runner`，同时构建 Go、Python、Java、C++ 四个执行镜像。Runner 的 8090 端口只绑定宿主机 `127.0.0.1`；每次执行都使用一次性容器，并设置无网络、只读根文件系统、256MB 内存、0.75 CPU、64 PID、移除 Linux capabilities 和超时限制。Runner 与服务端各自限制并发，默认均为 1，其他提交进入 MySQL 队列。
 
 Runner 为启动子容器需要挂载 Docker socket；它因此属于高权限基础设施，只应位于 Compose 内部网络。生产环境优先使用专用的 rootless Docker 主机或进一步将 Runner 拆到独立机器，不要给它映射公网端口。
-
-```bash
-cd sourcecode/server
-go mod tidy && go run .
-
-cd ../web && npm install && npm run dev
-```
-
-前端默认访问 `http://localhost:8080/api/v1`；Docker 构建地址在 `docker-compose.yaml` 的 `VITE_API_BASE_URL` 构建参数中配置。
 
 ## 评分链路
 
