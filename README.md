@@ -26,29 +26,15 @@ sourcecode/
 
 ```bash
 cd sourcecode
-cp .env.example .env
-# 编辑 .env，替换两个密码
 docker compose up -d
 docker compose ps
 ```
 
 数据库数据保存在 Docker 命名卷 `mysql_data` 中。MySQL 直接映射服务器的 `3306` 端口，可供本地开发机连接；请自行通过防火墙和云安全组限制访问来源。
 
-### 本地开发连接服务器 MySQL
+### 配置
 
-MySQL 已直接公开 `3306` 端口。本地启动 Gin 前设置：
-
-```bash
-export CODEEVAL_DB_HOST='服务器 IP 或域名'
-export CODEEVAL_DB_PORT=3306
-export CODEEVAL_DB_NAME=codeeval
-export CODEEVAL_DB_USERNAME=codeeval
-export CODEEVAL_DB_PASSWORD='服务器 .env 中的 MYSQL_PASSWORD'
-```
-
-`CODEEVAL_DB_HOST`、`CODEEVAL_DB_PORT`、`CODEEVAL_DB_NAME`、`CODEEVAL_DB_USERNAME`、`CODEEVAL_DB_PASSWORD` 都会覆盖 `config.yaml`，便于为本地、测试和生产使用不同连接而不修改配置文件。
-
-`config.yaml` 保存服务端口、允许跨域来源、MySQL 连接参数、JWT 有效期和本地示例账号开关。将 `database.username`、`database.name` 与 `.env` 中的 `MYSQL_USER`、`MYSQL_DATABASE` 保持一致。数据库密码与 JWT 密钥可分别由 `CODEEVAL_DB_PASSWORD`、`CODEEVAL_JWT_SECRET` 环境变量覆盖，避免把生产密钥写入文件。
+项目不再使用 `.env`，本地开发和 Docker 部署统一读取被 Git 忽略的 `server/config.yaml`。`docker-compose.yaml` 只是部署示例；部署前请自行修改其中的 MySQL 初始化密码，并确保数据库名、账号和密码与 `config.yaml` 的 `database` 段一致，同时修改 JWT 密钥、`sandbox.runner_url` 和 Runner token。
 
 服务启动时使用 GORM `AutoMigrate` 自动创建或增量更新 `users`、`assignment_records`、`submission_records` 表，不需要手工执行建表 SQL。
 
@@ -96,15 +82,12 @@ Runner 为启动子容器需要挂载 Docker socket；它因此属于高权限�
 
 ```bash
 cd sourcecode/server
-export CODEEVAL_DB_PASSWORD='与 ../.env 中 MYSQL_PASSWORD 相同的值'
-export CODEEVAL_JWT_SECRET='替换为生产环境的长随机密钥'
-export CODEEVAL_DEEPSEEK_API_KEY='你的 DeepSeek API Key'
 go mod tidy && go run .
 
 cd ../web && npm install && npm run dev
 ```
 
-前端默认访问 `http://localhost:8080/api/v1`。可通过 `VITE_API_BASE_URL` 覆盖。
+前端默认访问 `http://localhost:8080/api/v1`；Docker 构建地址在 `docker-compose.yaml` 的 `VITE_API_BASE_URL` 构建参数中配置。
 
 ## 评分链路
 

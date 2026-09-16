@@ -5,10 +5,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-codeeval}
-      MYSQL_USER: ${MYSQL_USER:-codeeval}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: codeeval
+      MYSQL_USER: codeeval
+      MYSQL_PASSWORD: codeeval-internal-password
+      MYSQL_ROOT_PASSWORD: codeeval-root-internal-password
     ports:
       # 直接映射到宿主机公网网卡；请自行通过防火墙和安全组做好访问控制。
       - "3306:3306"
@@ -28,13 +28,6 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
-      CODEEVAL_DB_HOST: mysql
-      CODEEVAL_DB_PORT: 3306
-      CODEEVAL_DB_NAME: ${MYSQL_DATABASE:-codeeval}
-      CODEEVAL_DB_USERNAME: ${MYSQL_USER:-codeeval}
-      CODEEVAL_DB_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
-      CODEEVAL_JWT_SECRET: ${CODEEVAL_JWT_SECRET:?set CODEEVAL_JWT_SECRET in .env}
-      CODEEVAL_DEEPSEEK_API_KEY: ${CODEEVAL_DEEPSEEK_API_KEY:-}
       GIN_MODE: release
     ports:
       - "8080:8080"
@@ -52,7 +45,7 @@ services:
     restart: unless-stopped
     environment:
       RUNNER_TOKEN: codeeval-compose-internal
-      # Runner 的硬上限；实际并发由 server/config.docker.yaml 中的值控制。
+      # Runner 的硬上限；实际并发由 server/config.yaml 中的值控制。
       MAX_CONCURRENT_SANDBOXES: 2
       JOB_TIMEOUT_SECONDS: 180
     expose:
@@ -95,7 +88,7 @@ services:
     build:
       context: ./web
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+        VITE_API_BASE_URL: http://localhost:8080/api/v1
     container_name: codeeval-web
     restart: unless-stopped
     ports:

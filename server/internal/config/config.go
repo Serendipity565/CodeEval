@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -60,29 +59,6 @@ func Load(path string) (Config, error) {
 	}
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		return cfg, fmt.Errorf("parse config: %w", err)
-	}
-	if v := os.Getenv("CODEEVAL_DB_PASSWORD"); v != "" {
-		cfg.Database.Password = v
-	}
-	if v := os.Getenv("CODEEVAL_DB_HOST"); v != "" {
-		cfg.Database.Host = v
-	}
-	if v := os.Getenv("CODEEVAL_DB_PORT"); v != "" {
-		if port, err := strconv.Atoi(v); err == nil {
-			cfg.Database.Port = port
-		}
-	}
-	if v := os.Getenv("CODEEVAL_DB_NAME"); v != "" {
-		cfg.Database.Name = v
-	}
-	if v := os.Getenv("CODEEVAL_DB_USERNAME"); v != "" {
-		cfg.Database.Username = v
-	}
-	if v := os.Getenv("CODEEVAL_JWT_SECRET"); v != "" {
-		cfg.JWT.Secret = v
-	}
-	if v := os.Getenv("CODEEVAL_DEEPSEEK_API_KEY"); v != "" {
-		cfg.DeepSeek.APIKey = v
 	}
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 8080

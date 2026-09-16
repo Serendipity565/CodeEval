@@ -9,7 +9,7 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /out/codeeval-server ./codeeval-server
-COPY config.docker.yaml ./config.yaml
+COPY config.yaml ./config.yaml
 EXPOSE 8080
 USER 65532:65532
 ENTRYPOINT ["./codeeval-server"]

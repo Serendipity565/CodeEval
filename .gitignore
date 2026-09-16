@@ -1,4 +1,3 @@
-.env
 .DS_Store
 **/.idea/
 web/node_modules/
