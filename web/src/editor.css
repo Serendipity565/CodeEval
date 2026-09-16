@@ -7,17 +7,20 @@
   display: grid;
   grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
   gap: 18px;
-  align-items: start;
-  height: 720px;
+  align-items: stretch;
+  min-height: 820px;
 }
 
 .assignment-brief {
-  height: 720px;
+  min-height: 820px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-.submitbox { height: 720px; }
+.submitbox {
+  min-height: 820px;
+  height: auto;
+}
 
 .eyebrow,
 .feedback-head small {
@@ -461,9 +464,9 @@
   .submitted-brief { max-height: 360px; border-right: 0; border-bottom: 1px solid #e2e8e4; }
   .submitted-code { height: 600px; }
 
-  .submit-layout { grid-template-columns: 1fr; height: auto; }
+  .submit-layout { grid-template-columns: 1fr; min-height: 0; }
   .assignment-brief { height: auto; max-height: 420px; }
-  .submitbox { height: auto; }
+  .submitbox { min-height: 0; height: auto; }
   .editor-toolbar {
     align-items: stretch;
     flex-direction: column;

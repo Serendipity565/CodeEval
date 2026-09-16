@@ -21,6 +21,7 @@ func Evaluate(code string, rubric []domain.RubricItem) domain.Evaluation {
 			Key: item.Key, Name: item.Name, Criterion: item.Description, Score: score, MaxScore: item.Weight,
 			Evidence:   "仅完成静态词法扫描，未编译或运行代码。",
 			Suggestion: "启用大模型评估，或接入隔离测试执行器后再确认该项。",
+			Confidence: 0.2, Verified: false, EvidenceType: "static",
 		})
 	}
 	return domain.Evaluation{
@@ -30,5 +31,6 @@ func Evaluate(code string, rubric []domain.RubricItem) domain.Evaluation {
 		Issues:       []string{"未编译或运行代码，当前无法验证功能正确性。"},
 		Improvements: []string{"启用大模型评估或接入隔离测试执行器，再按教师量规确认得分。"},
 		ReviewedAt:   time.Now(), Dimensions: dimensions,
+		Confidence: 0.2, Verified: false, EvidenceType: "static", PromptVersion: promptVersion, EvaluatorVersion: evaluatorVersion, ModelCalls: 0,
 	}
 }

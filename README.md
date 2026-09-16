@@ -65,7 +65,7 @@ database:
   conn_max_lifetime_minutes: 30
 ```
 
-DeepSeek 配置位于 `server/config.yaml` 的 `deepseek` 段，默认模型为 `deepseek-v4-flash`。填写 `api_key`。只有教师发布作业时勾选“启用大模型评估”，学生提交才会调用 DeepSeek。调用前会生成不执行代码的静态词法证据，模型负责结合量规解释和评分；后端会校验维度、证据和分数，并对暂时性失败重试一次。未勾选的作业只生成保守的待复核占位结果，不应作为正式成绩。
+DeepSeek 配置位于 `server/config.yaml` 的 `deepseek` 段，默认模型为 `deepseek-v4-flash`。填写 `api_key`。只有教师发布作业时勾选“启用大模型评估”，学生提交才会调用 DeepSeek。评估采用两阶段智能体：第一阶段结合教师知识库、参考实现和静态分析提取代码事实，第二阶段严格按量规评分并参考最近三次提交生成个性化建议。后端会弹性解析 JSON、定向修复不合格输出、校验维度和证据、重新计算总分，并保存置信度、证据类型和评估器版本。由于当前未执行代码，结果统一标记为未经执行验证。未勾选的作业只生成保守的待复核占位结果，不应作为正式成绩。
 
 ```bash
 cd sourcecode/server

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -130,12 +131,18 @@ func (h *Handler) createAssignment(c *gin.Context) {
 		DueAt                time.Time           `json:"dueAt"`
 		Rubric               []domain.RubricItem `json:"rubric"`
 		LLMEvaluationEnabled bool                `json:"llmEvaluationEnabled"`
+		ReferenceSolution    string              `json:"referenceSolution"`
+		KnowledgeBase        string              `json:"knowledgeBase"`
 	}
 	if err := c.ShouldBindJSON(&in); err != nil || in.Title == "" || in.Language == "" || !validAssignmentStatus(in.Status) || in.MaxSubmissions < 1 || in.MaxSubmissions > 100 || !validRubric(in.Rubric) {
 		c.JSON(400, gin.H{"error": "title, language, 1-100 submissions and a 100-point rubric are required"})
 		return
 	}
-	a, err := h.store.CreateAssignment(current(c).ID, domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, LLMEvaluationEnabled: in.LLMEvaluationEnabled})
+	if len([]byte(in.ReferenceSolution))+len([]byte(in.KnowledgeBase)) > 200000 {
+		c.JSON(400, gin.H{"error": "reference material exceeds 200000 bytes"})
+		return
+	}
+	a, err := h.store.CreateAssignment(current(c).ID, domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase})
 	if err != nil {
 		serverError(c, err)
 		return
@@ -223,6 +230,11 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "已达到该作业的提交次数上限", "submitted": count, "limit": a.MaxSubmissions})
 		return
 	}
+	history, err := h.store.SubmissionHistory(current(c).ID, uint(id), 3)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
 	sub := domain.Submission{AssignmentID: in.AssignmentID, StudentName: current(c).Name, Code: in.Code, Status: "queued", Progress: 10, SubmittedAt: time.Now()}
 	sub, err = h.store.CreateSubmission(current(c).ID, sub)
 	if err != nil {
@@ -230,14 +242,14 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		return
 	}
 	submissionID, _ := strconv.ParseUint(sub.ID, 10, 64)
-	go h.evaluateSubmission(context.Background(), uint(submissionID), a, in.Code)
+	go h.evaluateSubmission(context.Background(), uint(submissionID), a, in.Code, history)
 	c.JSON(http.StatusAccepted, sub)
 }
-func (h *Handler) evaluateSubmission(ctx context.Context, submissionID uint, assignment domain.Assignment, code string) {
+func (h *Handler) evaluateSubmission(ctx context.Context, submissionID uint, assignment domain.Assignment, code string, history []domain.Submission) {
 	if err := h.store.UpdateSubmissionProgress(submissionID, "evaluating", 35); err != nil {
 		return
 	}
-	evaluation, err := h.evaluator.Evaluate(ctx, assignment, code)
+	evaluation, err := h.evaluator.Evaluate(ctx, assignment, code, history)
 	if err != nil {
 		_ = h.store.UpdateSubmissionProgress(submissionID, "failed", 100)
 		return
@@ -253,17 +265,54 @@ func (h *Handler) dashboard(c *gin.Context) {
 	}
 	total := 0
 	graded := 0
+	scores := make([]float64, 0, len(subs))
+	reviewQueue := 0
+	type dimensionAccumulator struct {
+		Count           int
+		Sum, SumSquares float64
+	}
+	dimensionAccumulators := map[string]dimensionAccumulator{}
 	for _, s := range subs {
+		if s.Status == "failed" || s.Status == "needs_review" || (s.Evaluation != nil && s.Evaluation.Confidence < 0.5) {
+			reviewQueue++
+		}
 		if s.Evaluation != nil {
 			graded++
 			total += s.Evaluation.Total
+			scores = append(scores, float64(s.Evaluation.Total))
+			for _, dimension := range s.Evaluation.Dimensions {
+				acc := dimensionAccumulators[dimension.Key]
+				acc.Count++
+				acc.Sum += float64(dimension.Score)
+				acc.SumSquares += float64(dimension.Score * dimension.Score)
+				dimensionAccumulators[dimension.Key] = acc
+			}
 		}
 	}
 	avg := 0
+	mean := 0.0
 	if graded > 0 {
 		avg = total / graded
+		mean = float64(total) / float64(graded)
 	}
-	c.JSON(200, gin.H{"metrics": gin.H{"submissionCount": len(subs), "gradedCount": graded, "averageScore": avg, "reviewQueue": 0}, "recentSubmissions": subs})
+	variance := 0.0
+	for _, score := range scores {
+		delta := score - mean
+		variance += delta * delta
+	}
+	if graded > 0 {
+		variance /= float64(graded)
+	}
+	dimensionStats := map[string]gin.H{}
+	for key, acc := range dimensionAccumulators {
+		dimensionMean := acc.Sum / float64(acc.Count)
+		dimensionVariance := acc.SumSquares/float64(acc.Count) - dimensionMean*dimensionMean
+		if dimensionVariance < 0 {
+			dimensionVariance = 0
+		}
+		dimensionStats[key] = gin.H{"count": acc.Count, "mean": math.Round(dimensionMean*100) / 100, "variance": math.Round(dimensionVariance*100) / 100, "stdDev": math.Round(math.Sqrt(dimensionVariance)*100) / 100}
+	}
+	c.JSON(200, gin.H{"metrics": gin.H{"submissionCount": len(subs), "gradedCount": graded, "averageScore": avg, "scoreVariance": math.Round(variance*100) / 100, "scoreStdDev": math.Round(math.Sqrt(variance)*100) / 100, "dimensionStats": dimensionStats, "reviewQueue": reviewQueue}, "recentSubmissions": subs})
 }
 func serverError(c *gin.Context, err error) {
 	c.Error(err)

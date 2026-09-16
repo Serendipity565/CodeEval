@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"codeeval/server/internal/config"
@@ -26,6 +27,8 @@ type AssignmentRecord struct {
 	TeacherID            uint `gorm:"index"`
 	Title, Language      string
 	Description          string `gorm:"type:text"`
+	ReferenceSolution    string `gorm:"type:longtext"`
+	KnowledgeBase        string `gorm:"type:longtext"`
 	Status               string `gorm:"size:16;not null;default:open;index"`
 	MaxSubmissions       int    `gorm:"not null;default:1"`
 	DueAt                time.Time
@@ -79,9 +82,10 @@ func (s *MySQLStore) CreateAssignment(teacherID uint, a domain.Assignment) (doma
 	if e != nil {
 		return a, e
 	}
-	r := AssignmentRecord{TeacherID: teacherID, Title: a.Title, Language: a.Language, Description: a.Description, Status: a.Status, MaxSubmissions: a.MaxSubmissions, DueAt: a.DueAt, RubricJSON: b, LLMEvaluationEnabled: a.LLMEvaluationEnabled}
+	r := AssignmentRecord{TeacherID: teacherID, Title: a.Title, Language: a.Language, Description: a.Description, ReferenceSolution: a.ReferenceSolution, KnowledgeBase: a.KnowledgeBase, Status: a.Status, MaxSubmissions: a.MaxSubmissions, DueAt: a.DueAt, RubricJSON: b, LLMEvaluationEnabled: a.LLMEvaluationEnabled}
 	e = s.db.Create(&r).Error
 	a.ID = fmt.Sprint(r.ID)
+	a.HasReferenceMaterial = strings.TrimSpace(a.ReferenceSolution) != "" || strings.TrimSpace(a.KnowledgeBase) != ""
 	return a, e
 }
 func (s *MySQLStore) ListAssignments() (out []domain.Assignment, err error) {
@@ -153,12 +157,27 @@ func (s *MySQLStore) CompleteSubmission(id uint, evaluation domain.Evaluation) e
 	if err != nil {
 		return err
 	}
-	return s.db.Model(&SubmissionRecord{}).Where("id = ?", id).Updates(map[string]any{"status": "graded", "progress": 100, "evaluation_json": data}).Error
+	return s.db.Model(&SubmissionRecord{}).Where("id = ?", id).Updates(map[string]any{"status": evaluation.Status, "progress": 100, "evaluation_json": data}).Error
 }
 func (s *MySQLStore) SubmissionCount(studentID, assignmentID uint) (int64, error) {
 	var count int64
 	err := s.db.Model(&SubmissionRecord{}).Where("student_id = ? AND assignment_id = ?", studentID, assignmentID).Count(&count).Error
 	return count, err
+}
+func (s *MySQLStore) SubmissionHistory(studentID, assignmentID uint, limit int) ([]domain.Submission, error) {
+	var rows []SubmissionRecord
+	q := s.db.Where("student_id = ? AND assignment_id = ? AND evaluation_json IS NOT NULL", studentID, assignmentID).Order("submitted_at desc")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]domain.Submission, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, submissionFrom(row, ""))
+	}
+	return out, nil
 }
 func (s *MySQLStore) ListSubmissions(userID uint, role string) (out []domain.Submission, err error) {
 	out = make([]domain.Submission, 0)
@@ -188,7 +207,7 @@ func assignmentFrom(r AssignmentRecord) domain.Assignment {
 	if r.Status == "" {
 		r.Status = "open"
 	}
-	return domain.Assignment{ID: fmt.Sprint(r.ID), TeacherID: fmt.Sprint(r.TeacherID), Title: r.Title, Language: r.Language, Description: r.Description, Status: r.Status, MaxSubmissions: r.MaxSubmissions, DueAt: r.DueAt, Rubric: rubric, LLMEvaluationEnabled: r.LLMEvaluationEnabled}
+	return domain.Assignment{ID: fmt.Sprint(r.ID), TeacherID: fmt.Sprint(r.TeacherID), Title: r.Title, Language: r.Language, Description: r.Description, Status: r.Status, MaxSubmissions: r.MaxSubmissions, DueAt: r.DueAt, Rubric: rubric, LLMEvaluationEnabled: r.LLMEvaluationEnabled, ReferenceSolution: r.ReferenceSolution, KnowledgeBase: r.KnowledgeBase, HasReferenceMaterial: strings.TrimSpace(r.ReferenceSolution) != "" || strings.TrimSpace(r.KnowledgeBase) != ""}
 }
 func submissionFrom(r SubmissionRecord, name string) domain.Submission {
 	var evaluation *domain.Evaluation

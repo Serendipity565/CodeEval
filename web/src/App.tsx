@@ -1,4 +1,6 @@
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type {
   Assignment,
   AuthState as Auth,
@@ -728,7 +730,12 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
     void refresh();
   }, []);
   useEffect(() => {
-    if (!created || created.status === "graded" || created.status === "failed")
+    if (
+      !created ||
+      created.status === "graded" ||
+      created.status === "needs_review" ||
+      created.status === "failed"
+    )
       return;
     const timer = window.setInterval(async () => {
       try {
@@ -828,7 +835,7 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
               language={assignment?.language ?? "Plain text"}
               value={code}
               onChange={setCode}
-              height="470px"
+              height="520px"
             />
           </Suspense>
           <div className="editor-actions">
@@ -892,6 +899,18 @@ function Detail({
           {sub.evaluation ? (
             <>
               <p className="feedback-summary">{sub.evaluation.summary}</p>
+              <div className="evaluation-meta">
+                <span>
+                  置信度 {Math.round((sub.evaluation.confidence || 0) * 100)}%
+                </span>
+                <span>
+                  {sub.evaluation.verified ? "已执行验证" : "未经执行验证"}
+                </span>
+                <span>{sub.evaluation.provider}</span>
+                {sub.evaluation.promptVersion && (
+                  <span>{sub.evaluation.promptVersion}</span>
+                )}
+              </div>
               <div className="feedback-overview">
                 {sub.evaluation.strengths?.length ? (
                   <FeedbackGroup
@@ -940,18 +959,47 @@ function Detail({
                           style={{ width: `${(d.score / d.maxScore) * 100}%` }}
                         />
                       </i>
-                      <p>
+                      <div className="evaluation-evidence markdown-content">
                         <em>评价依据</em>
-                        {d.evidence}
-                      </p>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {d.evidence}
+                        </ReactMarkdown>
+                      </div>
                       <small>
                         <b>改进建议</b>
                         {d.suggestion}
+                      </small>
+                      <small className="dimension-meta">
+                        证据：{d.evidenceType || "未标注"} · 置信度{" "}
+                        {Math.round((d.confidence || 0) * 100)}% ·{" "}
+                        {d.verified ? "已验证" : "未执行验证"}
                       </small>
                     </div>
                   );
                 })}
               </div>
+              {sub.evaluation.analysis?.length ? (
+                <details className="agent-analysis">
+                  <summary>
+                    查看智能体第一阶段分析（{sub.evaluation.analysis.length}{" "}
+                    项）
+                  </summary>
+                  {sub.evaluation.analysis.map((finding, index) => (
+                    <article key={`${finding.category}-${index}`}>
+                      <b>
+                        {finding.category} · {finding.severity}
+                      </b>
+                      <small>{finding.location || "未标注位置"}</small>
+                      <div className="agent-evidence markdown-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {finding.evidence}
+                        </ReactMarkdown>
+                      </div>
+                      <span>{finding.explanation}</span>
+                    </article>
+                  ))}
+                </details>
+              ) : null}
             </>
           ) : (
             <EvaluationProgress submission={sub} />
@@ -1093,6 +1141,8 @@ function Publish({
   const [t, setT] = useState(""),
     [lang, setLang] = useState("Python"),
     [desc, setDesc] = useState(""),
+    [referenceSolution, setReferenceSolution] = useState(""),
+    [knowledgeBase, setKnowledgeBase] = useState(""),
     [due, setDue] = useState(""),
     [max, setMax] = useState(3),
     [status, setStatus] = useState<Assignment["status"]>("open"),
@@ -1146,6 +1196,8 @@ function Publish({
           maxSubmissions: max,
           dueAt: new Date(due).toISOString(),
           llmEvaluationEnabled: llm,
+          referenceSolution,
+          knowledgeBase,
           rubric,
         }),
       });
@@ -1215,6 +1267,22 @@ function Publish({
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
             placeholder="描述任务目标、输入输出、约束条件和示例…"
+          />
+        </label>
+        <label className="wide">
+          参考实现（仅教师和评估智能体可见）
+          <textarea
+            value={referenceSolution}
+            onChange={(e) => setReferenceSolution(e.target.value)}
+            placeholder="可选：粘贴标准答案或优秀实现，不会返回给学生…"
+          />
+        </label>
+        <label className="wide">
+          课程知识库（仅教师和评估智能体可见）
+          <textarea
+            value={knowledgeBase}
+            onChange={(e) => setKnowledgeBase(e.target.value)}
+            placeholder="可选：填写知识点、常见错误、评分边界和典型改进方式…"
           />
         </label>
         <section className="rubric-editor wide">

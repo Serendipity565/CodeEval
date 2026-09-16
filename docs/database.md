@@ -61,6 +61,8 @@ users (teacher)
 | `title` | 作业标题 | 必填 |
 | `language` | 编程语言 | 如 Go、Python、Java、C++ |
 | `description` | 作业要求 | TEXT |
+| `reference_solution` | 教师参考实现 | LONGTEXT，仅后端评估智能体读取，不通过作业 API 返回 |
+| `knowledge_base` | 课程知识库、常见错误和评分边界 | LONGTEXT，仅后端评估智能体读取，不通过作业 API 返回 |
 | `due_at` | 截止时间 | 本地时区时间 |
 | `rubric_json` | 评分量规 | JSON，所有权重之和必须为 100 |
 | `llm_evaluation_enabled` | 是否启用大模型评估 | 默认 `false`；为 `true` 时使用 DeepSeek Flash |
@@ -86,7 +88,7 @@ users (teacher)
 | `student_id` | 提交学生 ID | 普通索引，逻辑关联 `users.id` |
 | `code` | 学生代码 | LONGTEXT |
 | `status` | 评估状态 | 当前使用 `graded` |
-| `evaluation_json` | 评估结果 | JSON，包含总分、维度得分、证据和建议 |
+| `evaluation_json` | 评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本 |
 | `submitted_at` | 提交时间 | 由后端写入 |
 
 ## 4. Mock 数据
@@ -147,4 +149,3 @@ Mock 评估结果：
 - `seed.enabled: false`：只迁移表结构，不写入 Mock 数据。
 - 作业的 `llm_evaluation_enabled: true`：学生提交时调用 `deepseek-v4-flash`。
 - 作业的 `llm_evaluation_enabled: false`：学生提交时执行本地规则评估。
-

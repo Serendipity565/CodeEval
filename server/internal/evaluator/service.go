@@ -20,7 +20,7 @@ func NewService(cfg config.Config) *Service {
 	}
 }
 
-func (s *Service) Evaluate(ctx context.Context, assignment domain.Assignment, code string) (domain.Evaluation, error) {
+func (s *Service) Evaluate(ctx context.Context, assignment domain.Assignment, code string, history []domain.Submission) (domain.Evaluation, error) {
 	if !assignment.LLMEvaluationEnabled {
 		result := Evaluate(code, assignment.Rubric)
 		result.Provider = "rules"
@@ -32,5 +32,5 @@ func (s *Service) Evaluate(ctx context.Context, assignment domain.Assignment, co
 	if len([]byte(code)) > s.maxCodeBytes {
 		return domain.Evaluation{}, fmt.Errorf("code exceeds the %d byte LLM evaluation limit", s.maxCodeBytes)
 	}
-	return s.deepseek.Evaluate(ctx, assignment, code)
+	return s.deepseek.Evaluate(ctx, assignment, code, history)
 }
