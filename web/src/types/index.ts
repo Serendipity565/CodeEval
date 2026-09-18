@@ -44,6 +44,7 @@ export type Evaluation = {
   promptVersion: string;
   evaluatorVersion: string;
   modelCalls: number;
+  contextSources?: string[];
   execution?: {
     language: string;
     compileOk: boolean;

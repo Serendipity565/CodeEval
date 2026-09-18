@@ -113,7 +113,7 @@ function Login({ done }: { done: (a: Auth) => void }) {
 function Logo() {
   return (
     <div className="logo">
-      <i>C</i>
+      <i aria-hidden="true">{"{}"}</i>
       <span>CodeEval</span>
     </div>
   );
@@ -938,6 +938,21 @@ function Detail({
                   <span>{sub.evaluation.promptVersion}</span>
                 )}
               </div>
+              {sub.evaluation.contextSources?.length ? (
+                <p className="evaluation-context">
+                  <b>本次评估依据</b>
+                  {sub.evaluation.contextSources.map((source) => (
+                    <span key={source}>
+                      {{
+                        assignment_instructions: "作业说明",
+                        grading_rubric: "评分量规",
+                        reference_solution: "参考实现",
+                        course_knowledge_base: "课程知识库",
+                      }[source] || source}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
               <div className="feedback-overview">
                 {sub.evaluation.strengths?.length ? (
                   <FeedbackGroup

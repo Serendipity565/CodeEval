@@ -41,6 +41,28 @@
   font-size: 13px !important;
 }
 
+.feedback-panel .evaluation-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.feedback-panel .evaluation-context b {
+  color: var(--color-text);
+  margin-right: var(--space-1);
+}
+
+.feedback-panel .evaluation-context span {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+
 .feedback-panel .feedback-overview {
   gap: 12px;
   margin: 18px 26px 22px;

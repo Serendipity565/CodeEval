@@ -94,6 +94,7 @@ type Evaluation struct {
 	PromptVersion    string             `json:"promptVersion"`
 	EvaluatorVersion string             `json:"evaluatorVersion"`
 	ModelCalls       int                `json:"modelCalls"`
+	ContextSources   []string           `json:"contextSources,omitempty"`
 	Execution        *ExecutionEvidence `json:"execution,omitempty"`
 }
 type Submission struct {

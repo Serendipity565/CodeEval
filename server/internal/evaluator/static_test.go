@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -83,6 +84,50 @@ func TestDeepSeekRetriesTransientFailure(t *testing.T) {
 	}
 	if calls.Load() != 3 || result.Total != 80 || result.Provider != "deepseek-agent" || result.ModelCalls != 3 {
 		t.Fatalf("unexpected retry result: calls=%d result=%+v", calls.Load(), result)
+	}
+}
+
+func TestDeepSeekUsesTeacherContextInBothStages(t *testing.T) {
+	requests := make([]chatRequest, 0, 2)
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var request chatRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		requests = append(requests, request)
+		if len(requests) == 1 {
+			return jsonResponse(`{"summary":"完成事实分析","strengths":["结构清晰"],"findings":[],"limitations":["未经执行"]}`), nil
+		}
+		return jsonResponse(`{"summary":"符合要求","strengths":["结构清晰"],"issues":["缺少注释"],"improvements":["补充注释"],"confidence":0.7,"dimensions":[{"key":"quality","score":80,"evidence":"结构清晰","suggestion":"补充注释","confidence":0.7,"verified":false,"evidenceType":"reference_comparison"}]}`), nil
+	})
+	client := NewDeepSeekClient("https://example.invalid", "test-key", "test-model", 2, 256)
+	client.httpClient.Transport = transport
+	assignment := domain.Assignment{
+		Title: "上下文测试", Language: "Go", Description: "必须处理空输入",
+		ReferenceSolution: "reference-marker", KnowledgeBase: "knowledge-marker",
+		Rubric: []domain.RubricItem{{Key: "quality", Name: "质量", Description: "遵守课程约定", Weight: 100}},
+	}
+	result, err := client.Evaluate(context.Background(), assignment, "func main() {}", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(requests) != 2 {
+		t.Fatalf("expected two model stages, got %d", len(requests))
+	}
+	for i, request := range requests {
+		if len(request.Messages) < 2 {
+			t.Fatalf("stage %d has no user prompt", i+1)
+		}
+		prompt := request.Messages[1].Content
+		for _, marker := range []string{"必须处理空输入", "reference-marker", "knowledge-marker", "遵守课程约定"} {
+			if !strings.Contains(prompt, marker) {
+				t.Errorf("stage %d is missing teacher context %q", i+1, marker)
+			}
+		}
+	}
+	wantSources := []string{"assignment_instructions", "grading_rubric", "reference_solution", "course_knowledge_base"}
+	if !reflect.DeepEqual(result.ContextSources, wantSources) {
+		t.Fatalf("unexpected context sources: got %v want %v", result.ContextSources, wantSources)
 	}
 }
 
