@@ -9,12 +9,28 @@ export type CreateAssignmentInput = Pick<
   | "maxSubmissions"
   | "dueAt"
   | "llmEvaluationEnabled"
-> & { rubric: Rubric[]; testCases?: TestCase[]; referenceSolution?: string; knowledgeBase?: string };
+> & {
+  rubric: Rubric[];
+  testCases?: TestCase[];
+  referenceSolution?: string;
+  knowledgeBase?: string;
+};
 export const listAssignments = (token: string) =>
   apiRequest<Assignment[]>("/assignments", token);
 export const createAssignment = (token: string, input: CreateAssignmentInput) =>
   apiRequest<Assignment>("/assignments", token, {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+export const getAssignment = (token: string, id: string) =>
+  apiRequest<Assignment>(`/assignments/${id}`, token);
+export const updateAssignment = (
+  token: string,
+  id: string,
+  input: CreateAssignmentInput,
+) =>
+  apiRequest<Assignment>(`/assignments/${id}`, token, {
+    method: "PUT",
     body: JSON.stringify(input),
   });
 export const updateAssignmentStatus = (

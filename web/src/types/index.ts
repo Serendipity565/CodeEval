@@ -27,6 +27,8 @@ export type Assignment = {
   hasReferenceMaterial: boolean;
   testCases: TestCase[];
   hasHiddenTests: boolean;
+  referenceSolution?: string;
+  knowledgeBase?: string;
 };
 export type Evaluation = {
   total: number;
@@ -99,4 +101,4 @@ export type User = {
   role: "teacher" | "student";
 };
 export type AuthState = { token: string; user: User };
-export type View = "home" | "assignments" | "submissions" | "publish";
+export type View = "home" | "assignments" | "submissions" | "publish" | "edit";

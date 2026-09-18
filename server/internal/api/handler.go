@@ -56,6 +56,7 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	secured.GET("/dashboard", h.dashboard)
 	secured.GET("/capabilities", h.capabilities)
 	secured.POST("/assignments", h.requireRole("teacher"), h.createAssignment)
+	secured.PUT("/assignments/:id", h.requireRole("teacher"), h.updateAssignment)
 	secured.POST("/assignments/generate-tests", h.requireRole("teacher"), h.generateTests)
 	secured.PATCH("/assignments/:id/status", h.requireRole("teacher"), h.updateAssignmentStatus)
 	secured.PATCH("/assignments/:id/max-submissions", h.requireRole("teacher"), h.updateAssignmentMaxSubmissions)
@@ -158,36 +159,58 @@ func (h *Handler) assignment(c *gin.Context) {
 		serverError(c, err)
 		return
 	}
+	if current(c).Role == "teacher" && a.TeacherID == strconv.FormatUint(uint64(current(c).ID), 10) {
+		c.JSON(200, gin.H{
+			"id": a.ID, "teacherId": a.TeacherID, "teacherName": a.TeacherName,
+			"title": a.Title, "status": a.Status, "maxSubmissions": a.MaxSubmissions,
+			"language": a.Language, "description": a.Description, "dueAt": a.DueAt,
+			"rubric": a.Rubric, "testCases": a.TestCases,
+			"llmEvaluationEnabled": a.LLMEvaluationEnabled,
+			"referenceSolution":    a.ReferenceSolution, "knowledgeBase": a.KnowledgeBase,
+			"hasHiddenTests": a.HasHiddenTests, "hasReferenceMaterial": a.HasReferenceMaterial,
+		})
+		return
+	}
 	c.JSON(200, a)
 }
-func (h *Handler) createAssignment(c *gin.Context) {
-	var in struct {
-		Title                string              `json:"title"`
-		Language             string              `json:"language"`
-		Description          string              `json:"description"`
-		Status               string              `json:"status"`
-		MaxSubmissions       int                 `json:"maxSubmissions"`
-		DueAt                time.Time           `json:"dueAt"`
-		Rubric               []domain.RubricItem `json:"rubric"`
-		LLMEvaluationEnabled bool                `json:"llmEvaluationEnabled"`
-		ReferenceSolution    string              `json:"referenceSolution"`
-		KnowledgeBase        string              `json:"knowledgeBase"`
-		TestCases            []domain.TestCase   `json:"testCases"`
-	}
-	if err := c.ShouldBindJSON(&in); err != nil || in.Title == "" || in.Language == "" || !validAssignmentStatus(in.Status) || in.MaxSubmissions < 1 || in.MaxSubmissions > 100 || !validRubric(in.Rubric) {
-		c.JSON(400, gin.H{"error": "title, language, 1-100 submissions and a 100-point rubric are required"})
-		return
+
+type assignmentInput struct {
+	Title                string              `json:"title"`
+	Language             string              `json:"language"`
+	Description          string              `json:"description"`
+	Status               string              `json:"status"`
+	MaxSubmissions       int                 `json:"maxSubmissions"`
+	DueAt                time.Time           `json:"dueAt"`
+	Rubric               []domain.RubricItem `json:"rubric"`
+	LLMEvaluationEnabled bool                `json:"llmEvaluationEnabled"`
+	ReferenceSolution    string              `json:"referenceSolution"`
+	KnowledgeBase        string              `json:"knowledgeBase"`
+	TestCases            []domain.TestCase   `json:"testCases"`
+}
+
+func (h *Handler) validateAssignmentInput(in assignmentInput) string {
+	if strings.TrimSpace(in.Title) == "" || strings.TrimSpace(in.Language) == "" || in.DueAt.IsZero() || !validAssignmentStatus(in.Status) || in.MaxSubmissions < 1 || in.MaxSubmissions > 100 || !validRubric(in.Rubric) {
+		return "title, language, due date, 1-100 submissions and a 100-point rubric are required"
 	}
 	if !h.supportedLanguages[strings.ToLower(strings.TrimSpace(in.Language))] {
-		c.JSON(400, gin.H{"error": "language is not enabled by sandbox.supported_languages"})
-		return
+		return "language is not enabled by sandbox.supported_languages"
 	}
 	if len([]byte(in.ReferenceSolution))+len([]byte(in.KnowledgeBase)) > 200000 {
-		c.JSON(400, gin.H{"error": "reference material exceeds 200000 bytes"})
-		return
+		return "reference material exceeds 200000 bytes"
 	}
 	if !validTestCases(in.TestCases) {
-		c.JSON(400, gin.H{"error": "test cases require unique names, positive weights, expected output and 100-10000ms timeout"})
+		return "test cases require unique names, positive weights and 100-10000ms timeout"
+	}
+	return ""
+}
+func (h *Handler) createAssignment(c *gin.Context) {
+	var in assignmentInput
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(400, gin.H{"error": "invalid assignment data"})
+		return
+	}
+	if message := h.validateAssignmentInput(in); message != "" {
+		c.JSON(400, gin.H{"error": message})
 		return
 	}
 	a, err := h.store.CreateAssignment(current(c).ID, domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, TestCases: in.TestCases, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase})
@@ -196,6 +219,43 @@ func (h *Handler) createAssignment(c *gin.Context) {
 		return
 	}
 	c.JSON(201, a)
+}
+
+func (h *Handler) updateAssignment(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	var in assignmentInput
+	if err != nil || c.ShouldBindJSON(&in) != nil {
+		c.JSON(400, gin.H{"error": "invalid assignment data"})
+		return
+	}
+	if message := h.validateAssignmentInput(in); message != "" {
+		c.JSON(400, gin.H{"error": message})
+		return
+	}
+	existing, err := h.store.Assignment(uint(id))
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && existing.TeacherID != strconv.FormatUint(uint64(current(c).ID), 10)) {
+		c.JSON(404, gin.H{"error": "assignment not found"})
+		return
+	}
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	if in.Title != existing.Title || in.Language != existing.Language {
+		c.JSON(400, gin.H{"error": "assignment title and language cannot be changed"})
+		return
+	}
+	a := domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, TestCases: in.TestCases, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase}
+	updated, err := h.store.UpdateAssignment(uint(id), current(c).ID, a)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(404, gin.H{"error": "assignment not found"})
+		return
+	}
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(200, updated)
 }
 
 func validTestCases(items []domain.TestCase) bool {

@@ -436,6 +436,23 @@ textarea {
   gap: 4px;
   display: grid;
 }
+.assignment-edit-link {
+  color: #2d7050;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  width: max-content;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+.assignment-edit-link:hover {
+  color: #1c5b41;
+}
+.teacher-assignment-table .row {
+  grid-template-columns: minmax(260px, 2.2fr) 1fr 0.5fr 0.6fr 0.8fr 0.9fr;
+}
 .aname small {
   color: #8d9792;
   white-space: nowrap;
@@ -720,6 +737,12 @@ textarea {
 .publish textarea {
   resize: vertical;
   min-height: 115px;
+}
+.publish input:disabled,
+.publish select:disabled {
+  color: #68756e;
+  cursor: not-allowed;
+  background: #f1f3f2;
 }
 .rubric {
   background: #f4f7f5;

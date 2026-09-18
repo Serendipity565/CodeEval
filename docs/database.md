@@ -63,6 +63,8 @@ users (teacher)
 | `title` | 作业标题 | 必填 |
 | `language` | 编程语言 | 如 Go、Python、Java、C++ |
 | `description` | 作业要求 | TEXT |
+| `status` | 提交状态 | `open` 或 `closed`，默认 `open` |
+| `max_submissions` | 每名学生提交次数上限 | 1–100，默认 1 |
 | `reference_solution` | 教师参考实现 | LONGTEXT，仅后端评估智能体读取，不通过作业 API 返回 |
 | `knowledge_base` | 课程知识库、常见错误和评分边界 | LONGTEXT，仅后端评估智能体读取，不通过作业 API 返回 |
 | `due_at` | 截止时间 | 本地时区时间 |
@@ -92,6 +94,7 @@ users (teacher)
 | `status` | 评估状态 | 当前使用 `graded` |
 | `evaluation_json` | 评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本 |
 | `submitted_at` | 提交时间 | 由后端写入 |
+| `progress` | 评估进度 | 0–100；已完成或失败时为 100 |
 
 ### test_case_records
 
@@ -143,6 +146,8 @@ Mock 数据统一定义在 `server/internal/store/mock_data.go`，使用事务�
 | 描述 | 实现 `twoSum`，返回目标和对应的两个不同下标。 |
 | 截止时间 | Mock 首次创建时间后 72 小时 |
 | 大模型评估 | 关闭，使用规则评估 |
+| 测试用例 | 2 个公开用例、2 个隐藏用例 |
+| 参考资料 | 包含标准实现及知识点、边界场景说明 |
 | 评分量规 | 功能正确性 45、鲁棒性 20、代码质量 20、算法效率 15 |
 
 ### 示例提交

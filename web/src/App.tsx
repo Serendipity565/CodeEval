@@ -135,7 +135,8 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
     [ss, setSs] = useState<Submission[]>([]),
     [err, setErr] = useState(""),
     [loading, setLoading] = useState(true),
-    [selected, setSelected] = useState<Submission>();
+    [selected, setSelected] = useState<Submission>(),
+    [editingAssignmentId, setEditingAssignmentId] = useState("");
   const load = () => {
     setLoading(true);
     return Promise.all([
@@ -205,6 +206,7 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
                   assignments: "作业",
                   submissions: "提交记录",
                   publish: "发布作业",
+                  edit: "修改作业",
                 }[view]
               }
             </h1>
@@ -231,15 +233,33 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
           />
         ) : view === "assignments" ? (
           teacher ? (
-            <TeacherAssignments as={as} ss={ss} go={setView} />
+            <TeacherAssignments
+              as={as}
+              ss={ss}
+              go={setView}
+              edit={(id) => {
+                setEditingAssignmentId(id);
+                setView("edit");
+              }}
+            />
           ) : (
             <StudentAssignments as={as} ss={ss} go={setView} />
           )
         ) : view === "submissions" ? (
           <Submissions teacher={teacher} as={as} ss={ss} pick={setSelected} />
+        ) : view === "publish" ? (
+          <Publish
+            token={auth.token}
+            done={async () => {
+              await load();
+              setView("assignments");
+            }}
+          />
         ) : (
           <Publish
             token={auth.token}
+            assignmentId={editingAssignmentId}
+            back={() => setView("assignments")}
             done={async () => {
               await load();
               setView("assignments");
@@ -371,16 +391,16 @@ function TeacherAssignments({
   as,
   ss,
   go,
+  edit,
 }: {
   as: Assignment[];
   ss: Submission[];
   go: (v: View) => void;
+  edit: (id: string) => void;
 }) {
   const [statuses, setStatuses] = useState<
       Record<string, Assignment["status"]>
     >({}),
-    [limits, setLimits] = useState<Record<string, number>>({}),
-    [saving, setSaving] = useState(""),
     [message, setMessage] = useState("");
   async function changeStatus(a: Assignment, status: Assignment["status"]) {
     const previous = statuses[a.id] ?? a.status;
@@ -397,28 +417,6 @@ function TeacherAssignments({
       setMessage(e instanceof Error ? e.message : "状态更新失败");
     }
   }
-  async function saveLimit(a: Assignment) {
-    const value = limits[a.id] ?? a.maxSubmissions;
-    if (value < 1 || value > 100) {
-      setMessage("提交次数必须在 1 到 100 之间");
-      return;
-    }
-    setSaving(a.id);
-    setMessage("");
-    try {
-      await req(
-        `/assignments/${a.id}/max-submissions`,
-        loadAuth()?.token || "",
-        { method: "PATCH", body: JSON.stringify({ maxSubmissions: value }) },
-      );
-      setMessage(`${a.title}的提交上限已修改为 ${value} 次`);
-    } catch (e) {
-      setLimits((v) => ({ ...v, [a.id]: a.maxSubmissions }));
-      setMessage(e instanceof Error ? e.message : "提交次数更新失败");
-    } finally {
-      setSaving("");
-    }
-  }
   return (
     <section className="panel">
       <Title title="全部作业" note="管理作业、提交次数和开放状态">
@@ -427,14 +425,14 @@ function TeacherAssignments({
         </button>
       </Title>
       {message && <p className="inline-message">{message}</p>}
-      <div className="atable">
+      <div className="atable teacher-assignment-table">
         <div className="row th">
           <span>作业</span>
           <span>截止时间</span>
           <span>提交</span>
           <span>平均分</span>
-          <span>每人上限</span>
           <span>提交状态</span>
+          <span>操作</span>
         </div>
         {as.map((a) => {
           const sub = ss.filter((s) => s.assignmentId === a.id),
@@ -444,8 +442,7 @@ function TeacherAssignments({
                     sub.length,
                 )
               : "—",
-            status = statuses[a.id] ?? a.status,
-            limit = limits[a.id] ?? a.maxSubmissions;
+            status = statuses[a.id] ?? a.status;
           return (
             <div className="row" key={a.id}>
               <span className="aname">
@@ -458,34 +455,27 @@ function TeacherAssignments({
               <span>{fmt(a.dueAt)}</span>
               <b>{sub.length}</b>
               <b>{avg}</b>
-              <span className="limit-editor">
-                <input
-                  aria-label={`${a.title}提交次数上限`}
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={limit}
+              <span className="status-select-wrap">
+                <select
+                  className={`status-select ${status}`}
+                  value={status}
                   onChange={(e) =>
-                    setLimits((v) => ({ ...v, [a.id]: Number(e.target.value) }))
+                    void changeStatus(
+                      a,
+                      e.target.value as Assignment["status"],
+                    )
                   }
-                />
-                <button
-                  disabled={saving === a.id || limit === a.maxSubmissions}
-                  onClick={() => void saveLimit(a)}
                 >
-                  {saving === a.id ? "保存中" : "保存"}
-                </button>
+                  <option value="open">开放提交</option>
+                  <option value="closed">关闭提交</option>
+                </select>
               </span>
-              <select
-                className={`status-select ${status}`}
-                value={status}
-                onChange={(e) =>
-                  void changeStatus(a, e.target.value as Assignment["status"])
-                }
+              <button
+                className="assignment-edit-link"
+                onClick={() => edit(a.id)}
               >
-                <option value="open">开放提交</option>
-                <option value="closed">关闭提交</option>
-              </select>
+                查看并修改 ›
+              </button>
             </div>
           );
         })}
@@ -1198,9 +1188,13 @@ function EvaluationProgress({ submission }: { submission: Submission }) {
 function Publish({
   token,
   done,
+  assignmentId,
+  back,
 }: {
   token: string;
   done: () => Promise<void>;
+  assignmentId?: string;
+  back?: () => void;
 }) {
   const [t, setT] = useState(""),
     [lang, setLang] = useState("Python"),
@@ -1243,6 +1237,29 @@ function Publish({
         setErr(e instanceof Error ? e.message : "读取服务器语言配置失败"),
       );
   }, [token]);
+  useEffect(() => {
+    if (!assignmentId) return;
+    setErr("");
+    void req<Assignment>(`/assignments/${assignmentId}`, token)
+      .then((item) => {
+        setT(item.title);
+        setLang(item.language);
+        setDesc(item.description);
+        setReferenceSolution(item.referenceSolution || "");
+        setKnowledgeBase(item.knowledgeBase || "");
+        const date = new Date(item.dueAt);
+        date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+        setDue(date.toISOString().slice(0, 16));
+        setMax(item.maxSubmissions);
+        setStatus(item.status);
+        setLlm(item.llmEvaluationEnabled);
+        setTests(item.testCases || []);
+        setRubric(item.rubric);
+      })
+      .catch((e) =>
+        setErr(e instanceof Error ? e.message : "读取作业详情失败"),
+      );
+  }, [assignmentId, token]);
   const total = rubric.reduce((n, r) => n + r.weight, 0),
     update = (index: number, patch: Partial<Rubric>) =>
       setRubric((items) =>
@@ -1311,22 +1328,26 @@ function Publish({
       return;
     }
     try {
-      await req("/assignments", token, {
-        method: "POST",
-        body: JSON.stringify({
-          title: t,
-          language: lang,
-          description: desc,
-          status,
-          maxSubmissions: max,
-          dueAt: new Date(due).toISOString(),
-          llmEvaluationEnabled: llm,
-          referenceSolution,
-          knowledgeBase,
-          testCases: tests,
-          rubric,
-        }),
-      });
+      await req(
+        assignmentId ? `/assignments/${assignmentId}` : "/assignments",
+        token,
+        {
+          method: assignmentId ? "PUT" : "POST",
+          body: JSON.stringify({
+            title: t,
+            language: lang,
+            description: desc,
+            status,
+            maxSubmissions: max,
+            dueAt: new Date(due).toISOString(),
+            llmEvaluationEnabled: llm,
+            referenceSolution,
+            knowledgeBase,
+            testCases: tests,
+            rubric,
+          }),
+        },
+      );
       await done();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "发布失败");
@@ -1335,14 +1356,21 @@ function Publish({
   return (
     <section className="panel publish">
       <Title
-        title="创建新作业"
-        note="按本次作业目标设置评分项、权重和提交规则"
-      />
+        title={assignmentId ? "作业详情与修改" : "创建新作业"}
+        note={
+          assignmentId
+            ? "修改题目、评分规则、测试数据和提交设置"
+            : "按本次作业目标设置评分项、权重和提交规则"
+        }
+      >
+        {assignmentId && back && <button onClick={back}>‹ 返回作业列表</button>}
+      </Title>
       <form onSubmit={go}>
         <label className="wide">
           作业标题
           <input
             required
+            disabled={!!assignmentId}
             value={t}
             onChange={(e) => setT(e.target.value)}
             placeholder="例如：实现 LRU 缓存"
@@ -1350,7 +1378,11 @@ function Publish({
         </label>
         <label>
           编程语言
-          <select value={lang} onChange={(e) => setLang(e.target.value)}>
+          <select
+            disabled={!!assignmentId}
+            value={lang}
+            onChange={(e) => setLang(e.target.value)}
+          >
             {languages.map((language) => (
               <option key={language}>{language}</option>
             ))}
@@ -1588,7 +1620,7 @@ function Publish({
             className="primary"
             disabled={total !== 100 || !languages.length}
           >
-            发布作业
+            {assignmentId ? "保存修改" : "发布作业"}
           </button>
         </footer>
       </form>

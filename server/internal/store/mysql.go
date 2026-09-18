@@ -127,6 +127,41 @@ func (s *MySQLStore) CreateAssignment(teacherID uint, a domain.Assignment) (doma
 	a.HasReferenceMaterial = strings.TrimSpace(a.ReferenceSolution) != "" || strings.TrimSpace(a.KnowledgeBase) != ""
 	return a, e
 }
+func (s *MySQLStore) UpdateAssignment(id, teacherID uint, a domain.Assignment) (domain.Assignment, error) {
+	rubric, err := json.Marshal(a.Rubric)
+	if err != nil {
+		return a, err
+	}
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		var existing AssignmentRecord
+		if err := tx.Where("id = ? AND teacher_id = ?", id, teacherID).First(&existing).Error; err != nil {
+			return err
+		}
+		result := tx.Model(&AssignmentRecord{}).Where("id = ? AND teacher_id = ?", id, teacherID).Updates(map[string]any{
+			"title": a.Title, "language": a.Language, "description": a.Description,
+			"reference_solution": a.ReferenceSolution, "knowledge_base": a.KnowledgeBase,
+			"status": a.Status, "max_submissions": a.MaxSubmissions, "due_at": a.DueAt,
+			"rubric_json": rubric, "llm_evaluation_enabled": a.LLMEvaluationEnabled,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if err := tx.Where("assignment_id = ?", id).Delete(&TestCaseRecord{}).Error; err != nil {
+			return err
+		}
+		for _, test := range a.TestCases {
+			row := TestCaseRecord{AssignmentID: id, Name: test.Name, Input: test.Input, Expected: test.Expected, Hidden: test.Hidden, Weight: test.Weight, TimeoutMS: test.TimeoutMS}
+			if err := tx.Create(&row).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return a, err
+	}
+	return s.Assignment(id)
+}
 func (s *MySQLStore) ListAssignments() (out []domain.Assignment, err error) {
 	out = make([]domain.Assignment, 0)
 	var rows []AssignmentRecord
