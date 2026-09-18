@@ -11,21 +11,12 @@ import { login } from "./api/auth";
 import { apiRequest as req } from "./api/client";
 import { clearAuth, loadAuth, saveAuth } from "./auth/storage";
 import { useCourseData } from "./hooks/useCourseData";
-import { Empty, Head, Score, Title } from "./components/ui";
+import { Empty, Head, Icon, Score, Title } from "./components/ui";
 import {
   editorTemplate,
   executionContract,
 } from "./components/editor/templates";
 const CodeEditor = lazy(() => import("./components/editor/CodeEditor"));
-const ico: Record<string, string> = {
-  home: "⌂",
-  assignments: "▤",
-  submissions: "⇩",
-  publish: "＋",
-  out: "↗",
-  search: "⌕",
-  code: "</>",
-};
 const fmt = (x: string) =>
     new Date(x).toLocaleString("zh-CN", {
       month: "numeric",
@@ -72,23 +63,24 @@ function Login({ done }: { done: (a: Auth) => void }) {
   }
   return (
     <main className="login">
-      <section>
+      <section className="login-intro">
         <Logo />
         <div>
-          <small>AI-POWERED ASSESSMENT</small>
-          <h1>
-            让每一行代码
-            <br />
-            都有回应。
-          </h1>
-          <p>从提交到反馈，只需片刻。清晰的评分证据，真正可执行的改进建议。</p>
+          <h1>编程作业与评估工作台</h1>
+          <p>发布作业、检查运行结果，并给出有依据的学习反馈。</p>
+          <ul>
+            <li><Icon name="assignments" />集中管理作业、测试和评分量规</li>
+            <li><Icon name="code" />追踪每次代码提交和运行结果</li>
+            <li><Icon name="check" />让每条反馈都能回到具体证据</li>
+          </ul>
         </div>
-        <b>{"{ code → feedback }"}</b>
+        <small>面向编程课程的日常教学工具</small>
       </section>
       <form onSubmit={go}>
+        <div className="login-mobile-brand"><Logo /></div>
         <div>
-          <h2>欢迎回来</h2>
-          <p>登录你的教学工作台</p>
+          <h2>登录 CodeEval</h2>
+          <p>使用课程账号继续</p>
         </div>
         <label>
           账号
@@ -106,16 +98,14 @@ function Login({ done }: { done: (a: Auth) => void }) {
         <button className="primary" disabled={busy}>
           {busy ? "登录中…" : "登录"}
         </button>
-        <aside>
-          <strong>体验账号</strong>
-          <button type="button" onClick={() => setU("teacher")}>
-            教师 teacher
-          </button>
-          <button type="button" onClick={() => setU("student")}>
-            学生 student
-          </button>
-          <small>密码均为 CodeEval123!</small>
-        </aside>
+        <details className="demo-accounts">
+          <summary>使用演示账号</summary>
+          <div>
+            <button type="button" onClick={() => setU("teacher")}>教师账号 <span>teacher</span></button>
+            <button type="button" onClick={() => setU("student")}>学生账号 <span>student</span></button>
+            <small>演示密码：CodeEval123!</small>
+          </div>
+        </details>
       </form>
     </main>
   );
@@ -160,16 +150,15 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
       )
     : 0;
   return (
-    <div className="shell">
+    <div className={`shell ${view === "publish" || view === "edit" ? "task-flow" : ""}`}>
       <aside className="side">
         <Logo />
         <nav>
           {(
             [
               ["home", "工作台"],
-              ["assignments", teacher ? "作业管理" : "我的作业"],
-              ["submissions", teacher ? "提交列表" : "提交记录"],
-              ...(teacher ? [["publish", "发布作业"]] : []),
+              ["assignments", teacher ? "作业" : "我的作业"],
+              ["submissions", teacher ? "提交" : "提交记录"],
             ] as [View, string][]
           ).map(([v, n]) => (
             <button
@@ -180,8 +169,8 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
               }}
               key={v}
             >
-              <b>{ico[v]}</b>
-              {n}
+              <Icon name={v === "home" ? "home" : v === "assignments" ? "assignments" : "submissions"} />
+              <span>{n}</span>
               {v === "submissions" && <em>{ss.length}</em>}
             </button>
           ))}
@@ -192,13 +181,12 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
             <b>{auth.user.displayName}</b>
             <small>{teacher ? "教师账号" : "学生账号"}</small>
           </span>
-          <button onClick={logout}>{ico.out}</button>
+          <button aria-label="退出登录" title="退出登录" onClick={logout}><Icon name="logout" /></button>
         </footer>
       </aside>
       <main className="work">
         <header>
           <span>
-            <small>数据结构与算法 · 2026 秋季</small>
             <h1>
               {
                 {
@@ -211,7 +199,12 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
               }
             </h1>
           </span>
-          <b>{teacher ? "教师端" : "学生端"}</b>
+          <div className="header-account">
+            <span>{auth.user.displayName[0]}</span>
+            <b>{auth.user.displayName}</b>
+            <small>{teacher ? "教师" : "学生"}</small>
+            <button aria-label="退出登录" title="退出登录" onClick={logout}><Icon name="logout" /></button>
+          </div>
         </header>
         {err && <p className="alert">{err}</p>}
         {loading ? (
@@ -250,6 +243,7 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
         ) : view === "publish" ? (
           <Publish
             token={auth.token}
+            back={() => setView("assignments")}
             done={async () => {
               await load();
               setView("assignments");
@@ -285,38 +279,43 @@ function Home({
   go: (v: View) => void;
   pick: (s: Submission) => void;
 }) {
+  const activeAssignments = as.filter((a) => a.status === "open" && left(a.dueAt) >= 0);
+  const actionableAssignments = teacher
+    ? activeAssignments
+    : activeAssignments.filter((a) => ss.filter((s) => s.assignmentId === a.id).length < a.maxSubmissions);
+  const failed = ss.filter((s) => s.status === "failed" || s.status === "needs_review");
+  const lowScores = ss.filter((s) => s.evaluation && s.evaluation.total < 60);
+  const dueSoon = actionableAssignments.filter((a) => left(a.dueAt) <= 3);
   return (
     <>
-      <section className="hero">
+      <section className="dashboard-intro">
         <div>
-          <small>{teacher ? "COURSE OVERVIEW" : "GOOD MORNING"}</small>
-          <h2>
-            {teacher
-              ? "今天也一起把反馈做得更好。"
-              : "继续保持，你的每次提交都有进步。"}
-          </h2>
-          <p>
-            {teacher
-              ? "查看最新提交，及时发现共性问题。"
-              : "从待完成的作业开始，提交代码即可获得即时评估。"}
-          </p>
+          <h2>{teacher ? "课程概览" : "学习概览"}</h2>
+          <p>{teacher ? "先处理需要关注的提交，再查看课程整体进度。" : "查看待完成作业和最近一次评估反馈。"}</p>
         </div>
-        <button onClick={() => go(teacher ? "publish" : "assignments")}>
-          {teacher ? "＋ 发布新作业" : "▤ 查看待办作业"}
+        <button className="primary" onClick={() => go(teacher ? "publish" : "assignments")}>
+          <Icon name={teacher ? "plus" : "assignments"} />
+          {teacher ? "发布作业" : "查看作业"}
         </button>
       </section>
-      <section className="stats">
+      {(failed.length > 0 || dueSoon.length > 0) && <section className="attention-list" aria-label="待处理事项">
+        <h3>需要关注</h3>
+        {failed.length > 0 && <button onClick={() => go("submissions")}><Icon name="alert" /><span><b>{failed.length} 份提交需要复核</b><small>运行或评估未正常完成</small></span><Icon name="chevronRight" /></button>}
+        {dueSoon.length > 0 && <button onClick={() => go("assignments")}><Icon name="clock" /><span><b>{dueSoon.length} 项作业即将截止</b><small>{teacher ? "请检查提交进度" : "查看要求并按时提交"}</small></span><Icon name="chevronRight" /></button>}
+      </section>}
+      <section className="stats overview-strip">
         <Stat
-          name={teacher ? "已发布作业" : "全部作业"}
-          n={as.length}
-          note={`${as.filter((a) => left(a.dueAt) >= 0).length} 项进行中`}
+          name={teacher ? "进行中作业" : "可提交作业"}
+          n={actionableAssignments.length}
+          note={`共 ${as.length} 项`}
         />
         <Stat
           name={teacher ? "学生提交" : "我的提交"}
           n={ss.length}
-          note="本课程累计"
+          note="本课程"
         />
         <Stat name="平均得分" n={ss.length ? avg : "—"} note="满分 100" />
+        <Stat name={teacher ? "待复核" : "低于 60 分"} n={teacher ? failed.length : lowScores.length} note="当前" />
       </section>
       <div className="cols">
         <section className="panel">
@@ -326,7 +325,7 @@ function Home({
           />
           {ss.slice(0, 4).map((s) => (
             <button className="recent" onClick={() => pick(s)} key={s.id}>
-              <i>{ico.code}</i>
+              <i><Icon name="code" /></i>
               <span>
                 <b>
                   {teacher
@@ -336,7 +335,7 @@ function Home({
                 <small>{fmt(s.submittedAt)}</small>
               </span>
               <Score n={s.evaluation?.total} />
-              <em>›</em>
+              <em><Icon name="chevronRight" /></em>
             </button>
           ))}
           {!ss.length && <Empty text="还没有提交记录" />}
@@ -418,10 +417,10 @@ function TeacherAssignments({
     }
   }
   return (
-    <section className="panel">
+    <section className="panel list-page">
       <Title title="全部作业" note="管理作业、提交次数和开放状态">
         <button className="primary" onClick={() => go("publish")}>
-          ＋ 发布作业
+          <Icon name="plus" />发布作业
         </button>
       </Title>
       {message && <p className="inline-message">{message}</p>}
@@ -566,7 +565,7 @@ function StudentAssignments({
             <article key={a.id}>
               <header>
                 <b>
-                  {ico.code} {a.language}
+                  <Icon name="code" /> {a.language}
                 </b>
                 <i
                   className={`status ${a.status === "closed" ? "closed" : submissions.length ? "done" : "open"}`}
@@ -639,7 +638,7 @@ function Submissions({
     [q, aid, ss, as],
   );
   return (
-    <section className="panel">
+    <section className="panel list-page">
       <Title
         title={teacher ? "学生提交列表" : "我的提交记录"}
         note={
@@ -650,7 +649,7 @@ function Submissions({
       />
       <div className="filters">
         <label>
-          {ico.search}
+          <Icon name="search" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -714,6 +713,7 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
     [code, setCode] = useState(() =>
       editorTemplate(assignment?.language ?? ""),
     ),
+    [briefOpen, setBriefOpen] = useState(false),
     [msg, setMsg] = useState(""),
     [busy, setBusy] = useState(false);
   const refresh = () =>
@@ -777,7 +777,12 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
   return (
     <div className="submit-layout">
       <aside className="panel assignment-brief">
-        <span className="eyebrow">ASSIGNMENT BRIEF</span>
+        <button className="brief-toggle" type="button" aria-expanded={briefOpen} onClick={() => setBriefOpen((v) => !v)}>
+          <span><Icon name="assignments" />作业要求与评分标准</span>
+          <Icon name="chevronRight" />
+        </button>
+        <div className={`brief-details ${briefOpen ? "open" : ""}`}>
+        <span className="eyebrow">作业信息</span>
         <h3>{assignment?.title}</h3>
         <p>{assignment?.description || "教师暂未添加作业说明。"}</p>
         <div className="brief-meta">
@@ -802,7 +807,7 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
         </div>
         <h4>评分标准</h4>
         <div className="brief-rubric">
-          {assignment?.rubric.map((r) => (
+          {(assignment?.rubric || []).map((r) => (
             <div key={r.key}>
               <span>
                 <b>{r.name}</b>
@@ -812,11 +817,11 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
             </div>
           ))}
         </div>
-        {assignment?.testCases.length ? (
+        {assignment?.testCases?.length ? (
           <>
             <h4>公开测试用例</h4>
             <div className="brief-tests">
-              {assignment.testCases.map((test, index) => (
+              {(assignment.testCases || []).map((test, index) => (
                 <article key={`${test.name}-${index}`}>
                   <b>{test.name}</b>
                   <span>
@@ -837,6 +842,7 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
             另有隐藏测试用例，其输入输出不会公开。
           </small>
         )}
+        </div>
       </aside>
       <section className="panel submitbox">
         <Title title="编写并提交" note="支持语法高亮、自动缩进与代码格式化" />
@@ -860,12 +866,12 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
             />
           </Suspense>
           <div className="editor-actions">
-            <small>代码将由 AI 按左侧评分标准逐项分析</small>
+            <small>提交后将按评分量规运行测试并生成反馈</small>
             <button
               className="primary"
               disabled={busy || !canSubmit || !code.trim()}
             >
-              {busy ? "正在评估…" : "提交并评估 →"}
+              {busy ? "正在评估…" : <>提交并评估<Icon name="chevronRight" /></>}
             </button>
           </div>
         </form>
@@ -907,7 +913,7 @@ function Detail({
         <section className="panel feedback-panel">
           <div className="feedback-head">
             <span>
-              <small>AI ASSESSMENT</small>
+              <small>评估结果</small>
               <h3>评估反馈</h3>
             </span>
             {sub.evaluation && (
@@ -943,14 +949,14 @@ function Detail({
                 {sub.evaluation.issues?.length ? (
                   <FeedbackGroup
                     kind="issue"
-                    title="问题点"
+                    title="需要改进"
                     items={sub.evaluation.issues}
                   />
                 ) : null}
                 {sub.evaluation.improvements?.length ? (
                   <FeedbackGroup
                     kind="improve"
-                    title="优化方向"
+                    title="建议下一步"
                     items={sub.evaluation.improvements}
                   />
                 ) : null}
@@ -1027,11 +1033,13 @@ function Detail({
                         <b>改进建议</b>
                         {d.suggestion}
                       </small>
-                      <small className="dimension-meta">
-                        证据：{d.evidenceType || "未标注"} · 置信度{" "}
-                        {Math.round((d.confidence || 0) * 100)}% ·{" "}
-                        {d.verified ? "已验证" : "未执行验证"}
-                      </small>
+                      {((d.evidenceType && d.evidenceType !== "未标注") || d.confidence > 0 || d.verified) && (
+                        <small className="dimension-meta">
+                          证据：{d.evidenceType || "未标注"} · 置信度{" "}
+                          {Math.round((d.confidence || 0) * 100)}% ·{" "}
+                          {d.verified ? "已验证" : "未执行验证"}
+                        </small>
+                      )}
                     </div>
                   );
                 })}
@@ -1039,7 +1047,7 @@ function Detail({
               {sub.evaluation.analysis?.length ? (
                 <details className="agent-analysis">
                   <summary>
-                    查看智能体第一阶段分析（{sub.evaluation.analysis.length}{" "}
+                    查看详细分析证据（{sub.evaluation.analysis.length}{" "}
                     项）
                   </summary>
                   {sub.evaluation.analysis.map((finding, index) => (
@@ -1069,7 +1077,7 @@ function Detail({
             onClick={() => setCodeOpen((v) => !v)}
           >
             <span>
-              <small>SUBMITTED CODE</small>
+              <small>提交代码</small>
               <b>提交代码 · {assignment?.language || ""}</b>
             </span>
             <i>{sub.code.split("\n").length} 行</i>
@@ -1078,7 +1086,7 @@ function Detail({
           {codeOpen && (
             <div className="code-collapse-body submitted-code-layout">
               <aside className="submitted-brief">
-                <span className="eyebrow">ASSIGNMENT BRIEF</span>
+                <span className="eyebrow">作业信息</span>
                 <h3>{assignment?.title || "题目说明"}</h3>
                 <p>{assignment?.description || "教师暂未添加作业说明。"}</p>
                 <div className="brief-meta">
@@ -1354,7 +1362,20 @@ function Publish({
     }
   }
   return (
-    <section className="panel publish">
+    <div className="publish-layout">
+      <aside className="publish-outline" aria-label="作业设置目录">
+        <span>作业设置</span>
+        <nav>
+          <a href="#assignment-basic">基本信息</a>
+          <a href="#assignment-content">题目与资料</a>
+          <a href="#assignment-rubric">评分量规</a>
+          <a href="#assignment-tests">测试用例</a>
+          <a href="#assignment-evaluation">评估方式</a>
+        </nav>
+        <p>发布前请确认截止时间、总分权重和测试用例。</p>
+      </aside>
+      <section className="panel publish">
+      {back && <button className="back publish-back" onClick={back}><Icon name="chevronLeft" />返回作业</button>}
       <Title
         title={assignmentId ? "作业详情与修改" : "创建新作业"}
         note={
@@ -1362,31 +1383,38 @@ function Publish({
             ? "修改题目、评分规则、测试数据和提交设置"
             : "按本次作业目标设置评分项、权重和提交规则"
         }
-      >
-        {assignmentId && back && <button onClick={back}>‹ 返回作业列表</button>}
-      </Title>
+      />
       <form onSubmit={go}>
-        <label className="wide">
+        <label className="wide" id="assignment-basic">
           作业标题
-          <input
-            required
-            disabled={!!assignmentId}
-            value={t}
-            onChange={(e) => setT(e.target.value)}
-            placeholder="例如：实现 LRU 缓存"
-          />
+          {assignmentId ? (
+            <span className="read-only-field">
+              <b>{t || "正在读取作业…"}</b>
+              <small>发布后不可修改</small>
+            </span>
+          ) : (
+            <input
+              required
+              value={t}
+              onChange={(e) => setT(e.target.value)}
+              placeholder="例如：实现 LRU 缓存"
+            />
+          )}
         </label>
         <label>
           编程语言
-          <select
-            disabled={!!assignmentId}
-            value={lang}
-            onChange={(e) => setLang(e.target.value)}
-          >
-            {languages.map((language) => (
-              <option key={language}>{language}</option>
-            ))}
-          </select>
+          {assignmentId ? (
+            <span className="read-only-field">
+              <b>{lang || "—"}</b>
+              <small>发布后不可修改</small>
+            </span>
+          ) : (
+            <select value={lang} onChange={(e) => setLang(e.target.value)}>
+              {languages.map((language) => (
+                <option key={language}>{language}</option>
+              ))}
+            </select>
+          )}
         </label>
         <label>
           截止时间
@@ -1418,7 +1446,7 @@ function Publish({
             onChange={(e) => setMax(Number(e.target.value))}
           />
         </label>
-        <label className="wide">
+        <label className="wide" id="assignment-content">
           作业说明
           <textarea
             value={desc}
@@ -1426,14 +1454,23 @@ function Publish({
             placeholder="描述任务目标、输入输出、约束条件和示例…"
           />
         </label>
-        <label className="wide">
-          参考实现（仅教师和评估智能体可见）
-          <textarea
-            value={referenceSolution}
-            onChange={(e) => setReferenceSolution(e.target.value)}
-            placeholder="可选：粘贴标准答案或优秀实现，不会返回给学生…"
-          />
-        </label>
+        <section className="wide reference-editor-field">
+          <header>
+            <span>
+              <b>参考实现</b>
+              <small>仅教师和评估流程可见，不会返回给学生</small>
+            </span>
+            <em>{lang}</em>
+          </header>
+          <Suspense fallback={<div className="editor-loading">正在加载代码编辑器…</div>}>
+            <CodeEditor
+              language={lang}
+              value={referenceSolution}
+              onChange={setReferenceSolution}
+              height="360px"
+            />
+          </Suspense>
+        </section>
         <label className="wide">
           课程知识库（仅教师和评估智能体可见）
           <textarea
@@ -1442,7 +1479,7 @@ function Publish({
             placeholder="可选：填写知识点、常见错误、评分边界和典型改进方式…"
           />
         </label>
-        <section className="rubric-editor wide">
+        <section className="rubric-editor wide" id="assignment-rubric">
           <header>
             <span>
               <b>评分量规</b>
@@ -1489,16 +1526,15 @@ function Publish({
             </div>
           ))}
           <button className="add-criterion" type="button" onClick={add}>
-            ＋ 添加评分项
+            <Icon name="plus" />添加评分项
           </button>
         </section>
-        <section className="rubric-editor wide">
+        <section className="rubric-editor wide" id="assignment-tests">
           <header>
             <span>
               <b>沙箱测试用例</b>
               <small>
-                AI
-                生成的是可编辑草稿；程序从标准输入读取，隐藏用例不会展示给学生
+                自动生成的内容是可编辑草稿；程序从标准输入读取，隐藏用例不会展示给学生
               </small>
             </span>
             <button
@@ -1510,8 +1546,8 @@ function Publish({
               {generatingTests
                 ? "生成中…"
                 : tests.length
-                  ? "AI 重新生成"
-                  : "AI 生成用例"}
+                  ? "重新生成草稿"
+                  : "生成测试草稿"}
             </button>
           </header>
           <p className="execution-contract-inline">{executionContract(lang)}</p>
@@ -1599,10 +1635,10 @@ function Publish({
             ))}
           </div>
           <button className="add-criterion" type="button" onClick={addTest}>
-            ＋ 添加测试用例
+            <Icon name="plus" />添加测试用例
           </button>
         </section>
-        <label className="toggle wide">
+        <label className="toggle wide" id="assignment-evaluation">
           <input
             type="checkbox"
             checked={llm}
@@ -1610,8 +1646,8 @@ function Publish({
           />
           <i />
           <span>
-            <b>启用 AI 深度评估</b>
-            <small>根据上方量规生成逐项评分、证据与建议</small>
+            <b>启用模型辅助评估</b>
+            <small>根据评分量规生成逐项理由、证据与改进建议</small>
           </span>
         </label>
         {err && <i className="error wide">{err}</i>}
@@ -1624,7 +1660,8 @@ function Publish({
           </button>
         </footer>
       </form>
-    </section>
+      </section>
+    </div>
   );
 }
 export default App;
