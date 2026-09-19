@@ -11,7 +11,7 @@ database:
   name: codeeval
   username: codeeval
   # 必须与 docker-compose.yaml 中 MYSQL_PASSWORD 一致。
-  password: change-this-database-password
+  password: codeeval-internal-password
   charset: utf8mb4
   max_idle_conns: 5
   max_open_conns: 20
