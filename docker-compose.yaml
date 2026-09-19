@@ -30,8 +30,11 @@ services:
     environment:
       TZ: Asia/Shanghai
       GIN_MODE: release
+      CODEEVAL_CONFIG: /app/config.yaml
     ports:
       - "8080:8080"
+    volumes:
+      - ./server/config.yaml:/app/config.yaml:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
       interval: 10s
