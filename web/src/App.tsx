@@ -7,7 +7,7 @@ import type {
   TestCase,
   View,
 } from "./types";
-import { login } from "./api/auth";
+import { login, register } from "./api/auth";
 import { apiRequest as req } from "./api/client";
 import { clearAuth, loadAuth, saveAuth } from "./auth/storage";
 import { useCourseData } from "./hooks/useCourseData";
@@ -46,15 +46,25 @@ function App() {
   );
 }
 function Login({ done }: { done: (a: Auth) => void }) {
-  const [u, setU] = useState("teacher"),
+  const [mode, setMode] = useState<"login" | "register">("login"),
+    [u, setU] = useState("teacher"),
     [p, setP] = useState("CodeEval123!"),
+    [confirmPassword, setConfirmPassword] = useState(""),
+    [displayName, setDisplayName] = useState(""),
+    [role, setRole] = useState<"student" | "teacher">("student"),
     [err, setErr] = useState(""),
     [busy, setBusy] = useState(false);
   async function go(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setErr("");
+    if (mode === "register" && p !== confirmPassword) {
+      setErr("两次输入的密码不一致");
+      setBusy(false);
+      return;
+    }
     try {
-      done(await login(u, p));
+      done(mode === "login" ? await login(u, p) : await register({ username: u, displayName, password: p, role }));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "登录失败");
     } finally {
@@ -79,33 +89,66 @@ function Login({ done }: { done: (a: Auth) => void }) {
       <form onSubmit={go}>
         <div className="login-mobile-brand"><Logo /></div>
         <div>
-          <h2>登录 CodeEval</h2>
-          <p>使用课程账号继续</p>
+          <h2>{mode === "login" ? "登录 CodeEval" : "注册 CodeEval"}</h2>
+          <p>{mode === "login" ? "使用课程账号继续" : "创建你的课程账号"}</p>
+        </div>
+        <div className="auth-switch" role="tablist" aria-label="账号操作">
+          <button type="button" className={mode === "login" ? "on" : ""} onClick={() => { setMode("login"); setErr(""); }}>登录</button>
+          <button type="button" className={mode === "register" ? "on" : ""} onClick={() => { setMode("register"); setU(""); setP(""); setConfirmPassword(""); setErr(""); }}>注册</button>
         </div>
         <label>
           账号
-          <input value={u} onChange={(e) => setU(e.target.value)} />
+          <input autoComplete="username" minLength={3} maxLength={32} required value={u} onChange={(e) => setU(e.target.value)} placeholder="3-32 位字母或数字" />
         </label>
+        {mode === "register" && <>
+          <label>
+            姓名
+            <input autoComplete="name" minLength={2} maxLength={30} required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="用于课程内展示" />
+          </label>
+          <label>
+            身份
+            <select value={role} onChange={(e) => setRole(e.target.value as "student" | "teacher")}>
+              <option value="student">学生</option>
+              <option value="teacher">教师</option>
+            </select>
+          </label>
+        </>}
         <label>
           密码
           <input
             type="password"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            minLength={8}
+            maxLength={72}
+            required
             value={p}
             onChange={(e) => setP(e.target.value)}
           />
         </label>
+        {mode === "register" && <label>
+          确认密码
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={72}
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+        </label>}
         {err && <i className="error">{err}</i>}
         <button className="primary" disabled={busy}>
-          {busy ? "登录中…" : "登录"}
+          {busy ? (mode === "login" ? "登录中…" : "注册中…") : (mode === "login" ? "登录" : "注册并进入")}
         </button>
-        <details className="demo-accounts">
+        {mode === "login" && <details className="demo-accounts">
           <summary>使用演示账号</summary>
           <div>
             <button type="button" onClick={() => setU("teacher")}>教师账号 <span>teacher</span></button>
             <button type="button" onClick={() => setU("student")}>学生账号 <span>student</span></button>
             <small>演示密码：CodeEval123!</small>
           </div>
-        </details>
+        </details>}
       </form>
     </main>
   );
@@ -918,8 +961,8 @@ function Detail({
             </span>
             {sub.evaluation && (
               <div className="score-orb">
-                <Score n={sub.evaluation.total} />
                 <small>总分</small>
+                <Score n={sub.evaluation.total} />
               </div>
             )}
           </div>

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"codeeval/server/internal/auth"
 	"codeeval/server/internal/config"
@@ -48,6 +49,7 @@ func New(s *store.MySQLStore, authService auth.Service, evaluationService *evalu
 }
 func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/auth/login", h.login)
+	r.POST("/auth/register", h.register)
 	secured := r.Group("", h.requireAuth)
 	secured.GET("/me", h.me)
 	secured.GET("/assignments", h.assignments)
@@ -61,6 +63,65 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	secured.PATCH("/assignments/:id/status", h.requireRole("teacher"), h.updateAssignmentStatus)
 	secured.PATCH("/assignments/:id/max-submissions", h.requireRole("teacher"), h.updateAssignmentMaxSubmissions)
 	secured.POST("/submissions", h.requireRole("student"), h.createSubmission)
+}
+
+var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{2,31}$`)
+
+type registrationInput struct {
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Password    string `json:"password"`
+	Role        string `json:"role"`
+}
+
+func validateRegistration(in *registrationInput) string {
+	in.Username = strings.ToLower(strings.TrimSpace(in.Username))
+	in.DisplayName = strings.TrimSpace(in.DisplayName)
+	in.Role = strings.ToLower(strings.TrimSpace(in.Role))
+	if !usernamePattern.MatchString(in.Username) {
+		return "账号需为 3-32 位字母、数字、点、下划线或连字符，并以字母或数字开头"
+	}
+	if length := utf8.RuneCountInString(in.DisplayName); length < 2 || length > 30 {
+		return "姓名需为 2-30 个字符"
+	}
+	if len(in.Password) < 8 || len(in.Password) > 72 {
+		return "密码需为 8-72 个字符"
+	}
+	if in.Role != "teacher" && in.Role != "student" {
+		return "请选择教师或学生身份"
+	}
+	return ""
+}
+
+func (h *Handler) register(c *gin.Context) {
+	var in registrationInput
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "注册信息格式不正确"})
+		return
+	}
+	if message := validateRegistration(&in); message != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": message})
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	u := store.User{Username: in.Username, DisplayName: in.DisplayName, PasswordHash: string(hash), Role: in.Role}
+	if err := h.store.CreateUser(&u); errors.Is(err, store.ErrUsernameTaken) {
+		c.JSON(http.StatusConflict, gin.H{"error": "该账号已被注册"})
+		return
+	} else if err != nil {
+		serverError(c, err)
+		return
+	}
+	token, err := h.auth.Issue(u.ID, u.Role, u.DisplayName)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"accessToken": token, "user": gin.H{"id": u.ID, "username": u.Username, "displayName": u.DisplayName, "role": u.Role}})
 }
 
 func (h *Handler) generateTests(c *gin.Context) {
@@ -93,6 +154,7 @@ func (h *Handler) login(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "username and password are required"})
 		return
 	}
+	in.Username = strings.ToLower(strings.TrimSpace(in.Username))
 	u, err := h.store.FindUser(in.Username)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(in.Password)) != nil {
 		c.JSON(401, gin.H{"error": "账号或密码错误"})

@@ -761,7 +761,43 @@ button.srow:hover { background: #fff9ec; }
 .progress-track > i { background: linear-gradient(90deg, #f5a623, #ee8a00); }
 .availability.open { background: #ee8a00; box-shadow: 0 0 0 3px rgb(238 138 0 / 14%); }
 .editor-toolbar > span b { color: #8a5c0a; background: #fff2d7; }
-.score-orb { background: #fff7e5; box-shadow: inset 0 0 0 1px #f5dfb5; }
+.feedback-panel .score-orb {
+  display: grid;
+  width: 118px;
+  height: auto;
+  min-height: 68px;
+  grid-template-areas: "label" "value";
+  place-content: center stretch;
+  padding: 10px 14px;
+  text-align: left;
+  background: #fff8e8;
+  border: 1px solid #f4deb1;
+  border-radius: 16px;
+  box-shadow: none;
+}
+.feedback-panel .score-orb > small {
+  grid-area: label;
+  margin: 0 0 3px;
+  color: var(--color-text-tertiary);
+  font-size: 11px !important;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.feedback-panel .score-orb .score {
+  grid-area: value;
+  display: flex;
+  align-items: baseline;
+  font-size: 29px;
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+.feedback-panel .score-orb .score small {
+  margin-left: 3px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
 .evaluation-meta span, .dimension-meta {
   color: var(--color-text-secondary);
   background: var(--color-surface-subtle);
@@ -805,7 +841,11 @@ button.srow:hover { background: #fff9ec; }
   border-radius: 28px;
   box-shadow: 0 22px 60px rgb(16 24 40 / 10%);
 }
-.login input { min-height: 46px; border-radius: 13px; }
+.login input, .login select { min-height: 46px; border-radius: 13px; }
+.login select { padding: 10px 12px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border-strong); }
+.auth-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--color-surface-subtle); border-radius: 14px; }
+.auth-switch button { min-height: 36px; color: var(--color-text-secondary); background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
+.auth-switch button.on { color: var(--color-text); background: #fff; box-shadow: 0 1px 4px rgb(16 24 40 / 8%); font-weight: 700; }
 .publish form > footer { background: rgb(255 255 255 / 86%); backdrop-filter: blur(18px); }
 .rubric-editor { background: #fafbfc; }
 

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +11,8 @@ import (
 	"codeeval/server/internal/config"
 	"codeeval/server/internal/domain"
 
-	"gorm.io/driver/mysql"
+	mysqlDriver "github.com/go-sql-driver/mysql"
+	gormMySQL "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -76,10 +78,12 @@ type EvaluationJob struct {
 }
 type MySQLStore struct{ db *gorm.DB }
 
+var ErrUsernameTaken = errors.New("username is already registered")
+
 func NewMySQL(cfg config.Config) (*MySQLStore, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local&timeout=10s&readTimeout=30s&writeTimeout=30s",
 		cfg.Database.Username, cfg.Database.Password, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name, cfg.Database.Charset)
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(gormMySQL.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("connect mysql: %w", err)
 	}
@@ -104,7 +108,14 @@ func (s *MySQLStore) FindUser(username string) (User, error) {
 	var u User
 	return u, s.db.Where("username = ?", username).First(&u).Error
 }
-func (s *MySQLStore) CreateUser(u User) error { return s.db.Create(&u).Error }
+func (s *MySQLStore) CreateUser(u *User) error {
+	err := s.db.Create(u).Error
+	var mysqlErr *mysqlDriver.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		return ErrUsernameTaken
+	}
+	return err
+}
 func (s *MySQLStore) CreateAssignment(teacherID uint, a domain.Assignment) (domain.Assignment, error) {
 	b, e := json.Marshal(a.Rubric)
 	if e != nil {
