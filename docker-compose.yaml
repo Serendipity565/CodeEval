@@ -53,13 +53,11 @@ services:
     container_name: codeeval-sandbox-runner
     restart: unless-stopped
     environment:
-      RUNNER_TOKEN: codeeval-compose-internal
-      # Runner 的硬上限；实际并发由 server/config.yaml 中的值控制。
-      MAX_CONCURRENT_SANDBOXES: 2
-      JOB_TIMEOUT_SECONDS: 180
+      TZ: Asia/Shanghai
     ports:
       - "8090:8090"
     volumes:
+      - ./server/config.yaml:/app/config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8090/healthz"]

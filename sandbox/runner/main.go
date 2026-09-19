@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
 	"codeeval/sandbox/protocol"
+	"gopkg.in/yaml.v3"
 )
 
 type runner struct {
@@ -24,12 +24,27 @@ type runner struct {
 	images  map[string]string
 }
 
+type fileConfig struct {
+	Sandbox struct {
+		MaxConcurrentSandboxes int    `yaml:"max_concurrent_sandboxes"`
+		JobTimeoutSeconds      int    `yaml:"job_timeout_seconds"`
+		RunnerToken            string `yaml:"runner_token"`
+	} `yaml:"sandbox"`
+}
+
 func main() {
-	max := envInt("MAX_CONCURRENT_SANDBOXES", 1)
+	cfg := loadConfig(configPath())
+	max := cfg.Sandbox.MaxConcurrentSandboxes
 	if max < 1 || max > 2 {
-		log.Fatal("MAX_CONCURRENT_SANDBOXES must be 1 or 2")
+		log.Fatal("sandbox.max_concurrent_sandboxes must be 1 or 2")
 	}
-	r := &runner{token: mustEnv("RUNNER_TOKEN"), timeout: time.Duration(envInt("JOB_TIMEOUT_SECONDS", 180)) * time.Second, slots: make(chan struct{}, max), images: map[string]string{"go": "codeeval-sandbox-go:local", "python": "codeeval-sandbox-python:local", "java": "codeeval-sandbox-java:local", "c++": "codeeval-sandbox-cpp:local"}}
+	if cfg.Sandbox.JobTimeoutSeconds < 30 {
+		log.Fatal("sandbox.job_timeout_seconds must be at least 30")
+	}
+	if strings.TrimSpace(cfg.Sandbox.RunnerToken) == "" {
+		log.Fatal("sandbox.runner_token is required")
+	}
+	r := &runner{token: cfg.Sandbox.RunnerToken, timeout: time.Duration(cfg.Sandbox.JobTimeoutSeconds) * time.Second, slots: make(chan struct{}, max), images: map[string]string{"go": "codeeval-sandbox-go:local", "python": "codeeval-sandbox-python:local", "java": "codeeval-sandbox-java:local", "c++": "codeeval-sandbox-cpp:local"}}
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	http.HandleFunc("/v1/run", r.run)
 	log.Fatal(http.ListenAndServe(":8090", nil))
@@ -81,18 +96,22 @@ func (r *runner) run(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(output)
 }
-func envInt(key string, fallback int) int {
-	if n, err := strconv.Atoi(os.Getenv(key)); err == nil && n > 0 {
-		return n
+func configPath() string {
+	if path := strings.TrimSpace(os.Getenv("RUNNER_CONFIG")); path != "" {
+		return path
 	}
-	return fallback
+	return "/app/config.yaml"
 }
-func mustEnv(key string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		log.Fatalf("%s is required", key)
+func loadConfig(path string) fileConfig {
+	var cfg fileConfig
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("read runner config %q: %v", path, err)
 	}
-	return value
+	if err := yaml.Unmarshal(contents, &cfg); err != nil {
+		log.Fatalf("parse runner config %q: %v", path, err)
+	}
+	return cfg
 }
 func limit(output []byte, err error) string {
 	value := strings.TrimSpace(string(output))

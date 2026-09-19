@@ -100,6 +100,8 @@ sandbox:
 
 Docker Compose 会构建并启动独立 `sandbox-runner`，同时构建 Go、Python、Java、C++ 四个执行镜像。Runner 的 8090 端口只绑定宿主机 `127.0.0.1`；每次执行都使用一次性容器，并设置无网络、只读根文件系统、256MB 内存、0.75 CPU、64 PID、移除 Linux capabilities 和超时限制。Runner 与服务端各自限制并发，默认均为 1，其他提交进入 MySQL 队列。
 
+Compose 将同一份 `server/config.yaml` 以只读方式挂载给服务端和 Runner。Runner 直接读取其中的 `runner_token`、并发数和任务超时，因此这些运行参数只需在配置文件中维护一份。修改后必须重新创建 `server` 和 `sandbox-runner` 容器。
+
 Runner 为启动子容器需要挂载 Docker socket；它因此属于高权限基础设施，只应位于 Compose 内部网络。生产环境优先使用专用的 rootless Docker 主机或进一步将 Runner 拆到独立机器，不要给它映射公网端口。
 
 ## 评分链路

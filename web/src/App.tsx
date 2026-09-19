@@ -1,4 +1,5 @@
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type {
   Assignment,
   AuthState as Auth,
@@ -37,7 +38,7 @@ function App() {
       }}
     />
   ) : (
-    <Login
+    <Authentication
       done={(v) => {
         saveAuth(v);
         setA(v);
@@ -45,32 +46,15 @@ function App() {
     />
   );
 }
-function Login({ done }: { done: (a: Auth) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login"),
-    [u, setU] = useState("teacher"),
-    [p, setP] = useState("CodeEval123!"),
-    [confirmPassword, setConfirmPassword] = useState(""),
-    [displayName, setDisplayName] = useState(""),
-    [role, setRole] = useState<"student" | "teacher">("student"),
-    [err, setErr] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function go(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setErr("");
-    if (mode === "register" && p !== confirmPassword) {
-      setErr("两次输入的密码不一致");
-      setBusy(false);
-      return;
-    }
-    try {
-      done(mode === "login" ? await login(u, p) : await register({ username: u, displayName, password: p, role }));
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "登录失败");
-    } finally {
-      setBusy(false);
-    }
-  }
+function Authentication({ done }: { done: (a: Auth) => void }) {
+  const [page, setPage] = useState<"login" | "register">("login");
+  return page === "login" ? (
+    <Login done={done} openRegister={() => setPage("register")} />
+  ) : (
+    <Register done={done} back={() => setPage("login")} />
+  );
+}
+function AuthShell({ children }: { children: ReactNode }) {
   return (
     <main className="login">
       <section className="login-intro">
@@ -86,71 +70,109 @@ function Login({ done }: { done: (a: Auth) => void }) {
         </div>
         <small>面向编程课程的日常教学工具</small>
       </section>
+      {children}
+    </main>
+  );
+}
+function Login({ done, openRegister }: { done: (a: Auth) => void; openRegister: () => void }) {
+  const [u, setU] = useState("teacher"),
+    [p, setP] = useState("CodeEval123!"),
+    [err, setErr] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function go(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErr("");
+    try {
+      done(await login(u, p));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "登录失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <AuthShell>
       <form onSubmit={go}>
         <div className="login-mobile-brand"><Logo /></div>
         <div>
-          <h2>{mode === "login" ? "登录 CodeEval" : "注册 CodeEval"}</h2>
-          <p>{mode === "login" ? "使用课程账号继续" : "创建你的课程账号"}</p>
-        </div>
-        <div className="auth-switch" role="tablist" aria-label="账号操作">
-          <button type="button" className={mode === "login" ? "on" : ""} onClick={() => { setMode("login"); setErr(""); }}>登录</button>
-          <button type="button" className={mode === "register" ? "on" : ""} onClick={() => { setMode("register"); setU(""); setP(""); setConfirmPassword(""); setErr(""); }}>注册</button>
+          <h2>登录 CodeEval</h2>
+          <p>使用课程账号继续</p>
         </div>
         <label>
           账号
-          <input autoComplete="username" minLength={3} maxLength={32} required value={u} onChange={(e) => setU(e.target.value)} placeholder="3-32 位字母或数字" />
+          <input autoComplete="username" required value={u} onChange={(e) => setU(e.target.value)} />
         </label>
-        {mode === "register" && <>
-          <label>
-            姓名
-            <input autoComplete="name" minLength={2} maxLength={30} required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="用于课程内展示" />
-          </label>
-          <label>
-            身份
-            <select value={role} onChange={(e) => setRole(e.target.value as "student" | "teacher")}>
-              <option value="student">学生</option>
-              <option value="teacher">教师</option>
-            </select>
-          </label>
-        </>}
         <label>
           密码
           <input
             type="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            minLength={8}
-            maxLength={72}
+            autoComplete="current-password"
             required
             value={p}
             onChange={(e) => setP(e.target.value)}
           />
         </label>
-        {mode === "register" && <label>
-          确认密码
-          <input
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            maxLength={72}
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-        </label>}
         {err && <i className="error">{err}</i>}
         <button className="primary" disabled={busy}>
-          {busy ? (mode === "login" ? "登录中…" : "注册中…") : (mode === "login" ? "登录" : "注册并进入")}
+          {busy ? "登录中…" : "登录"}
         </button>
-        {mode === "login" && <details className="demo-accounts">
+        <p className="auth-link">还没有账号？<button type="button" onClick={openRegister}>创建账号</button></p>
+        <details className="demo-accounts">
           <summary>使用演示账号</summary>
           <div>
             <button type="button" onClick={() => setU("teacher")}>教师账号 <span>teacher</span></button>
             <button type="button" onClick={() => setU("student")}>学生账号 <span>student</span></button>
             <small>演示密码：CodeEval123!</small>
           </div>
-        </details>}
+        </details>
       </form>
-    </main>
+    </AuthShell>
+  );
+}
+function Register({ done, back }: { done: (a: Auth) => void; back: () => void }) {
+  const [username, setUsername] = useState(""),
+    [displayName, setDisplayName] = useState(""),
+    [role, setRole] = useState<"student" | "teacher">("student"),
+    [password, setPassword] = useState(""),
+    [confirmation, setConfirmation] = useState(""),
+    [err, setErr] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function go(e: FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (password !== confirmation) {
+      setErr("两次输入的密码不一致");
+      return;
+    }
+    setBusy(true);
+    try {
+      done(await register({ username, displayName, password, role }));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "注册失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <AuthShell>
+      <form className="register-form" onSubmit={go}>
+        <div className="login-mobile-brand"><Logo /></div>
+        <div>
+          <button className="back-to-login" type="button" onClick={back}>← 返回登录</button>
+          <h2>创建账号</h2>
+          <p>填写信息后即可进入 CodeEval</p>
+        </div>
+        <label>账号<input autoFocus autoComplete="username" minLength={3} maxLength={32} required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="3-32 位字母或数字" /></label>
+        <label>姓名<input autoComplete="name" minLength={2} maxLength={30} required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="用于课程内展示" /></label>
+        <label>身份<select value={role} onChange={(e) => setRole(e.target.value as "student" | "teacher")}><option value="student">学生</option><option value="teacher">教师</option></select></label>
+        <label>密码<input type="password" autoComplete="new-password" minLength={8} maxLength={72} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 8 个字符" /></label>
+        <label>确认密码<input type="password" autoComplete="new-password" minLength={8} maxLength={72} required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></label>
+        {err && <i className="error">{err}</i>}
+        <button className="primary" disabled={busy}>{busy ? "注册中…" : "注册并进入"}</button>
+        <p className="auth-link">已有账号？<button type="button" onClick={back}>返回登录</button></p>
+      </form>
+    </AuthShell>
   );
 }
 function Logo() {

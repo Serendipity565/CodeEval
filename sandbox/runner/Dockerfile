@@ -1,6 +1,6 @@
 FROM golang:1.23-alpine AS build
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
 COPY protocol ./protocol
 COPY runner ./runner
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /runner ./runner
