@@ -932,3 +932,148 @@ button.srow:hover { background: #fff9ec; }
   border-color: #3d424a;
 }
 .editor-tools button:hover { color: #fff; background: #343941; border-color: #606772; }
+
+/* Motion system: quiet, responsive transitions that preserve a work-tool feel. */
+html { scroll-behavior: smooth; }
+
+@keyframes view-enter {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes item-enter {
+  from { opacity: 0; transform: translateY(5px) scale(.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes reveal-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.view-stage {
+  animation: view-enter var(--motion-slow) var(--ease-emphasized) both;
+}
+
+.login > form {
+  animation: item-enter var(--motion-slow) var(--ease-emphasized) both;
+}
+
+.side nav button,
+.side nav button .icon,
+.side nav button em,
+.primary,
+.back,
+.head button,
+.assignment-edit-link,
+.recent,
+button.srow,
+.cards article,
+.demo-accounts button,
+.tabs button,
+.status-select,
+.filters label,
+.filters select,
+.assignment-controls select,
+.side footer button,
+.header-account button,
+.code-collapse-trigger,
+.agent-analysis summary,
+.editor-tools button {
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-base) var(--ease-emphasized),
+    filter var(--motion-base) var(--ease-standard);
+}
+
+.side nav button:active,
+.tabs button:active,
+.recent:active,
+button.srow:active,
+.demo-accounts button:active,
+.assignment-edit-link:active,
+.head button:active,
+.back:active {
+  transform: scale(.975);
+}
+
+input,
+select,
+textarea,
+.read-only-field {
+  transition:
+    border-color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard),
+    background-color var(--motion-base) var(--ease-standard);
+}
+
+.toggle > i,
+.toggle > i::after,
+.dimension > i b,
+.progress-track > i {
+  transition:
+    width var(--motion-slow) var(--ease-emphasized),
+    left var(--motion-base) var(--ease-emphasized),
+    background-color var(--motion-base) var(--ease-standard),
+    transform var(--motion-base) var(--ease-emphasized);
+}
+
+.cards article,
+.teacher-assignment-table .row:not(.th),
+.stable .srow:not(.th) {
+  animation: item-enter var(--motion-base) var(--ease-emphasized) both;
+}
+
+.cards article:nth-child(2),
+.teacher-assignment-table .row:nth-child(3),
+.stable .srow:nth-child(3) { animation-delay: 28ms; }
+.cards article:nth-child(3),
+.teacher-assignment-table .row:nth-child(4),
+.stable .srow:nth-child(4) { animation-delay: 48ms; }
+.cards article:nth-child(n+4),
+.teacher-assignment-table .row:nth-child(n+5),
+.stable .srow:nth-child(n+5) { animation-delay: 64ms; }
+
+.demo-accounts[open] > div,
+.agent-analysis[open] > article,
+.code-collapse-body,
+.inline-message,
+.alert,
+.submitmsg {
+  animation: reveal-down var(--motion-base) var(--ease-emphasized) both;
+}
+
+.demo-accounts summary,
+.agent-analysis summary {
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+
+@media (max-width: 767px) {
+  .brief-details,
+  .brief-details.open {
+    display: block;
+    max-height: 0;
+    padding: 0 16px;
+    overflow: clip;
+    border-top-color: transparent;
+    opacity: 0;
+    transform: translateY(-5px);
+    transition:
+      max-height var(--motion-slow) var(--ease-emphasized),
+      padding var(--motion-slow) var(--ease-emphasized),
+      border-color var(--motion-base) var(--ease-standard),
+      opacity var(--motion-base) var(--ease-standard),
+      transform var(--motion-base) var(--ease-emphasized);
+  }
+  .brief-details.open {
+    max-height: 2400px;
+    padding: 4px 16px 18px;
+    border-top-color: var(--color-border);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

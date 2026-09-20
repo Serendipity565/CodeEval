@@ -223,6 +223,11 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
         ss.reduce((n, s) => n + (s.evaluation?.total || 0), 0) / ss.length,
       )
     : 0;
+  const stageKey = loading
+    ? "loading"
+    : selected
+      ? `submission-${selected.id}`
+      : view;
   return (
     <div className={`shell ${view === "publish" || view === "edit" ? "task-flow" : ""}`}>
       <aside className="side">
@@ -281,64 +286,66 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
           </div>
         </header>
         {err && <p className="alert">{err}</p>}
-        {loading ? (
-          <Empty text="正在加载课程数据…" />
-        ) : selected ? (
-          <Detail
-            sub={selected}
-            assignment={as.find((a) => a.id === selected.assignmentId)}
-            back={() => setSelected(undefined)}
-          />
-        ) : view === "home" ? (
-          <Home
-            teacher={teacher}
-            as={as}
-            ss={ss}
-            avg={avg}
-            go={setView}
-            pick={setSelected}
-          />
-        ) : view === "assignments" ? (
-          teacher ? (
-            <TeacherAssignments
+        <div className="view-stage" key={stageKey}>
+          {loading ? (
+            <Empty text="正在加载课程数据…" />
+          ) : selected ? (
+            <Detail
+              sub={selected}
+              assignment={as.find((a) => a.id === selected.assignmentId)}
+              back={() => setSelected(undefined)}
+            />
+          ) : view === "home" ? (
+            <Home
+              teacher={teacher}
               as={as}
               ss={ss}
+              avg={avg}
               go={setView}
-              edit={(id) => {
-                setEditingAssignmentId(id);
-                setView("edit");
+              pick={setSelected}
+            />
+          ) : view === "assignments" ? (
+            teacher ? (
+              <TeacherAssignments
+                as={as}
+                ss={ss}
+                go={setView}
+                edit={(id) => {
+                  setEditingAssignmentId(id);
+                  setView("edit");
+                }}
+              />
+            ) : (
+              <StudentAssignments
+                as={as}
+                ss={ss}
+                go={setView}
+                onSubmissionChange={upsertSubmission}
+              />
+            )
+          ) : view === "submissions" ? (
+            <Submissions teacher={teacher} as={as} ss={ss} pick={setSelected} />
+          ) : view === "publish" ? (
+            <Publish
+              token={auth.token}
+              back={() => setView("assignments")}
+              done={async () => {
+                await load();
+                setView("assignments");
               }}
             />
           ) : (
-            <StudentAssignments
-              as={as}
-              ss={ss}
-              go={setView}
-              onSubmissionChange={upsertSubmission}
+            <Publish
+              token={auth.token}
+              assignmentId={editingAssignmentId}
+              back={() => setView("assignments")}
+              done={async () => {
+                await load();
+                setView("assignments");
+              }}
             />
-          )
-        ) : view === "submissions" ? (
-          <Submissions teacher={teacher} as={as} ss={ss} pick={setSelected} />
-        ) : view === "publish" ? (
-          <Publish
-            token={auth.token}
-            back={() => setView("assignments")}
-            done={async () => {
-              await load();
-              setView("assignments");
-            }}
-          />
-        ) : (
-          <Publish
-            token={auth.token}
-            assignmentId={editingAssignmentId}
-            back={() => setView("assignments")}
-            done={async () => {
-              await load();
-              setView("assignments");
-            }}
-          />
-        )}
+          )}
+        </div>
       </main>
     </div>
   );
