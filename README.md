@@ -98,7 +98,9 @@ sandbox:
   runner_token: codeeval-compose-internal
 ```
 
-Docker Compose 会构建并启动独立 `sandbox-runner`，同时构建 Go、Python、Java、C++ 四个执行镜像。Runner 的 8090 端口只绑定宿主机 `127.0.0.1`；每次执行都使用一次性容器，并设置无网络、只读根文件系统、256MB 内存、0.75 CPU、64 PID、移除 Linux capabilities 和超时限制。Runner 与服务端各自限制并发，默认均为 1，其他提交进入 MySQL 队列。
+Docker Compose 会构建并启动独立 `sandbox-runner`，同时构建 Go、Python、Java、C++ 四个执行镜像。Runner 的 8090 端口只绑定宿主机 `127.0.0.1`；每次执行都使用一次性容器，并设置无网络、只读根文件系统、512MB 内存、0.75 CPU、64 PID、移除 Linux capabilities 和超时限制。Runner 与服务端各自限制并发，默认均为 1，其他提交进入 MySQL 队列。
+
+部署或修改沙箱后，可在服务器仓库目录运行 `make sandbox-docker-test`。该命令会重新构建四种语言镜像，并分别执行一次真实的编译/运行用例；四项全部通过后再重启 Runner。
 
 Compose 将同一份 `server/config.yaml` 以只读方式挂载给服务端和 Runner。Runner 直接读取其中的 `runner_token`、并发数和任务超时，因此这些运行参数只需在配置文件中维护一份。修改后必须重新创建 `server` 和 `sandbox-runner` 容器。
 

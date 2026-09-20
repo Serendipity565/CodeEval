@@ -7,7 +7,8 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/codeeval-server .
 
 FROM alpine:3.21
-RUN apk add --no-cache ca-certificates tzdata
+RUN sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.cloud.tencent.com/alpine#g' /etc/apk/repositories \
+    && apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /out/codeeval-server ./codeeval-server
 EXPOSE 8080

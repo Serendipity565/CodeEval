@@ -75,8 +75,8 @@ function AuthShell({ children }: { children: ReactNode }) {
   );
 }
 function Login({ done, openRegister }: { done: (a: Auth) => void; openRegister: () => void }) {
-  const [u, setU] = useState("teacher"),
-    [p, setP] = useState("CodeEval123!"),
+  const [u, setU] = useState(""),
+    [p, setP] = useState(""),
     [err, setErr] = useState(""),
     [busy, setBusy] = useState(false);
   async function go(e: FormEvent) {
@@ -192,6 +192,15 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
     [loading, setLoading] = useState(true),
     [selected, setSelected] = useState<Submission>(),
     [editingAssignmentId, setEditingAssignmentId] = useState("");
+  const upsertSubmission = (submission: Submission) => {
+    setSs((current) => [
+      submission,
+      ...current.filter((item) => item.id !== submission.id),
+    ]);
+    setSelected((current) =>
+      current?.id === submission.id ? submission : current,
+    );
+  };
   const load = () => {
     setLoading(true);
     return Promise.all([
@@ -301,7 +310,12 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
               }}
             />
           ) : (
-            <StudentAssignments as={as} ss={ss} go={setView} />
+            <StudentAssignments
+              as={as}
+              ss={ss}
+              go={setView}
+              onSubmissionChange={upsertSubmission}
+            />
           )
         ) : view === "submissions" ? (
           <Submissions teacher={teacher} as={as} ss={ss} pick={setSelected} />
@@ -345,12 +359,15 @@ function Home({
   pick: (s: Submission) => void;
 }) {
   const activeAssignments = as.filter((a) => a.status === "open" && left(a.dueAt) >= 0);
+  const submittedAssignmentIds = new Set(ss.map((s) => s.assignmentId));
+  const pendingAssignments = activeAssignments.filter((a) => !submittedAssignmentIds.has(a.id));
   const actionableAssignments = teacher
     ? activeAssignments
     : activeAssignments.filter((a) => ss.filter((s) => s.assignmentId === a.id).length < a.maxSubmissions);
   const failed = ss.filter((s) => s.status === "failed" || s.status === "needs_review");
   const lowScores = ss.filter((s) => s.evaluation && s.evaluation.total < 60);
-  const dueSoon = actionableAssignments.filter((a) => left(a.dueAt) <= 3);
+  const dueSoon = (teacher ? actionableAssignments : pendingAssignments).filter((a) => left(a.dueAt) <= 3);
+  const deadlineAssignments = teacher ? as : pendingAssignments;
   return (
     <>
       <section className="dashboard-intro">
@@ -410,7 +427,7 @@ function Home({
             name={teacher ? "作业进度" : "即将截止"}
             action={() => go("assignments")}
           />
-          {as.slice(0, 4).map((a) => (
+          {deadlineAssignments.slice(0, 4).map((a) => (
             <div className="due" key={a.id}>
               <i>
                 <b>{new Date(a.dueAt).getDate()}</b>
@@ -429,6 +446,7 @@ function Home({
               </span>
             </div>
           ))}
+          {!deadlineAssignments.length && <Empty text={teacher ? "还没有作业" : "没有待提交的作业"} />}
         </section>
       </div>
     </>
@@ -550,10 +568,12 @@ function TeacherAssignments({
 function StudentAssignments({
   as,
   ss,
+  onSubmissionChange,
 }: {
   as: Assignment[];
   ss: Submission[];
   go: (v: View) => void;
+  onSubmissionChange: (submission: Submission) => void;
 }) {
   const [f, setF] = useState("all"),
     [teacher, setTeacher] = useState("all"),
@@ -580,7 +600,10 @@ function StudentAssignments({
           title={selected.title}
           note={`${selected.teacherName || "未命名教师"} · ${selected.language} · 截止 ${fmt(selected.dueAt)}`}
         />
-        <StudentSubmit assignments={[selected]} />
+        <StudentSubmit
+          assignments={[selected]}
+          onSubmissionChange={onSubmissionChange}
+        />
       </div>
     );
   return (
@@ -770,7 +793,13 @@ function Submissions({
     </section>
   );
 }
-function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
+function StudentSubmit({
+  assignments,
+  onSubmissionChange,
+}: {
+  assignments: Assignment[];
+  onSubmissionChange: (submission: Submission) => void;
+}) {
   const assignment = assignments[0],
     token = loadAuth()?.token || "",
     [history, setHistory] = useState<Submission[]>([]),
@@ -798,7 +827,11 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
       try {
         const items = await req<Submission[]>("/submissions", token),
           current = items.find((s) => s.id === created.id);
-        if (current) setCreated(current);
+        if (current) {
+          setCreated(current);
+          setHistory(items);
+          onSubmissionChange(current);
+        }
       } catch {
         /* 下一轮继续查询 */
       }
@@ -821,6 +854,7 @@ function StudentSubmit({ assignments }: { assignments: Assignment[] }) {
         body: JSON.stringify({ assignmentId: assignment.id, code }),
       });
       setCreated(submission);
+      onSubmissionChange(submission);
       setCode("");
       await refresh();
     } catch (e) {

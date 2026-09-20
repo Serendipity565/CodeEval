@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: help install dev web-install web-dev web-build web-preview server-dev server-test docker-build docker-up docker-down docker-logs
+.PHONY: help install dev web-install web-dev web-build web-preview server-dev server-test sandbox-test sandbox-docker-test docker-build docker-up docker-down docker-logs
 
 help:
 	@echo "CodeEval development commands"
@@ -11,6 +11,8 @@ help:
 	@echo "  make web-preview   Preview the frontend production build"
 	@echo "  make server-dev    Start the Go API"
 	@echo "  make server-test   Run backend tests"
+	@echo "  make sandbox-test  Run sandbox unit tests"
+	@echo "  make sandbox-docker-test  Build and test all four sandbox images"
 	@echo "  make docker-up     Build and start the complete stack"
 	@echo "  make docker-down   Stop the complete stack"
 
@@ -36,6 +38,13 @@ server-dev:
 
 server-test:
 	cd server && go test ./...
+
+sandbox-test:
+	cd sandbox && go test ./...
+
+sandbox-docker-test:
+	docker compose build sandbox-runner sandbox-go-image sandbox-python-image sandbox-java-image sandbox-cpp-image
+	cd sandbox && CODEEVAL_DOCKER_TEST=1 go test ./runner -run TestSandboxImagesEndToEnd -v
 
 docker-build:
 	docker compose build

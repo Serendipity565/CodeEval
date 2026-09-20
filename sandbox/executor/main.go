@@ -14,6 +14,26 @@ import (
 	"codeeval/sandbox/protocol"
 )
 
+const compileTimeout = 60 * time.Second
+const commandOutputLimit = 64 << 10
+
+type cappedBuffer struct {
+	bytes.Buffer
+	limit int
+}
+
+func (b *cappedBuffer) Write(value []byte) (int, error) {
+	written := len(value)
+	remaining := b.limit - b.Len()
+	if remaining > 0 {
+		if remaining < len(value) {
+			value = value[:remaining]
+		}
+		_, _ = b.Buffer.Write(value)
+	}
+	return written, nil
+}
+
 func main() {
 	var request protocol.Request
 	if err := json.NewDecoder(os.Stdin).Decode(&request); err != nil {
@@ -37,13 +57,21 @@ func main() {
 		response.TotalWeight += test.Weight
 	}
 	if len(compile) > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), compileTimeout)
 		cmd := exec.CommandContext(ctx, compile[0], compile[1:]...)
 		cmd.Dir = dir
-		output, compileErr := cmd.CombinedOutput()
+		output := &cappedBuffer{limit: commandOutputLimit}
+		cmd.Stdout = output
+		cmd.Stderr = output
+		compileErr := cmd.Run()
+		deadlineExceeded := ctx.Err() == context.DeadlineExceeded
 		cancel()
 		if compileErr != nil {
-			response.CompileError = limited(output, compileErr)
+			if deadlineExceeded {
+				response.CompileError = "compilation time limit exceeded"
+			} else {
+				response.CompileError = limited(output.Bytes(), compileErr)
+			}
 			emit(response)
 			return
 		}
@@ -56,9 +84,10 @@ func main() {
 		cmd := exec.CommandContext(ctx, run[0], run[1:]...)
 		cmd.Dir = dir
 		cmd.Stdin = strings.NewReader(test.Input)
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
+		stdout := &cappedBuffer{limit: commandOutputLimit}
+		stderr := &cappedBuffer{limit: commandOutputLimit}
+		cmd.Stdout = stdout
+		cmd.Stderr = stderr
 		err := cmd.Run()
 		cancel()
 		exit := 0

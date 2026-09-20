@@ -85,7 +85,7 @@ func (r *runner) run(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), r.timeout)
 	defer cancel()
 	payload, _ := json.Marshal(input)
-	args := []string{"run", "--rm", "-i", "--network", "none", "--read-only", "--memory", "256m", "--memory-swap", "256m", "--cpus", "0.75", "--pids-limit", "64", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--tmpfs", "/tmp:rw,nosuid,size=96m", image}
+	args := dockerRunArgs(image)
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Stdin = bytes.NewReader(payload)
 	output, err := cmd.CombinedOutput()
@@ -96,6 +96,11 @@ func (r *runner) run(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(output)
 }
+
+func dockerRunArgs(image string) []string {
+	return []string{"run", "--rm", "-i", "--network", "none", "--read-only", "--memory", "512m", "--memory-swap", "512m", "--cpus", "0.75", "--pids-limit", "64", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--tmpfs", "/tmp:rw,exec,nosuid,nodev,size=192m,mode=1777", image}
+}
+
 func configPath() string {
 	if path := strings.TrimSpace(os.Getenv("RUNNER_CONFIG")); path != "" {
 		return path
