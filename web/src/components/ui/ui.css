@@ -1,0 +1,205 @@
+.empty.ui-empty {
+  min-height: 220px;
+  padding: 38px 24px;
+  gap: 0;
+}
+
+.ui-empty .ui-empty-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 15px;
+  place-items: center;
+  border: 1px solid var(--color-border, #e5e5df);
+  border-radius: 10px;
+  background: var(--color-surface-subtle, #f7f7f3);
+  color: var(--color-text-tertiary, #969a91);
+}
+
+.ui-empty .ui-empty-mark .icon {
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.4;
+}
+
+.empty.ui-empty > span {
+  color: var(--color-text-secondary, #545e55);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.empty.ui-empty p {
+  max-width: 360px;
+  margin-top: 6px;
+  color: var(--color-text-tertiary, #868d83);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.ui-empty .ui-empty-action {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.submission-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #6b726c;
+  background: #f2f3ef;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.submission-state .icon {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  stroke-width: 1.75;
+}
+
+.submission-state--evaluating {
+  color: #37634f;
+  background: #edf3ed;
+}
+
+.submission-state--evaluating > .icon {
+  animation: submission-state-turn 2.5s linear infinite;
+}
+
+.submission-state--graded {
+  color: #315e45;
+  background: #eef4ed;
+}
+
+.submission-state--needs_review {
+  color: #987327;
+  background: #f9f4e6;
+}
+
+.submission-state--failed {
+  color: #ab5647;
+  background: #fbefea;
+}
+
+.workspace-skeleton {
+  width: 100%;
+  padding-block: 6px 28px;
+}
+
+.workspace-skeleton-content {
+  display: grid;
+  gap: 24px;
+}
+
+.workspace-skeleton-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 74px;
+}
+
+.workspace-skeleton .skeleton-block {
+  display: block;
+  overflow: hidden;
+  position: relative;
+  max-width: 100%;
+  border-radius: 4px;
+  background: #eceee7;
+}
+
+.workspace-skeleton .skeleton-block::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 55%), transparent);
+  animation: workspace-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+.workspace-skeleton .skeleton-heading { width: 152px; height: 24px; }
+.workspace-skeleton .skeleton-description { width: 230px; height: 11px; margin-top: 14px; }
+.workspace-skeleton .skeleton-action { width: 100px; height: 34px; border-radius: 8px; }
+.workspace-skeleton .skeleton-label { width: 72px; height: 11px; }
+.workspace-skeleton .skeleton-number { width: 54px; height: 31px; margin-block: 19px 16px; }
+.workspace-skeleton .skeleton-caption { width: 92px; height: 9px; }
+
+.workspace-skeleton-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.workspace-skeleton-metric,
+.workspace-skeleton-panel {
+  border: 1px solid var(--color-border, #e5e5df);
+  border-radius: 10px;
+  background: var(--color-surface, #fffefa);
+}
+
+.workspace-skeleton-metric { padding: 23px; }
+.workspace-skeleton-panel { overflow: hidden; }
+
+.workspace-skeleton-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 23px 24px;
+  border-bottom: 1px solid var(--color-border, #e5e5df);
+}
+
+.workspace-skeleton-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.workspace-skeleton-row + .workspace-skeleton-row {
+  border-top: 1px solid var(--color-border-subtle, #eff0e9);
+}
+
+.workspace-skeleton .skeleton-row-icon { width: 32px; height: 34px; border-radius: 7px; }
+.workspace-skeleton .skeleton-row-title { width: 38%; min-width: 96px; height: 11px; }
+.workspace-skeleton .skeleton-row-note { width: 24%; min-width: 64px; height: 8px; margin-top: 10px; }
+.workspace-skeleton .skeleton-row-value { width: 64px; height: 19px; }
+.workspace-skeleton-row:nth-child(3n) .skeleton-row-title { width: 47%; }
+.workspace-skeleton-row:nth-child(3n + 1) .skeleton-row-title { width: 31%; }
+
+@keyframes workspace-skeleton-shimmer {
+  to { transform: translateX(100%); }
+}
+
+@keyframes submission-state-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 720px) {
+  .workspace-skeleton-content { gap: 18px; }
+  .workspace-skeleton-heading { gap: 16px; }
+  .workspace-skeleton .skeleton-description { width: 160px; }
+  .workspace-skeleton .skeleton-action { width: 74px; }
+  .workspace-skeleton-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .workspace-skeleton-metric { padding: 20px; }
+  .workspace-skeleton-toolbar { padding: 20px; }
+  .workspace-skeleton-row { grid-template-columns: 28px minmax(0, 1fr) 48px; gap: 12px; padding: 20px; }
+  .workspace-skeleton .skeleton-row-value { width: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-skeleton .skeleton-block::after { animation: none; content: none; }
+  .submission-state--evaluating > .icon { animation: none; }
+}
