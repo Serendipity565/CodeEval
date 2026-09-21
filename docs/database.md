@@ -8,7 +8,7 @@
 
 ```yaml
 database:
-  host: 服务器 IP 或域名
+  host: mysql # 后端在 Compose 内；宿主机运行时用 127.0.0.1
   port: 3306
   name: codeeval
   username: codeeval
@@ -65,8 +65,8 @@ users (teacher)
 | `description` | 作业要求 | TEXT |
 | `status` | 提交状态 | `open` 或 `closed`，默认 `open` |
 | `max_submissions` | 每名学生提交次数上限 | 1–100，默认 1 |
-| `reference_solution` | 教师参考实现 | LONGTEXT，仅后端评估智能体读取，不通过作业 API 返回 |
-| `knowledge_base` | 课程知识库、常见错误和评分边界 | LONGTEXT，仅后端评估智能体读取，不通过作业 API 返回 |
+| `reference_solution` | 教师参考实现 | LONGTEXT；作业所有者可通过详情 API 查看，学生不可查看 |
+| `knowledge_base` | 课程知识库、常见错误和评分边界 | LONGTEXT；作业所有者可通过详情 API 查看，学生不可查看 |
 | `due_at` | 截止时间 | 本地时区时间 |
 | `rubric_json` | 评分量规 | JSON，所有权重之和必须为 100 |
 | `llm_evaluation_enabled` | 是否启用大模型评估 | 默认 `false`；为 `true` 时使用 DeepSeek Flash |
@@ -91,7 +91,7 @@ users (teacher)
 | `assignment_id` | 所属作业 ID | 普通索引，逻辑关联 `assignment_records.id` |
 | `student_id` | 提交学生 ID | 普通索引，逻辑关联 `users.id` |
 | `code` | 学生代码 | LONGTEXT |
-| `status` | 评估状态 | 当前使用 `graded` |
+| `status` | 评估状态 | `queued`、`evaluating`、`graded` 或 `failed` |
 | `evaluation_json` | 评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本 |
 | `submitted_at` | 提交时间 | 由后端写入 |
 | `progress` | 评估进度 | 0–100；已完成或失败时为 100 |
@@ -103,7 +103,7 @@ users (teacher)
 | 字段 | 含义 |
 | --- | --- |
 | `assignment_id` | 所属作业 |
-| `name` | 用例名称，作业内唯一 |
+| `name` | 用例名称；应用层要求同一作业内不重复 |
 | `input`、`expected` | 标准输入与期望输出 |
 | `hidden` | 是否为隐藏用例 |
 | `weight` | 计算功能得分的相对权重 |
@@ -143,7 +143,7 @@ Mock 数据统一定义在 `server/internal/store/mock_data.go`，使用事务�
 | 标题 | 两数之和：返回下标 |
 | 发布者 | 李老师 |
 | 语言 | Go |
-| 描述 | 实现 `twoSum`，返回目标和对应的两个不同下标。 |
+| 描述 | 读取 `n`、`target` 和 `n` 个整数，输出两数之和为目标值的零基下标；无解时输出 `-1 -1`。 |
 | 截止时间 | Mock 首次创建时间后 72 小时 |
 | 大模型评估 | 关闭，使用规则评估 |
 | 测试用例 | 2 个公开用例、2 个隐藏用例 |
@@ -155,15 +155,24 @@ Mock 数据统一定义在 `server/internal/store/mock_data.go`，使用事务�
 提交者为张同学，内容如下：
 
 ```go
-func twoSum(nums []int, target int) []int {
+package main
+
+import "fmt"
+
+func main() {
+	var n, target int
+	fmt.Scan(&n, &target)
 	seen := map[int]int{}
-	for i, n := range nums {
-		if j, ok := seen[target-n]; ok {
-			return []int{j, i}
+	for i := 0; i < n; i++ {
+		var value int
+		fmt.Scan(&value)
+		if j, ok := seen[target-value]; ok {
+			fmt.Println(j, i)
+			return
 		}
-		seen[n] = i
+		seen[value] = i
 	}
-	return nil
+	fmt.Println(-1, -1)
 }
 ```
 
@@ -172,7 +181,7 @@ Mock 评估结果：
 | 维度 | 得分 | 满分 | 主要证据 |
 | --- | ---: | ---: | --- |
 | 功能正确性 | 45 | 45 | 示例测试全部通过 |
-| 鲁棒性 | 18 | 20 | 无解时安全返回 `nil` |
+| 鲁棒性 | 18 | 20 | 无解时按约定输出 `-1 -1` |
 | 代码质量 | 16 | 20 | 职责明确，缺少函数注释 |
 | 算法效率 | 13 | 15 | 使用哈希表一次遍历 |
 | **总分** | **92** | **100** | 规则评估 |
