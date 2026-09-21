@@ -6,9 +6,14 @@ import "./auth.css";
 
 type AuthProps = { done: (auth: AuthState) => void };
 
-export function Authentication({ done }: AuthProps) {
-  const [page, setPage] = useState<"login" | "register">("login");
-
+export function Authentication({
+  done,
+  page,
+  navigate,
+}: AuthProps & {
+  page: "login" | "register";
+  navigate: (path: string) => void;
+}) {
   return (
     <main className={`ce-auth ce-auth--${page}`}>
       <AuthStory />
@@ -21,9 +26,9 @@ export function Authentication({ done }: AuthProps) {
         </div>
         <div className="ce-auth-form-wrap" key={page}>
           {page === "login" ? (
-            <Login done={done} openRegister={() => setPage("register")} />
+            <Login done={done} openRegister={() => navigate("/register")} />
           ) : (
-            <Register done={done} back={() => setPage("login")} />
+            <Register done={done} back={() => navigate("/login")} />
           )}
         </div>
         <footer className="ce-auth-access-footer">
@@ -102,8 +107,7 @@ function CodeSample() {
       <span className="ce-auth-code-function">sum</span>(
     </>,
     <>
-      {"        "}
-      n <span className="ce-auth-code-keyword">for</span> n{" "}
+      {"        "}n <span className="ce-auth-code-keyword">for</span> n{" "}
       <span className="ce-auth-code-keyword">in</span> numbers
     </>,
     <>
@@ -183,6 +187,10 @@ function Login({
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
+    if (!username.trim()) {
+      setError("请输入账号");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -226,6 +234,7 @@ function Login({
             spellCheck={false}
             required
             value={username}
+            onBlur={(event) => setUsername(event.target.value.trim())}
             disabled={busy}
             onChange={(event) => {
               setUsername(event.target.value);
@@ -327,6 +336,14 @@ function Register({ done, back }: AuthProps & { back: () => void }) {
     event.preventDefault();
     if (busy) return;
     setError("");
+    if (username.trim().length < 3 || username.trim().length > 32) {
+      setError("账号须为 3–32 位字符");
+      return;
+    }
+    if (displayName.trim().length < 2 || displayName.trim().length > 30) {
+      setError("姓名须为 2–30 位字符");
+      return;
+    }
     if (password !== confirmation) {
       setError("两次输入的密码不一致，请检查后重试。");
       return;
@@ -383,6 +400,7 @@ function Register({ done, back }: AuthProps & { back: () => void }) {
               maxLength={32}
               required
               value={username}
+              onBlur={(event) => setUsername(event.target.value.trim())}
               disabled={busy}
               onChange={(event) => setUsername(event.target.value)}
               placeholder="3–32 位字符"
@@ -397,6 +415,7 @@ function Register({ done, back }: AuthProps & { back: () => void }) {
               maxLength={30}
               required
               value={displayName}
+              onBlur={(event) => setDisplayName(event.target.value.trim())}
               disabled={busy}
               onChange={(event) => setDisplayName(event.target.value)}
               placeholder="课程中展示的名字"

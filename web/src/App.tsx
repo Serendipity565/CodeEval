@@ -20,6 +20,13 @@ import {
 } from "./components/ui";
 import Home from "./components/Home";
 import {
+  assignmentPath,
+  editPath,
+  readWorkspaceRoute,
+  submissionPath,
+  viewPath,
+} from "./navigation";
+import {
   editorTemplate,
   executionContract,
 } from "./components/editor/templates";
@@ -33,19 +40,55 @@ const fmt = (x: string) =>
   });
 function App() {
   const [a, setA] = useState<Auth | null>(loadAuth);
+  const [path, setPath] = useState(window.location.pathname);
+  useEffect(() => {
+    const onPopState = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  useEffect(() => {
+    if (path === "/" || (a && (path === "/login" || path === "/register"))) {
+      const next = a ? viewPath("home") : "/login";
+      window.history.replaceState(window.history.state, "", next);
+      setPath(next);
+    }
+  }, [a, path]);
+  const navigate = (next: string, replace = false) => {
+    if (window.location.pathname !== next) {
+      window.history[replace ? "replaceState" : "pushState"](
+        replace ? window.history.state : { from: window.location.pathname },
+        "",
+        next,
+      );
+    }
+    setPath(next);
+  };
   return a ? (
     <Workspace
       auth={a}
+      path={path}
+      navigate={navigate}
       logout={() => {
         clearAuth();
         setA(null);
+        navigate("/login", true);
       }}
     />
   ) : (
     <Authentication
+      page={path === "/register" ? "register" : "login"}
+      navigate={navigate}
       done={(v) => {
         saveAuth(v);
         setA(v);
+        navigate(
+          path.startsWith("/workspace/") ||
+            path.startsWith("/assignments/") ||
+            path.startsWith("/submissions/")
+            ? path
+            : viewPath("home"),
+          true,
+        );
       }}
     />
   );
@@ -62,24 +105,47 @@ function Logo() {
     </div>
   );
 }
-function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
+function Workspace({
+  auth,
+  logout,
+  path,
+  navigate,
+}: {
+  auth: Auth;
+  logout: () => void;
+  path: string;
+  navigate: (path: string, replace?: boolean) => void;
+}) {
+  const route = readWorkspaceRoute(path);
   const teacher = auth.user.role === "teacher",
-    [view, setView] = useState<View>("home"),
+    view = route.view,
     [as, setAs] = useState<Assignment[]>([]),
     [ss, setSs] = useState<Submission[]>([]),
     [err, setErr] = useState(""),
     [loading, setLoading] = useState(true),
     [hasLoaded, setHasLoaded] = useState(false),
-    [selected, setSelected] = useState<Submission>(),
-    [editingAssignmentId, setEditingAssignmentId] = useState("");
+    selected = ss.find((item) => item.id === route.submissionId);
+  const setView = (next: View) => navigate(viewPath(next));
+  const backTo = (fallback: string) => {
+    const from = window.history.state?.from;
+    if (
+      typeof from === "string" &&
+      (from.startsWith("/workspace/") ||
+        from.startsWith("/assignments/") ||
+        from.startsWith("/submissions/"))
+    ) {
+      window.history.back();
+    } else {
+      navigate(fallback, true);
+    }
+  };
+  const setSelected = (next: Submission | undefined) =>
+    navigate(next ? submissionPath(next.id) : viewPath("submissions"));
   const upsertSubmission = (submission: Submission) => {
     setSs((current) => [
       submission,
       ...current.filter((item) => item.id !== submission.id),
     ]);
-    setSelected((current) =>
-      current?.id === submission.id ? submission : current,
-    );
   };
   const load = () => {
     setLoading(true);
@@ -102,16 +168,27 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
     load();
   }, []);
   useEffect(() => {
+    if (
+      !selected ||
+      ["graded", "needs_review", "failed"].includes(selected.status)
+    )
+      return;
+    const timer = window.setInterval(() => {
+      void req<Submission[]>("/submissions", auth.token)
+        .then((items) => setSs(items))
+        .catch(() => undefined);
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [selected?.id, selected?.status, auth.token]);
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-  }, [view, selected?.id]);
+  }, [path]);
   const initialLoading = loading && !hasLoaded;
   const stageKey = initialLoading
     ? "loading"
     : !hasLoaded
       ? "load-error"
-      : selected
-        ? `submission-${selected.id}`
-        : view;
+      : path;
   return (
     <div
       className={`shell ${view === "publish" || view === "edit" ? "task-flow" : ""}`}
@@ -139,7 +216,6 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
               aria-current={view === v ? "page" : undefined}
               onClick={() => {
                 setView(v);
-                setSelected(undefined);
               }}
               key={v}
             >
@@ -231,11 +307,25 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
                 note="数据尚未加载成功，请重新加载后继续。"
               />
             </section>
+          ) : route.submissionId && !selected ? (
+            <section className="panel">
+              <Empty
+                text="这份提交不存在或无法访问。"
+                action={
+                  <button
+                    className="text-action"
+                    onClick={() => setView("submissions")}
+                  >
+                    返回提交记录
+                  </button>
+                }
+              />
+            </section>
           ) : selected ? (
             <Detail
               sub={selected}
               assignment={as.find((a) => a.id === selected.assignmentId)}
-              back={() => setSelected(undefined)}
+              back={() => backTo(viewPath("submissions"))}
             />
           ) : view === "home" ? (
             <Home
@@ -252,16 +342,20 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
                 ss={ss}
                 go={setView}
                 edit={(id) => {
-                  setEditingAssignmentId(id);
-                  setView("edit");
+                  navigate(editPath(id));
                 }}
               />
             ) : (
               <StudentAssignments
                 as={as}
                 ss={ss}
-                go={setView}
+                assignmentId={route.assignmentId}
+                open={(id) => navigate(assignmentPath(id))}
+                back={() => backTo(viewPath("assignments"))}
                 onSubmissionChange={upsertSubmission}
+                onCreated={(submission) =>
+                  navigate(submissionPath(submission.id))
+                }
               />
             )
           ) : view === "submissions" ? (
@@ -269,20 +363,20 @@ function Workspace({ auth, logout }: { auth: Auth; logout: () => void }) {
           ) : view === "publish" ? (
             <Publish
               token={auth.token}
-              back={() => setView("assignments")}
+              back={() => backTo(viewPath("assignments"))}
               done={async () => {
                 await load();
-                setView("assignments");
+                navigate(viewPath("assignments"), true);
               }}
             />
           ) : (
             <Publish
               token={auth.token}
-              assignmentId={editingAssignmentId}
-              back={() => setView("assignments")}
+              assignmentId={route.assignmentId}
+              back={() => backTo(viewPath("assignments"))}
               done={async () => {
                 await load();
-                setView("assignments");
+                navigate(viewPath("assignments"), true);
               }}
             />
           )}
@@ -415,16 +509,22 @@ function TeacherAssignments({
 function StudentAssignments({
   as,
   ss,
+  assignmentId,
+  open,
+  back,
   onSubmissionChange,
+  onCreated,
 }: {
   as: Assignment[];
   ss: Submission[];
-  go: (v: View) => void;
+  assignmentId?: string;
+  open: (id: string) => void;
+  back: () => void;
   onSubmissionChange: (submission: Submission) => void;
+  onCreated: (submission: Submission) => void;
 }) {
   const [f, setF] = useState("all"),
     [teacher, setTeacher] = useState("all"),
-    [active, setActive] = useState(""),
     teachers = Array.from(
       new Map(
         as.map((a) => [a.teacherId, a.teacherName || "未命名教师"]),
@@ -436,14 +536,24 @@ function StudentAssignments({
         (f === "all" ||
           (f === "done") === ss.some((s) => s.assignmentId === a.id)),
     ),
-    selected = as.find((a) => a.id === active);
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, [active]);
+    selected = as.find((a) => a.id === assignmentId);
+  if (assignmentId && !selected)
+    return (
+      <section className="panel">
+        <Empty
+          text="这项作业不存在或无法访问。"
+          action={
+            <button className="text-action" onClick={back}>
+              返回我的作业
+            </button>
+          }
+        />
+      </section>
+    );
   if (selected)
     return (
       <div className="assignment-submit-view">
-        <button className="back" onClick={() => setActive("")}>
+        <button className="back" onClick={back}>
           ‹ 返回我的作业
         </button>
         <Title
@@ -453,6 +563,7 @@ function StudentAssignments({
         <StudentSubmit
           assignments={[selected]}
           onSubmissionChange={onSubmissionChange}
+          onCreated={onCreated}
         />
       </div>
     );
@@ -537,7 +648,7 @@ function StudentAssignments({
                       最高 <Score n={highest} />
                     </span>
                   )}
-                  <button disabled={!canSubmit} onClick={() => setActive(a.id)}>
+                  <button disabled={!canSubmit} onClick={() => open(a.id)}>
                     {submissions.length ? "再次提交" : "进入作业"} ›
                   </button>
                 </span>
@@ -568,10 +679,10 @@ function Submissions({
       ss.filter(
         (s) =>
           (aid === "all" || s.assignmentId === aid) &&
-          (!q ||
+          (!q.trim() ||
             (s.studentName + as.find((a) => a.id === s.assignmentId)?.title)
               .toLowerCase()
-              .includes(q.toLowerCase())),
+              .includes(q.trim().toLowerCase())),
       ),
     [q, aid, ss, as],
   );
@@ -591,6 +702,7 @@ function Submissions({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onBlur={(e) => setQ(e.target.value.trim())}
             aria-label={teacher ? "搜索学生或作业" : "搜索作业"}
             placeholder={teacher ? "搜索学生或作业" : "搜索作业"}
           />
@@ -657,14 +769,15 @@ function Submissions({
 function StudentSubmit({
   assignments,
   onSubmissionChange,
+  onCreated,
 }: {
   assignments: Assignment[];
   onSubmissionChange: (submission: Submission) => void;
+  onCreated: (submission: Submission) => void;
 }) {
   const assignment = assignments[0],
     token = loadAuth()?.token || "",
     [history, setHistory] = useState<Submission[]>([]),
-    [created, setCreated] = useState<Submission>(),
     [code, setCode] = useState(() =>
       editorTemplate(assignment?.language ?? ""),
     ),
@@ -676,29 +789,6 @@ function StudentSubmit({
   useEffect(() => {
     void refresh();
   }, []);
-  useEffect(() => {
-    if (
-      !created ||
-      created.status === "graded" ||
-      created.status === "needs_review" ||
-      created.status === "failed"
-    )
-      return;
-    const timer = window.setInterval(async () => {
-      try {
-        const items = await req<Submission[]>("/submissions", token),
-          current = items.find((s) => s.id === created.id);
-        if (current) {
-          setCreated(current);
-          setHistory(items);
-          onSubmissionChange(current);
-        }
-      } catch {
-        /* 下一轮继续查询 */
-      }
-    }, 1500);
-    return () => window.clearInterval(timer);
-  }, [created?.id, created?.status]);
   const used = history.filter((s) => s.assignmentId === assignment?.id).length,
     canSubmit =
       !!assignment &&
@@ -714,26 +804,14 @@ function StudentSubmit({
         method: "POST",
         body: JSON.stringify({ assignmentId: assignment.id, code }),
       });
-      setCreated(submission);
       onSubmissionChange(submission);
-      setCode("");
-      await refresh();
+      onCreated(submission);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "提交失败");
     } finally {
       setBusy(false);
     }
   }
-  if (created)
-    return (
-      <div className="submitted-detail">
-        <Detail
-          sub={created}
-          assignment={assignment}
-          back={() => setCreated(undefined)}
-        />
-      </div>
-    );
   return (
     <div className="submit-layout">
       <aside className="panel assignment-brief">
@@ -1315,9 +1393,9 @@ function Publish({
         {
           method: "POST",
           body: JSON.stringify({
-            title: t,
+            title: t.trim(),
             language: lang,
-            description: desc,
+            description: desc.trim(),
             referenceSolution,
           }),
         },
@@ -1331,6 +1409,18 @@ function Publish({
   }
   async function go(e: FormEvent) {
     e.preventDefault();
+    if (!t.trim()) {
+      setErr("请填写作业标题");
+      return;
+    }
+    if (rubric.some((item) => !item.name.trim() || !item.description.trim())) {
+      setErr("请填写评分项名称和评判标准说明");
+      return;
+    }
+    if (tests.some((test) => !test.name.trim())) {
+      setErr("请填写测试用例名称");
+      return;
+    }
     if (total !== 100) {
       setErr("评分项权重之和必须为 100%");
       return;
@@ -1342,17 +1432,24 @@ function Publish({
         {
           method: assignmentId ? "PUT" : "POST",
           body: JSON.stringify({
-            title: t,
+            title: assignmentId ? t : t.trim(),
             language: lang,
-            description: desc,
+            description: desc.trim(),
             status,
             maxSubmissions: max,
             dueAt: new Date(due).toISOString(),
             llmEvaluationEnabled: llm,
             referenceSolution,
-            knowledgeBase,
-            testCases: tests,
-            rubric,
+            knowledgeBase: knowledgeBase.trim(),
+            testCases: tests.map((test) => ({
+              ...test,
+              name: test.name.trim(),
+            })),
+            rubric: rubric.map((item) => ({
+              ...item,
+              name: item.name.trim(),
+              description: item.description.trim(),
+            })),
           }),
         },
       );
@@ -1402,6 +1499,7 @@ function Publish({
                 required
                 value={t}
                 onChange={(e) => setT(e.target.value)}
+                onBlur={(e) => setT(e.target.value.trim())}
                 placeholder="例如：实现 LRU 缓存"
               />
             )}
@@ -1458,6 +1556,7 @@ function Publish({
             <textarea
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
+              onBlur={(e) => setDesc(e.target.value.trim())}
               placeholder="描述任务目标、输入输出、约束条件和示例…"
             />
           </label>
@@ -1488,6 +1587,7 @@ function Publish({
             <textarea
               value={knowledgeBase}
               onChange={(e) => setKnowledgeBase(e.target.value)}
+              onBlur={(e) => setKnowledgeBase(e.target.value.trim())}
               placeholder="可选：填写知识点、常见错误、评分边界和典型改进方式…"
             />
           </label>
@@ -1506,12 +1606,16 @@ function Publish({
                 <input
                   required
                   value={r.name}
+                  onBlur={(e) => update(index, { name: e.target.value.trim() })}
                   onChange={(e) => update(index, { name: e.target.value })}
                   placeholder="评分项名称"
                 />
                 <input
                   required
                   value={r.description}
+                  onBlur={(e) =>
+                    update(index, { description: e.target.value.trim() })
+                  }
                   onChange={(e) =>
                     update(index, { description: e.target.value })
                   }
@@ -1578,6 +1682,9 @@ function Publish({
                     <input
                       required
                       value={test.name}
+                      onBlur={(e) =>
+                        updateTest(index, { name: e.target.value.trim() })
+                      }
                       onChange={(e) =>
                         updateTest(index, { name: e.target.value })
                       }
