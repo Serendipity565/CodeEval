@@ -814,12 +814,12 @@ function StudentSubmit({
       </aside>
       <section className="panel submitbox">
         <Title title="编写解答" note="完成代码后提交，查看测试结果与评估反馈。">
-            <span className="studio-availability">
-              <i className={`availability ${canSubmit ? "open" : "closed"}`} />
-              {assignment?.status === "closed"
-                ? "提交已关闭"
-                : `还可提交 ${Math.max(0, (assignment?.maxSubmissions ?? 0) - used)} 次`}
-            </span>
+          <span className="studio-availability">
+            <i className={`availability ${canSubmit ? "open" : "closed"}`} />
+            {assignment?.status === "closed"
+              ? "提交已关闭"
+              : `还可提交 ${Math.max(0, (assignment?.maxSubmissions ?? 0) - used)} 次`}
+          </span>
         </Title>
         <form onSubmit={send}>
           <Suspense
@@ -1076,7 +1076,10 @@ function Detail({
               <b>提交代码 · {assignment?.language || ""}</b>
             </span>
             <i>{sub.code.split("\n").length} 行</i>
-            <strong>{codeOpen ? "收起代码" : "展开代码"}<Icon name="chevronRight" /></strong>
+            <strong>
+              {codeOpen ? "收起代码" : "展开代码"}
+              <Icon name="chevronRight" />
+            </strong>
           </button>
           {codeOpen && (
             <div className="code-collapse-body submitted-code-layout">

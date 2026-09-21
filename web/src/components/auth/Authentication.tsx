@@ -97,23 +97,23 @@ function CodeSample() {
       <span className="ce-auth-code-function">sum_even</span>(numbers):
     </>,
     <>
-      {" "}
+      {"    "}
       <span className="ce-auth-code-keyword">return</span>{" "}
       <span className="ce-auth-code-function">sum</span>(
     </>,
     <>
-      {" "}
+      {"        "}
       n <span className="ce-auth-code-keyword">for</span> n{" "}
       <span className="ce-auth-code-keyword">in</span> numbers
     </>,
     <>
-      {" "}
+      {"        "}
       <span className="ce-auth-code-keyword">if</span> n %{" "}
       <span className="ce-auth-code-number">2</span> =={" "}
       <span className="ce-auth-code-number">0</span>
     </>,
     <>
-      {" "}
+      {"    "}
       )<span className="ce-auth-code-caret" />
     </>,
   ];
