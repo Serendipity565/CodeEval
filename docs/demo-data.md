@@ -17,6 +17,8 @@
 
 原始快照为 [`server/internal/store/fixtures/recorded_seed.json`](../server/internal/store/fixtures/recorded_seed.json)，由 `go:embed` 随后端编译。`SeedMockData` 读取并校验快照，再按账号、作业与学生关系幂等导入。导入不调用模型，也不重新运行代码。
 
+当前内置快照已将首位学生账号统一为 `student01`，原始代码、评分和时间保持不变。
+
 ## 演示账号与密码
 
 在 `server/config.yaml` 中设置 `seed.enabled: true` 后启动后端，可补入下列账号。已有同名账号的密码和信息不会重置；角色不匹配时导入报错并回滚。
@@ -24,14 +26,14 @@
 | 账号 | 显示名称 | 角色 | 新建账号密码 |
 | --- | --- | --- | --- |
 | `teacher` | 李老师 | 教师 | `CodeEval123!` |
-| `student` | 张同学 | 学生 | `CodeEval123!` |
+| `student01` | 张同学 | 学生 | `CodeEval123!` |
 | `student02` | 王同学 | 学生 | `CodeEval123!` |
 | `student03` | 陈同学 | 学生 | `CodeEval123!` |
 | `student04` | 刘同学 | 学生 | `CodeEval123!` |
 | `student05` | 赵同学 | 学生 | `CodeEval123!` |
 | `student06` | 孙同学 | 学生 | `CodeEval123!` |
 
-首位学生账号是 `student`，不是 `student01`。密码区分大小写，末尾为英文感叹号。密码在导入时以 bcrypt 加密；快照不含密码哈希、API Key、JWT 或 Runner 令牌。
+学生账号统一为 `student01` 至 `student06`。密码区分大小写，末尾为英文感叹号。密码在导入时以 bcrypt 加密；快照不含密码哈希、API Key、JWT 或 Runner 令牌。
 
 ## 作业与执行范围
 
@@ -56,7 +58,7 @@
 
 | 学生（账号） | 解法特点 | 实际测试 | 原始总分 | 总评估耗时 |
 | --- | --- | --- | --- | --- |
-| 张同学（`student`） | unordered_map 单次遍历 | 6/6 | 97/100 | 9.579 秒 |
+| 张同学（`student01`） | unordered_map 单次遍历 | 6/6 | 97/100 | 9.579 秒 |
 | 王同学（`student02`） | vector 双重循环 | 6/6 | 86/100 | 8.782 秒 |
 | 陈同学（`student03`） | 独立函数 + map | 6/6 | 93/100 | 8.021 秒 |
 | 刘同学（`student04`） | 先插入再查找，误用重复下标 | 4/6 | 87/100 | 8.701 秒 |
@@ -83,6 +85,6 @@ go run ./cmd/export-seed -assignment 1 -output /tmp/recorded-seed-new.json
 
 导出器不迁移或修改数据库，不覆盖已有输出文件；缺少学生、完整评分、实际模型调用、沙箱结果或耗时则停止导出。用新快照替换内置文件前，应核对账号范围、题目及每份结果。
 
-本次快照捕获时间：`2026-10-18T04:38:02.097167Z`。SHA-256：`d8760dd449b07f52f9bccd915e86556336e5d885a5a54e04e1d3fcc3e5dc2aad`。
+本次快照捕获时间：`2026-10-18T04:38:02.097167Z`。SHA-256：`b7c9428b929c40f270579046d6e6c40bb2084d6f323b1a7c3a74a4fe4b4c2215`。
 
 自动检查覆盖快照有效性、首次导入与重复导入、原评估原样保存，以及六份 C++ 代码重新编译运行后与捕获执行结果一致。

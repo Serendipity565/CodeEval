@@ -21,7 +21,7 @@ import (
 func main() {
 	configPath := flag.String("config", "config.yaml", "backend configuration")
 	assignmentID := flag.Uint("assignment", 1, "source assignment ID")
-	students := flag.String("students", "student,student02,student03,student04,student05,student06", "demo cohort usernames")
+	students := flag.String("students", "student01,student02,student03,student04,student05,student06", "demo cohort usernames")
 	output := flag.String("output", "internal/store/fixtures/recorded_seed.json", "new output file (never overwritten)")
 	flag.Parse()
 	cfg, err := config.Load(*configPath)

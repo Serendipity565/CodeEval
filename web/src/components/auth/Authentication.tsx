@@ -202,7 +202,7 @@ function Login({
     }
   }
   function chooseDemo(role: "teacher" | "student") {
-    setUsername(role);
+    setUsername(role === "student" ? "student01" : "teacher");
     setPassword("CodeEval123!");
     setDemoRole(role);
     setError("");

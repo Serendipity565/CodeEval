@@ -9,7 +9,7 @@
       "role": "teacher"
     },
     {
-      "username": "student",
+      "username": "student01",
       "displayName": "张同学",
       "role": "student"
     },
@@ -132,7 +132,7 @@
   "submissions": [
     {
       "sourceId": 3,
-      "student": "student",
+      "student": "student01",
       "code": "#include \u003ciostream\u003e\n#include \u003cunordered_map\u003e\nusing namespace std;\n\nint main() {\n    int n, target;\n    if (!(cin \u003e\u003e n \u003e\u003e target)) return 0;\n    unordered_map\u003cint, int\u003e seen;\n    for (int i = 0; i \u003c n; ++i) {\n        int value;\n        cin \u003e\u003e value;\n        auto match = seen.find(target - value);\n        if (match != seen.end()) {\n            cout \u003c\u003c match-\u003esecond \u003c\u003c ' ' \u003c\u003c i \u003c\u003c '\\n';\n            return 0;\n        }\n        seen[value] = i;\n    }\n    cout \u003c\u003c -1 \u003c\u003c ' ' \u003c\u003c -1 \u003c\u003c '\\n';\n}\n",
       "submittedAt": "2026-10-18T12:02:52.551Z",
       "evaluation": {
