@@ -10,5 +10,7 @@ import './feedback-typography.css'
 import './redesign.css'
 import './workspace.css'
 import './editor-studio.css'
+import './assessment.css'
+import './evaluation-report.css'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

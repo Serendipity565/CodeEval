@@ -1,6 +1,8 @@
-# CodeEval 数据库设计与 Mock 数据
+# 数据库设计
 
-本文档对应当前后端实现。服务启动时先连接 MySQL、检查连通性，然后调用 GORM `AutoMigrate` 创建或增量更新表结构；当 `server/config.yaml` 中 `seed.enabled: true` 时，再写入开发用 Mock 数据。
+[文档首页](README.md) · [项目首页](../README.md)
+
+本文档对应当前后端实现。服务启动时先连接 MySQL、检查连通性，然后调用 GORM `AutoMigrate` 创建或增量更新表结构；当 `server/config.yaml` 中 `seed.enabled: true` 时，再从内置快照导入演示数据。账号、成绩和导出方法见[演示数据](demo-data.md)。
 
 ## 1. 数据库连接
 
@@ -26,7 +28,7 @@ database:
 3. 使用 `PingContext` 在 10 秒内验证数据库可用性。
 4. 设置最大空闲连接数、最大连接数和连接生命周期。
 5. 执行 `AutoMigrate`。
-6. 根据 `seed.enabled` 决定是否初始化 Mock 数据。
+6. 根据 `seed.enabled` 决定是否导入演示数据。
 
 ## 2. 表关系
 
@@ -35,8 +37,10 @@ users (teacher)
   └── assignment_records.teacher_id
         ├── test_case_records.assignment_id
         └── submission_records.assignment_id
-              └── submission_records.student_id → users (student)
-                    └── evaluation_jobs.submission_id → submission_records.id
+              ├── submission_records.student_id → users (student)
+              ├── evaluation_job_records.submission_id
+              ├── review_records.submission_id
+              └── expert_rating_records.submission_id
 ```
 
 当前通过索引字段维护逻辑关联，尚未创建物理外键约束。
@@ -91,8 +95,8 @@ users (teacher)
 | `assignment_id` | 所属作业 ID | 普通索引，逻辑关联 `assignment_records.id` |
 | `student_id` | 提交学生 ID | 普通索引，逻辑关联 `users.id` |
 | `code` | 学生代码 | LONGTEXT |
-| `status` | 评估状态 | `queued`、`evaluating`、`graded` 或 `failed` |
-| `evaluation_json` | 评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本 |
+| `status` | 评估状态 | `queued`、`evaluating`、`needs_review`、`graded` 或 `failed`；教师复核后为 `graded` |
+| `evaluation_json` | 原始自动评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本；教师复核与专家评分不会覆盖此字段 |
 | `submitted_at` | 提交时间 | 由后端写入 |
 | `progress` | 评估进度 | 0–100；已完成或失败时为 100 |
 
@@ -109,7 +113,7 @@ users (teacher)
 | `weight` | 计算功能得分的相对权重 |
 | `timeout_ms` | 单个用例时间限制，100–10000ms |
 
-### evaluation_jobs
+### evaluation_job_records
 
 持久化评估任务队列。学生提交与队列任务在同一个数据库事务中创建，服务重启不会丢失尚未处理的作业。
 
@@ -123,72 +127,57 @@ users (teacher)
 | `locked_by`、`locked_at` | Worker 租约信息 | 用于并发领取和崩溃恢复 |
 | `last_error` | 最近一次失败原因 | TEXT |
 
-## 4. Mock 数据
+### review_records
 
-Mock 数据统一定义在 `server/internal/store/mock_data.go`，使用事务写入，并通过稳定业务键查询后再创建，因此重复启动不会产生重复记录。数据库自动生成的主键和相对时间不固定。
+教师复核历史只追加，不覆盖旧修订。API 返回提交时批量读取每份提交最新的复核为 `submission.review`；学生可查看自己的最新复核，完整复核历史仅作业发布教师可查看。
 
-### 用户
+| 字段 | 含义 | 约束/说明 |
+| --- | --- | --- |
+| `id` | 复核版本 ID | 自增主键；同时用于并发版本检查 |
+| `submission_id` | 被复核提交 | 普通索引，逻辑关联 `submission_records.id` |
+| `reviewer_id`、`reviewer_name` | 复核教师及当时显示名称 | 只允许作业发布教师写入 |
+| `comment` | 复核理由 | 必填；最多 4000 个字符 |
+| `dimensions_json` | 人工维度评分及原量规快照 | JSON，包含 `key`、`name`、`score`、`maxScore` |
+| `total`、`max_total` | 人工总分及满分 | 由服务端对维度分数求和 |
+| `created_at` | 复核时间 | GORM 自动写入；历史按 ID 倒序返回 |
 
-| 账号 | 显示名称 | 角色 | 开发环境密码 |
-| --- | --- | --- | --- |
-| `teacher` | 李老师 | `teacher` | `CodeEval123!` |
-| `student` | 张同学 | `student` | `CodeEval123!` |
+`POST /api/v1/submissions/:id/reviews` 请求：
 
-密码进入数据库前使用 bcrypt 加密，`password_hash` 的具体值每次首次生成时不同。
-
-### 示例作业
-
-| 属性 | 值 |
-| --- | --- |
-| 标题 | 两数之和：返回下标 |
-| 发布者 | 李老师 |
-| 语言 | Go |
-| 描述 | 读取 `n`、`target` 和 `n` 个整数，输出两数之和为目标值的零基下标；无解时输出 `-1 -1`。 |
-| 截止时间 | Mock 首次创建时间后 72 小时 |
-| 大模型评估 | 关闭，使用规则评估 |
-| 测试用例 | 2 个公开用例、2 个隐藏用例 |
-| 参考资料 | 包含标准实现及知识点、边界场景说明 |
-| 评分量规 | 功能正确性 45、鲁棒性 20、代码质量 20、算法效率 15 |
-
-### 示例提交
-
-提交者为张同学，内容如下：
-
-```go
-package main
-
-import "fmt"
-
-func main() {
-	var n, target int
-	fmt.Scan(&n, &target)
-	seen := map[int]int{}
-	for i := 0; i < n; i++ {
-		var value int
-		fmt.Scan(&value)
-		if j, ok := seen[target-value]; ok {
-			fmt.Println(j, i)
-			return
-		}
-		seen[value] = i
-	}
-	fmt.Println(-1, -1)
+```json
+{
+  "dimensions": [{"key":"correctness","score":45},{"key":"robustness","score":18},{"key":"quality","score":17},{"key":"efficiency","score":14}],
+  "comment": "已核对边界输入和代码结构，调整代码质量得分。",
+  "expectedReviewId": ""
 }
 ```
 
-Mock 评估结果：
+首次复核时 `expectedReviewId` 必须为空字符串；后续修订必须传当前最新 `review.id`。写入事务先锁定提交行，再比较最新复核 ID；版本过期返回 409，不写入任何修订。成功返回附新复核的 Submission，并将提交 `status` 设为 `graded`、进度设为 100，原自动评估 JSON 保持不变。
 
-| 维度 | 得分 | 满分 | 主要证据 |
-| --- | ---: | ---: | --- |
-| 功能正确性 | 45 | 45 | 示例测试全部通过 |
-| 鲁棒性 | 18 | 20 | 无解时按约定输出 `-1 -1` |
-| 代码质量 | 16 | 20 | 职责明确，缺少函数注释 |
-| 算法效率 | 13 | 15 | 使用哈希表一次遍历 |
-| **总分** | **92** | **100** | 规则评估 |
+### expert_rating_records
 
-## 5. 开关行为
+专家评分用于独立对照实验，不修改最终成绩，也不返回给学生。作业发布教师代为录入各位专家评分。同一提交、同一规范化专家身份更新同一条记录，避免重复计入样本。
 
-- `seed.enabled: true`：在 AutoMigrate 后补充缺失的 Mock 用户、作业和提交。
-- `seed.enabled: false`：只迁移表结构，不写入 Mock 数据。
-- 作业的 `llm_evaluation_enabled: true`：学生提交时调用 `deepseek-v4-flash`。
-- 作业的 `llm_evaluation_enabled: false`：学生提交时执行本地规则评估。
+| 字段 | 含义 | 约束/说明 |
+| --- | --- | --- |
+| `id` | 专家评分 ID | 自增主键；修订时保持不变 |
+| `submission_id` | 评分对象 | 与 `expert_key` 组成唯一索引 `idx_submission_expert` |
+| `recorded_by` | 录入教师 ID | 只允许作业发布教师写入 |
+| `expert_name` | 专家姓名 | 1–80 个字符，NFKC 标准化并合并连续空白 |
+| `expert_key` | 规范化姓名身份键 | 姓名再转小写后计算 SHA-256；全角、大小写和重复空白不产生重复专家 |
+| `comment` | 专家评语 | 可选；最多 4000 个字符 |
+| `dimensions_json` | 专家维度评分及原量规快照 | 与教师复核相同的评分结构 |
+| `total`、`max_total` | 专家总分及满分 | 由服务端计算 |
+| `duration_seconds` | 专家评分用时 | 0–86400 秒；0 表示未记录 |
+| `created_at`、`updated_at` | 初次录入、最近修订时间 | 同一专家修订保留 `created_at` |
+
+`POST /api/v1/submissions/:id/expert-ratings` 接受 `expertName`、`dimensions`、`comment`、`durationSeconds`，返回 ExpertRating。`GET /api/v1/submissions/:id/assessment` 返回 `{ "reviews": [], "expertRatings": [] }`，两组均按 ID 倒序。两类评分的读写接口均要求教师身份和作业归属；越权访问返回 404。
+
+评分维度按该提交 **原始 `evaluation_json.dimensions` 的 key 和 maxScore** 校验，作业之后改量规不会改变旧提交的评分尺度。所有维度必须各出现一次，每项分数必须显式提供整数，范围为 0 到原满分；缺失或 null 不视为零。尚在排队或运行的提交/任务返回 409；没有原始评估量规的失败提交不能录入人工评分。接口不会把当前作业量规或模型推断分数当作人工输入补齐。
+
+教师提交列表仅包含其发布作业中的提交；`GET /api/v1/assignments/:id/comparison` 返回该作业的 AI 与专家评分对照。其数据读取 `AssignmentComparisonData(assignmentID, teacherID)` 同样校验作业归属，并返回保留原自动评估的提交和按提交 ID 分组的独立专家评分。
+
+## 4. 相关文档
+
+- [演示数据](demo-data.md)：初始化开关、账号、实际评分与快照导出。
+- [提交与评估](evaluation.md)：评分语义、教师复核及专家对照口径。
+- [开发与配置](development.md)：本地启动、数据库配置和检查命令。

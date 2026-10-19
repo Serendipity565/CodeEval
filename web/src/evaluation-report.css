@@ -1,0 +1,473 @@
+/* A single inset keeps the complete report on the same reading grid. */
+.feedback-panel.evaluation-report {
+  --report-inset: 32px;
+  padding: 0;
+  border-radius: 14px;
+  color: #283b31;
+  overflow-wrap: anywhere;
+}
+.evaluation-report .feedback-head {
+  padding: 28px var(--report-inset);
+  gap: 24px;
+  border-bottom: 1px solid #e5eae4;
+  background: #fbfcf9;
+}
+.evaluation-report .feedback-head > span > small {
+  color: #6b7c70;
+  font-size: 11px !important;
+  letter-spacing: 0.08em;
+}
+.evaluation-report .feedback-head h3 {
+  margin-top: 8px;
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+.evaluation-report .score-orb {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 140px;
+  min-height: 68px;
+  padding: 4px 0 4px 28px;
+  place-content: center start;
+  border: 0;
+  border-left: 1px solid #d9e2d7;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.evaluation-report .score-orb .score-placeholder {
+  color: #627065;
+  font-size: 18px;
+  font-weight: 500;
+}
+.evaluation-report .report-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 24px var(--report-inset) 0;
+  padding: 14px 16px;
+  border: 1px solid #e9e2ce;
+  border-radius: 8px;
+  background: #faf8f0;
+  color: #76633c;
+}
+.report-notice > .icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+.report-notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.report-notice b {
+  display: block;
+  color: #655533;
+  font-weight: 600;
+}
+.report-notice p span {
+  display: block;
+}
+.evaluation-report .report-summary {
+  padding: 28px var(--report-inset) 0;
+}
+.report-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.report-section-heading h4 {
+  margin: 0;
+  color: #293c31;
+  font-size: 14px;
+  font-weight: 600;
+}
+.report-section-heading > span {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #708075;
+  font-variant-numeric: tabular-nums;
+}
+.evaluation-report .feedback-summary {
+  padding: 10px 0 0;
+  background: none;
+  font-size: 16px !important;
+  line-height: 1.9;
+  color: #45574a !important;
+}
+.report-provenance {
+  margin-top: 10px;
+}
+.report-provenance > summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  min-height: 36px;
+  cursor: pointer;
+  color: #6b7c70;
+  font-size: 12px;
+  list-style: none;
+}
+.report-provenance > summary .icon {
+  width: 13px;
+  height: 13px;
+}
+.report-provenance summary::-webkit-details-marker,
+.evaluation-report .report-tests > summary::-webkit-details-marker {
+  display: none;
+}
+.report-provenance > summary:hover {
+  color: #255f49;
+}
+.evaluation-report .report-provenance .evaluation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+  gap: 6px;
+}
+.evaluation-report .report-provenance .evaluation-meta span {
+  font-size: 12px !important;
+  padding: 5px 8px;
+  background: #f1f4ef;
+}
+.evaluation-report .report-provenance .evaluation-context {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.evaluation-report .feedback-overview {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0;
+  margin: 20px var(--report-inset) 28px;
+  padding: 20px 0;
+  border-block: 1px solid #e5eae4;
+}
+.evaluation-report .feedback-overview:empty {
+  display: none;
+}
+.evaluation-report .feedback-group {
+  min-width: 0;
+  padding: 0 24px;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid #e5eae4;
+  border-radius: 0;
+}
+.evaluation-report .feedback-group:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.evaluation-report .feedback-group:last-child {
+  padding-right: 0;
+}
+.evaluation-report .feedback-group h4 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  font-size: 14px !important;
+}
+.evaluation-report .feedback-group h4 .icon {
+  width: 17px;
+  height: 17px;
+  color: #47775c;
+}
+.evaluation-report .feedback-group.issue h4 .icon {
+  color: #a36b43;
+}
+.evaluation-report .feedback-group ul {
+  padding-left: 18px;
+  color: #657368;
+  font-size: 13px !important;
+  line-height: 1.9;
+}
+.evaluation-report .feedback-group li + li {
+  margin-top: 6px;
+}
+.evaluation-report .agent-analysis {
+  margin: 0 var(--report-inset) 28px;
+  padding-top: 18px;
+}
+.evaluation-report .report-tests {
+  padding: 0;
+  border: 1px solid #dde6db;
+  border-radius: 8px;
+  background: #f7f9f4;
+}
+.evaluation-report .report-tests > summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 17px 18px;
+  min-height: 58px;
+  list-style: none;
+  color: #355942;
+}
+.report-test-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.report-test-label .icon {
+  width: 18px;
+  height: 18px;
+}
+.report-test-result {
+  font-family: var(--font-mono, "DM Mono", monospace);
+  font-size: 13px;
+  font-weight: 400;
+}
+.report-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: #667b68;
+}
+.report-disclosure .icon {
+  width: 15px;
+  height: 15px;
+}
+.report-tests:not([open]) .when-open,
+.report-tests[open] .when-closed {
+  display: none;
+}
+.report-tests[open] .report-disclosure .icon,
+.report-provenance[open] > summary .icon {
+  transform: rotate(90deg);
+}
+.evaluation-report .report-tests article {
+  margin: 0 18px 14px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e5eae2;
+  border-radius: 6px;
+}
+.evaluation-report .report-tests > summary:hover {
+  background: #eef3e9;
+  border-radius: 8px;
+}
+.evaluation-report summary:focus-visible {
+  outline: 2px solid #47775c;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.evaluation-report summary .icon,
+.evaluation-report summary {
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+.evaluation-report .dimension-list {
+  padding: 0 var(--report-inset) 12px;
+}
+.evaluation-report .dimension-list > .report-section-heading {
+  padding: 4px 0 8px;
+}
+.evaluation-report .dimension-list .dimension {
+  margin: 0;
+  padding: 24px 0;
+  border-top: 1px solid #e5eae4;
+}
+.evaluation-report .dimension-list .dimension:nth-child(2) {
+  border-top: 0;
+}
+.dimension-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.dimension-heading h5 {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.dimension-number {
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  font-weight: 400;
+  color: #8a978b;
+}
+.dimension-heading > strong {
+  flex-shrink: 0;
+  font-family: "DM Mono", monospace;
+  font-size: 21px;
+  font-weight: 500;
+  color: #36644a;
+}
+.evaluation-report .dimension-heading > strong > small {
+  font-size: 12px;
+  font-weight: 400;
+  color: #788579;
+}
+.evaluation-report .dimension-unscored {
+  padding: 4px 8px;
+  background: #f2f3ef;
+  border: 1px solid #e6e8e1;
+  border-radius: 4px;
+  font-family: inherit;
+  line-height: 1.5;
+  font-size: 12px;
+  color: #7a7d6c;
+}
+.dimension-meter {
+  height: 3px;
+  margin-top: 12px;
+  background: #edf1e9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.dimension-meter > span {
+  display: block;
+  height: 100%;
+  background: #7e9e70;
+}
+.dimension-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px 32px;
+  margin-top: 18px;
+}
+.evaluation-report .dimension-list .dimension-content > p {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: #526457;
+  font-size: 14px !important;
+  line-height: 1.8;
+}
+.evaluation-report .dimension-list .dimension-content > p em {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px !important;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  color: #7a887b;
+}
+.evaluation-report .dimension-content .dimension-suggestion {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 5px;
+  background: #f6f8f3;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #61715f;
+}
+.dimension-content .dimension-suggestion b {
+  margin-right: 12px;
+  color: #566d50;
+  font-size: 12px;
+  font-weight: 500;
+}
+.evaluation-report .dimension-list .dimension > .dimension-meta {
+  margin: 12px 0 0;
+  padding: 0;
+  background: none;
+  color: #7a877b;
+  font-size: 11px !important;
+  line-height: 1.8;
+}
+@media (max-width: 700px) {
+  .feedback-panel.evaluation-report {
+    --report-inset: 20px;
+  }
+  .evaluation-report .feedback-head {
+    padding: 22px var(--report-inset);
+    gap: 12px;
+  }
+  .evaluation-report .feedback-head h3 {
+    font-size: 20px;
+  }
+  .evaluation-report .score-orb {
+    min-width: 100px;
+    width: auto;
+    min-height: 60px;
+    padding: 2px 0 2px 16px;
+  }
+  .evaluation-report .score-orb .score-placeholder {
+    font-size: 14px;
+  }
+  .evaluation-report .report-summary {
+    padding-top: 24px;
+  }
+  .evaluation-report .feedback-summary {
+    font-size: 14px !important;
+    padding-top: 10px;
+  }
+  .evaluation-report .feedback-overview {
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .evaluation-report .feedback-group {
+    padding: 0;
+    border: 0;
+  }
+  .evaluation-report .report-notice {
+    padding: 12px;
+    gap: 10px;
+  }
+  .report-notice p {
+    font-size: 12px;
+  }
+  .evaluation-report .report-tests > summary {
+    flex-wrap: wrap;
+    column-gap: 12px;
+    row-gap: 10px;
+    padding: 14px;
+  }
+  .report-test-label {
+    font-size: 13px;
+    gap: 7px;
+  }
+  .report-test-result {
+    margin-left: auto;
+    font-size: 12px;
+  }
+  .report-disclosure {
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .evaluation-report .report-tests article {
+    margin-inline: 10px;
+    padding: 12px;
+  }
+  .dimension-content {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .dimension-heading h5 {
+    font-size: 15px;
+    gap: 9px;
+  }
+  .dimension-heading > strong {
+    font-size: 20px;
+  }
+  .evaluation-report .dimension-content .dimension-suggestion b {
+    display: block;
+    margin-bottom: 4px;
+  }
+  .report-provenance > summary {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .evaluation-report summary,
+  .evaluation-report summary .icon {
+    transition: none;
+  }
+}

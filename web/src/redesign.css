@@ -1,5 +1,5 @@
 /* CodeEval redesign. This file supersedes legacy presentation rules while the
-   page components are migrated to the design system in design.md. */
+   page components are migrated to the design system in docs/design.md. */
 
 html { background: var(--color-canvas); }
 body {

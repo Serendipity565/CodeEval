@@ -79,6 +79,7 @@ type EvaluationJob struct {
 type MySQLStore struct{ db *gorm.DB }
 
 var ErrUsernameTaken = errors.New("username is already registered")
+var ErrSubmissionDeadlinePassed = errors.New("该作业已截止，无法提交")
 
 func NewMySQL(cfg config.Config) (*MySQLStore, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local&timeout=10s&readTimeout=30s&writeTimeout=30s",
@@ -99,7 +100,7 @@ func NewMySQL(cfg config.Config) (*MySQLStore, error) {
 	if err := sqlDB.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("ping mysql: %w", err)
 	}
-	if err := db.AutoMigrate(&User{}, &AssignmentRecord{}, &TestCaseRecord{}, &SubmissionRecord{}, &EvaluationJobRecord{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &AssignmentRecord{}, &TestCaseRecord{}, &SubmissionRecord{}, &EvaluationJobRecord{}, &ReviewRecord{}, &ExpertRatingRecord{}); err != nil {
 		return nil, fmt.Errorf("migrate mysql: %w", err)
 	}
 	return &MySQLStore{db: db}, nil
@@ -243,6 +244,7 @@ func (s *MySQLStore) UpdateAssignmentMaxSubmissions(id, teacherID uint, maxSubmi
 	return nil
 }
 func (s *MySQLStore) CreateSubmission(studentID uint, sub domain.Submission) (domain.Submission, error) {
+	sub.StudentID = fmt.Sprint(studentID)
 	eval, _ := json.Marshal(sub.Evaluation)
 	r := SubmissionRecord{AssignmentID: mustID(sub.AssignmentID), StudentID: studentID, Code: sub.Code, Status: sub.Status, Progress: sub.Progress, EvaluationJSON: eval, SubmittedAt: sub.SubmittedAt}
 	err := s.db.Create(&r).Error
@@ -250,7 +252,19 @@ func (s *MySQLStore) CreateSubmission(studentID uint, sub domain.Submission) (do
 	return sub, err
 }
 func (s *MySQLStore) CreateSubmissionWithJob(studentID uint, sub domain.Submission) (domain.Submission, error) {
+	sub.StudentID = fmt.Sprint(studentID)
 	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// Recheck after acquiring the row lock: validation or a concurrent deadline
+		// edit may have taken time since the API first read the assignment.
+		var assignment AssignmentRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&assignment, mustID(sub.AssignmentID)).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		if domain.SubmissionDeadlinePassed(assignment.DueAt, now) {
+			return ErrSubmissionDeadlinePassed
+		}
+		sub.SubmittedAt = now
 		eval, err := json.Marshal(sub.Evaluation)
 		if err != nil {
 			return err
@@ -417,26 +431,31 @@ func (s *MySQLStore) submissionHistoryExcluding(studentID, assignmentID, exclude
 	for _, row := range rows {
 		out = append(out, submissionFrom(row, ""))
 	}
+	if err := attachLatestReviews(s.db, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 func (s *MySQLStore) ListSubmissions(userID uint, role string) (out []domain.Submission, err error) {
 	out = make([]domain.Submission, 0)
 	var rows []SubmissionRecord
-	q := s.db.Order("submitted_at desc")
-	if role == "student" {
+	q := s.db.Order("submitted_at desc, id desc")
+	switch role {
+	case "student":
 		q = q.Where("student_id = ?", userID)
+	case "teacher":
+		q = q.Where("assignment_id IN (?)", s.db.Model(&AssignmentRecord{}).Select("id").Where("teacher_id = ?", userID))
+	default:
+		return out, gorm.ErrRecordNotFound
 	}
-	err = q.Find(&rows).Error
-	var users []User
-	s.db.Find(&users)
-	names := map[uint]string{}
-	for _, u := range users {
-		names[u.ID] = u.DisplayName
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
 	}
-	for _, r := range rows {
-		out = append(out, submissionFrom(r, names[r.StudentID]))
+	out, err = submissionsWithNames(s.db, rows)
+	if err != nil {
+		return nil, err
 	}
-	return
+	return out, attachLatestReviews(s.db, out)
 }
 func assignmentFrom(r AssignmentRecord) domain.Assignment {
 	rubric := make([]domain.RubricItem, 0)
@@ -454,9 +473,10 @@ func submissionFrom(r SubmissionRecord, name string) domain.Submission {
 	if len(r.EvaluationJSON) > 0 && string(r.EvaluationJSON) != "null" {
 		var e domain.Evaluation
 		if json.Unmarshal(r.EvaluationJSON, &e) == nil {
+			domain.NormalizeLegacyEvaluation(&e)
 			evaluation = &e
 		}
 	}
-	return domain.Submission{ID: fmt.Sprint(r.ID), AssignmentID: fmt.Sprint(r.AssignmentID), StudentName: name, Code: r.Code, Status: r.Status, Progress: r.Progress, SubmittedAt: r.SubmittedAt, Evaluation: evaluation}
+	return domain.Submission{ID: fmt.Sprint(r.ID), AssignmentID: fmt.Sprint(r.AssignmentID), StudentID: fmt.Sprint(r.StudentID), StudentName: name, Code: r.Code, Status: r.Status, Progress: r.Progress, SubmittedAt: r.SubmittedAt, Evaluation: evaluation}
 }
 func mustID(raw string) uint { var id uint; _, _ = fmt.Sscan(raw, &id); return id }

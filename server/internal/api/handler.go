@@ -54,7 +54,12 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	secured.GET("/me", h.me)
 	secured.GET("/assignments", h.assignments)
 	secured.GET("/assignments/:id", h.assignment)
+	secured.GET("/assignments/:id/comparison", h.requireRole("teacher"), h.assignmentComparison)
+	secured.POST("/assignments/:id/similarity", h.requireRole("teacher"), h.assignmentSimilarity)
 	secured.GET("/submissions", h.submissions)
+	secured.GET("/submissions/:id/assessment", h.requireRole("teacher"), h.submissionAssessment)
+	secured.POST("/submissions/:id/reviews", h.requireRole("teacher"), h.createReview)
+	secured.POST("/submissions/:id/expert-ratings", h.requireRole("teacher"), h.saveExpertRating)
 	secured.GET("/dashboard", h.dashboard)
 	secured.GET("/capabilities", h.capabilities)
 	secured.POST("/assignments", h.requireRole("teacher"), h.createAssignment)
@@ -406,6 +411,10 @@ func (h *Handler) createSubmission(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "该作业当前未开放提交"})
 		return
 	}
+	if domain.SubmissionDeadlinePassed(a.DueAt, time.Now()) {
+		c.JSON(http.StatusConflict, gin.H{"error": store.ErrSubmissionDeadlinePassed.Error()})
+		return
+	}
 	if !h.supportedLanguages[strings.ToLower(strings.TrimSpace(a.Language))] {
 		c.JSON(http.StatusConflict, gin.H{"error": "该作业语言当前未在服务器配置中启用"})
 		return
@@ -425,6 +434,10 @@ func (h *Handler) createSubmission(c *gin.Context) {
 	}
 	sub := domain.Submission{AssignmentID: in.AssignmentID, StudentName: current(c).Name, Code: in.Code, Status: "queued", Progress: 10, SubmittedAt: time.Now()}
 	sub, err = h.store.CreateSubmissionWithJob(current(c).ID, sub)
+	if errors.Is(err, store.ErrSubmissionDeadlinePassed) {
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
 	if err != nil {
 		serverError(c, err)
 		return
@@ -483,14 +496,14 @@ func (h *Handler) dashboard(c *gin.Context) {
 	}
 	dimensionAccumulators := map[string]dimensionAccumulator{}
 	for _, s := range subs {
-		if s.Status == "failed" || s.Status == "needs_review" || (s.Evaluation != nil && s.Evaluation.Confidence < 0.5) {
+		if s.Review == nil && (s.Status == "failed" || s.Status == "needs_review" || (s.Evaluation != nil && (s.Evaluation.Incomplete || s.Evaluation.Confidence < 0.5))) {
 			reviewQueue++
 		}
-		if s.Evaluation != nil {
+		if score, dimensions, complete := domain.FinalScores(s); complete {
 			graded++
-			total += s.Evaluation.Total
-			scores = append(scores, float64(s.Evaluation.Total))
-			for _, dimension := range s.Evaluation.Dimensions {
+			total += score
+			scores = append(scores, float64(score))
+			for _, dimension := range dimensions {
 				acc := dimensionAccumulators[dimension.Key]
 				acc.Count++
 				acc.Sum += float64(dimension.Score)

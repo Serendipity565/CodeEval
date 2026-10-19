@@ -1,7 +1,9 @@
+import { evaluationIncomplete, finalScore } from "../assessment";
+import SubmissionScore from "./assessment/SubmissionScore";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Assignment, Submission, View } from "../types";
-import { Empty, Head, Icon, Score, SubmissionStatus } from "./ui";
+import { Empty, Head, Icon, SubmissionStatus } from "./ui";
 
 const date = (value: string) =>
   new Date(value).toLocaleString("zh-CN", {
@@ -65,16 +67,23 @@ export default function Home({
       );
   const pending = active.filter((a) => !submitted.has(a.id));
   const reviews = ss.filter(
-    (s) => s.status === "failed" || s.status === "needs_review",
+    (s) =>
+      !s.review &&
+      (s.status === "failed" ||
+        s.status === "needs_review" ||
+        Boolean(
+          s.evaluation &&
+          (evaluationIncomplete(s.evaluation) || s.evaluation.confidence < 0.5),
+        )),
   );
-  const evaluated = ss.filter((s) => s.evaluation);
+  const evaluated = ss.filter((s) => finalScore(s) !== undefined);
   const average = evaluated.length
     ? Math.round(
-        evaluated.reduce((sum, s) => sum + s.evaluation!.total, 0) /
+        evaluated.reduce((sum, s) => sum + finalScore(s)!, 0) /
           evaluated.length,
       )
     : "—";
-  const low = evaluated.filter((s) => s.evaluation!.total < 60);
+  const low = evaluated.filter((s) => finalScore(s)! < 60);
   const deadlines = [...(teacher ? active : pending)].sort(
     (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime(),
   );
@@ -250,11 +259,7 @@ export default function Home({
                     )}
                   </span>
                   <SubmissionStatus status={s.status} />
-                  {s.evaluation ? (
-                    <Score n={s.evaluation.total} max={s.evaluation.maxTotal} />
-                  ) : (
-                    <span className="score-placeholder">—</span>
-                  )}
+                  <SubmissionScore submission={s} />
                   <Icon name="arrowUpRight" />
                 </button>
               ))}

@@ -18,6 +18,10 @@ export function readWorkspaceRoute(pathname: string): WorkspaceRoute {
     }
   }
   if (parts[0] === "assignments" && parts[1]) {
+    if (parts[2] === "similarity")
+      return { view: "similarity", assignmentId: decodedId };
+    if (parts[2] === "comparison")
+      return { view: "comparison", assignmentId: decodedId };
     return parts[2] === "edit"
       ? { view: "edit", assignmentId: decodedId }
       : { view: "assignments", assignmentId: decodedId };
@@ -39,7 +43,7 @@ export function readWorkspaceRoute(pathname: string): WorkspaceRoute {
 }
 
 export const viewPath = (view: View) =>
-  `/workspace/${view === "edit" ? "assignments" : view}`;
+  `/workspace/${view === "edit" || view === "comparison" || view === "similarity" ? "assignments" : view}`;
 
 export const assignmentPath = (id: string) =>
   `/assignments/${encodeURIComponent(id)}`;
@@ -48,3 +52,9 @@ export const editPath = (id: string) => `${assignmentPath(id)}/edit`;
 
 export const submissionPath = (id: string) =>
   `/submissions/${encodeURIComponent(id)}`;
+
+export const comparisonPath = (id: string) =>
+  `${assignmentPath(id)}/comparison`;
+
+export const similarityPath = (id: string) =>
+  `${assignmentPath(id)}/similarity`;

@@ -1,3 +1,4 @@
+import AssignmentActions from "./components/assessment/AssignmentActions";
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type {
   Assignment,
@@ -19,8 +20,24 @@ import {
   SubmissionStatus,
 } from "./components/ui";
 import Home from "./components/Home";
+import TeacherAssessment, {
+  FinalReview,
+} from "./components/assessment/TeacherAssessment";
+import AssignmentComparison from "./components/assessment/AssignmentComparison";
+const CodeSimilarity = lazy(
+  () => import("./components/similarity/CodeSimilarity"),
+);
+import SubmissionScore from "./components/assessment/SubmissionScore";
+import { useDeadlineClock } from "./hooks/useDeadlineClock";
+import {
+  dimensionUnscored,
+  evaluationIncomplete,
+  finalScore,
+} from "./assessment";
 import {
   assignmentPath,
+  comparisonPath,
+  similarityPath,
   editPath,
   readWorkspaceRoute,
   submissionPath,
@@ -209,7 +226,11 @@ function Workspace({
             <button
               className={
                 view === v ||
-                ((view === "publish" || view === "edit") && v === "assignments")
+                ((view === "publish" ||
+                  view === "edit" ||
+                  view === "comparison" ||
+                  view === "similarity") &&
+                  v === "assignments")
                   ? "on"
                   : ""
               }
@@ -260,6 +281,8 @@ function Workspace({
                     submissions: "提交记录",
                     publish: "发布作业",
                     edit: "修改作业",
+                    comparison: "评分对照",
+                    similarity: "代码查重",
                   }[view]}
             </h1>
           </span>
@@ -326,7 +349,58 @@ function Workspace({
               sub={selected}
               assignment={as.find((a) => a.id === selected.assignmentId)}
               back={() => backTo(viewPath("submissions"))}
+              auth={auth}
+              onUpdated={upsertSubmission}
             />
+          ) : view === "similarity" ? (
+            teacher &&
+            as.some(
+              (item) =>
+                item.id === route.assignmentId &&
+                item.teacherId === String(auth.user.id),
+            ) ? (
+              <Suspense
+                fallback={
+                  <section className="panel" role="status">
+                    正在加载代码查重工作台…
+                  </section>
+                }
+              >
+                <CodeSimilarity
+                  assignment={as.find(
+                    (item) => item.id === route.assignmentId,
+                  )!}
+                  submissions={ss}
+                  token={auth.token}
+                  back={() => backTo(viewPath("assignments"))}
+                />
+              </Suspense>
+            ) : (
+              <section className="panel">
+                <Empty text="这项作业不存在或无权查看代码查重。" />
+              </section>
+            )
+          ) : view === "comparison" ? (
+            teacher &&
+            as.some(
+              (assignment) =>
+                assignment.id === route.assignmentId &&
+                assignment.teacherId === String(auth.user.id),
+            ) ? (
+              <AssignmentComparison
+                assignment={as.find(
+                  (assignment) => assignment.id === route.assignmentId,
+                )!}
+                token={auth.token}
+                back={() => backTo(viewPath("assignments"))}
+                openSubmission={(id) => navigate(submissionPath(id))}
+                openSubmissions={() => setView("submissions")}
+              />
+            ) : (
+              <section className="panel">
+                <Empty text="这项作业不存在或无权查看评分对照。" />
+              </section>
+            )
           ) : view === "home" ? (
             <Home
               teacher={teacher}
@@ -341,6 +415,9 @@ function Workspace({
                 as={as}
                 ss={ss}
                 go={setView}
+                teacherId={String(auth.user.id)}
+                compare={(id) => navigate(comparisonPath(id))}
+                similarity={(id) => navigate(similarityPath(id))}
                 edit={(id) => {
                   navigate(editPath(id));
                 }}
@@ -396,11 +473,17 @@ function TeacherAssignments({
   ss,
   go,
   edit,
+  compare,
+  similarity,
+  teacherId,
 }: {
   as: Assignment[];
   ss: Submission[];
   go: (v: View) => void;
   edit: (id: string) => void;
+  compare: (id: string) => void;
+  similarity: (id: string) => void;
+  teacherId: string;
 }) {
   const [statuses, setStatuses] = useState<
       Record<string, Assignment["status"]>
@@ -422,8 +505,11 @@ function TeacherAssignments({
     }
   }
   return (
-    <section className="panel list-page">
-      <Title title="全部作业" note="管理作业、提交次数和开放状态">
+    <section className="teacher-assignment-page">
+      <Title
+        title="全部作业"
+        note={`共 ${as.length} 项作业 · 查看提交进度，管理教学评估`}
+      >
         <button className="primary" onClick={() => go("publish")}>
           <Icon name="plus" />
           发布作业
@@ -431,60 +517,87 @@ function TeacherAssignments({
       </Title>
       {message && <p className="inline-message">{message}</p>}
       {as.length ? (
-        <div className="atable teacher-assignment-table">
-          <div className="row th">
-            <span>作业</span>
-            <span>截止时间</span>
-            <span>提交</span>
-            <span>平均分</span>
-            <span>提交状态</span>
-            <span>操作</span>
-          </div>
+        <div className="assignment-collection">
           {as.map((a) => {
             const sub = ss.filter((s) => s.assignmentId === a.id),
-              evaluated = sub.filter((s) => s.evaluation),
+              evaluated = sub.filter((s) => finalScore(s) !== undefined),
               avg = evaluated.length
                 ? Math.round(
-                    evaluated.reduce((n, s) => n + s.evaluation!.total, 0) /
+                    evaluated.reduce((n, s) => n + finalScore(s)!, 0) /
                       evaluated.length,
                   )
                 : "—",
               status = statuses[a.id] ?? a.status;
             return (
-              <div className="row" key={a.id}>
-                <span className="aname">
-                  <i>{a.language.slice(0, 2)}</i>
-                  <b>
-                    {a.title}
-                    <small>{a.description || "暂无作业说明"}</small>
-                  </b>
-                </span>
-                <span>{fmt(a.dueAt)}</span>
-                <b>{sub.length}</b>
-                <b>{avg}</b>
-                <span className="status-select-wrap">
-                  <select
-                    className={`status-select ${status}`}
-                    aria-label={`${a.title}的提交状态`}
-                    value={status}
-                    onChange={(e) =>
-                      void changeStatus(
-                        a,
-                        e.target.value as Assignment["status"],
-                      )
-                    }
-                  >
-                    <option value="open">开放提交</option>
-                    <option value="closed">关闭提交</option>
-                  </select>
-                </span>
-                <button
-                  className="assignment-edit-link"
-                  onClick={() => edit(a.id)}
-                >
-                  查看并修改 ›
-                </button>
-              </div>
+              <article
+                className="assignment-sheet"
+                key={a.id}
+                aria-label={a.title}
+              >
+                <div className="assignment-sheet-top">
+                  <span className="assignment-language">
+                    <Icon name="code" />
+                    {a.language}
+                  </span>
+                  <span className="status-select-wrap">
+                    <select
+                      className={`status-select ${status}`}
+                      aria-label={`${a.title}的提交状态`}
+                      value={status}
+                      onChange={(e) =>
+                        void changeStatus(
+                          a,
+                          e.target.value as Assignment["status"],
+                        )
+                      }
+                    >
+                      <option value="open">开放提交</option>
+                      <option value="closed">关闭提交</option>
+                    </select>
+                  </span>
+                </div>
+                <div className="assignment-sheet-body">
+                  <div className="assignment-sheet-copy">
+                    <h3>
+                      <button type="button" onClick={() => edit(a.id)}>
+                        {a.title}
+                      </button>
+                    </h3>
+                    <p>{a.description || "暂无作业说明"}</p>
+                  </div>
+                  <dl className="assignment-sheet-metrics">
+                    <div>
+                      <dt>提交记录</dt>
+                      <dd>
+                        {sub.length}
+                        <small>份</small>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>平均得分</dt>
+                      <dd>
+                        {avg}
+                        <small>/ 100</small>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <footer className="assignment-sheet-footer">
+                  <span className="assignment-due">
+                    <Icon name="calendar" />
+                    <span>
+                      截止时间 <b>{fmt(a.dueAt)}</b>
+                    </span>
+                  </span>
+                  <AssignmentActions
+                    title={a.title}
+                    owner={a.teacherId === teacherId}
+                    edit={() => edit(a.id)}
+                    similarity={() => similarity(a.id)}
+                    compare={() => compare(a.id)}
+                  />
+                </footer>
+              </article>
             );
           })}
         </div>
@@ -523,6 +636,7 @@ function StudentAssignments({
   onSubmissionChange: (submission: Submission) => void;
   onCreated: (submission: Submission) => void;
 }) {
+  const now = useDeadlineClock(as.map((a) => new Date(a.dueAt).getTime()));
   const [f, setF] = useState("all"),
     [teacher, setTeacher] = useState("all"),
     teachers = Array.from(
@@ -605,11 +719,16 @@ function StudentAssignments({
           const submissions = ss.filter((s) => s.assignmentId === a.id),
             highest = submissions.reduce<number | undefined>(
               (best, s) =>
-                s.evaluation ? Math.max(best ?? 0, s.evaluation.total) : best,
+                finalScore(s) !== undefined
+                  ? Math.max(best ?? 0, finalScore(s)!)
+                  : best,
               undefined,
             ),
+            expired = !(now < new Date(a.dueAt).getTime()),
             canSubmit =
-              a.status === "open" && submissions.length < a.maxSubmissions;
+              a.status === "open" &&
+              !expired &&
+              submissions.length < a.maxSubmissions;
           return (
             <article key={a.id}>
               <header>
@@ -617,13 +736,15 @@ function StudentAssignments({
                   <Icon name="code" /> {a.language}
                 </b>
                 <i
-                  className={`status ${a.status === "closed" ? "closed" : submissions.length ? "done" : "open"}`}
+                  className={`status ${a.status === "closed" || expired ? "closed" : submissions.length ? "done" : "open"}`}
                 >
                   {a.status === "closed"
                     ? "已关闭"
-                    : submissions.length
-                      ? "已提交"
-                      : "待提交"}
+                    : expired
+                      ? "已截止"
+                      : submissions.length
+                        ? "已提交"
+                        : "待提交"}
                 </i>
               </header>
               <h3>{a.title}</h3>
@@ -649,7 +770,12 @@ function StudentAssignments({
                     </span>
                   )}
                   <button disabled={!canSubmit} onClick={() => open(a.id)}>
-                    {submissions.length ? "再次提交" : "进入作业"} ›
+                    {expired
+                      ? "已截止"
+                      : submissions.length
+                        ? "再次提交"
+                        : "进入作业"}{" "}
+                    ›
                   </button>
                 </span>
               </footer>
@@ -673,18 +799,39 @@ function Submissions({
   pick: (s: Submission) => void;
 }) {
   const [q, setQ] = useState(""),
-    [aid, setAid] = useState("all");
+    [aid, setAid] = useState("all"),
+    [scoreFilter, setScoreFilter] = useState("all"),
+    [sort, setSort] = useState("newest");
   const list = useMemo(
     () =>
-      ss.filter(
-        (s) =>
-          (aid === "all" || s.assignmentId === aid) &&
-          (!q.trim() ||
-            (s.studentName + as.find((a) => a.id === s.assignmentId)?.title)
-              .toLowerCase()
-              .includes(q.trim().toLowerCase())),
-      ),
-    [q, aid, ss, as],
+      ss
+        .filter(
+          (s) =>
+            (aid === "all" || s.assignmentId === aid) &&
+            (scoreFilter === "all" ||
+              (scoreFilter === "unscored"
+                ? finalScore(s) === undefined
+                : scoreFilter === "reviewed"
+                  ? Boolean(s.review)
+                  : finalScore(s) !== undefined && finalScore(s)! < 60)) &&
+            (!q.trim() ||
+              (s.studentName + as.find((a) => a.id === s.assignmentId)?.title)
+                .toLowerCase()
+                .includes(q.trim().toLowerCase())),
+        )
+        .sort((left, right) => {
+          if (sort === "newest")
+            return (
+              new Date(right.submittedAt).getTime() -
+              new Date(left.submittedAt).getTime()
+            );
+          const a = finalScore(left),
+            b = finalScore(right);
+          if (a === undefined) return b === undefined ? 0 : 1;
+          if (b === undefined) return -1;
+          return sort === "score-desc" ? b - a : a - b;
+        }),
+    [q, aid, ss, as, scoreFilter, sort],
   );
   return (
     <section className="panel list-page">
@@ -719,6 +866,25 @@ function Submissions({
             </option>
           ))}
         </select>
+        <select
+          aria-label="按成绩筛选"
+          value={scoreFilter}
+          onChange={(event) => setScoreFilter(event.target.value)}
+        >
+          <option value="all">全部成绩</option>
+          <option value="unscored">尚无最终成绩</option>
+          <option value="low">低于 60 分</option>
+          <option value="reviewed">教师已复核</option>
+        </select>
+        <select
+          aria-label="提交排序"
+          value={sort}
+          onChange={(event) => setSort(event.target.value)}
+        >
+          <option value="newest">最新提交优先</option>
+          <option value="score-desc">最终成绩从高到低</option>
+          <option value="score-asc">最终成绩从低到高</option>
+        </select>
       </div>
       <div className="stable">
         <div className="srow th">
@@ -751,11 +917,7 @@ function Submissions({
               <small>{teacher && fmt(s.submittedAt)}</small>
             </span>
             <SubmissionStatus status={s.status} />
-            {s.evaluation ? (
-              <Score n={s.evaluation.total} max={s.evaluation.maxTotal} />
-            ) : (
-              <span className="score-placeholder">—</span>
-            )}
+            <SubmissionScore submission={s} />
             <b>
               <Icon name="chevronRight" />
             </b>
@@ -784,19 +946,28 @@ function StudentSubmit({
     [briefOpen, setBriefOpen] = useState(false),
     [msg, setMsg] = useState(""),
     [busy, setBusy] = useState(false);
+  const dueAt = new Date(assignment?.dueAt ?? "").getTime();
+  const now = useDeadlineClock([dueAt]);
   const refresh = () =>
     req<Submission[]>("/submissions", token).then(setHistory);
   useEffect(() => {
     void refresh();
   }, []);
   const used = history.filter((s) => s.assignmentId === assignment?.id).length,
+    expired = !(now < dueAt),
     canSubmit =
       !!assignment &&
       assignment.status === "open" &&
+      !expired &&
       used < assignment.maxSubmissions;
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (!assignment) return;
+    if (!assignment || busy) return;
+    if (!(Date.now() < dueAt)) {
+      setMsg("该作业已截止，无法提交");
+      return;
+    }
+    if (!canSubmit || !code.trim()) return;
     setBusy(true);
     setMsg("");
     try {
@@ -896,7 +1067,9 @@ function StudentSubmit({
             <i className={`availability ${canSubmit ? "open" : "closed"}`} />
             {assignment?.status === "closed"
               ? "提交已关闭"
-              : `还可提交 ${Math.max(0, (assignment?.maxSubmissions ?? 0) - used)} 次`}
+              : expired
+                ? "已截止"
+                : `还可提交 ${Math.max(0, (assignment?.maxSubmissions ?? 0) - used)} 次`}
           </span>
         </Title>
         <form onSubmit={send}>
@@ -932,7 +1105,9 @@ function StudentSubmit({
           <small className="attempt-hint limit">
             {assignment?.status === "closed"
               ? "该作业当前已关闭提交"
-              : "已达到该作业的提交次数上限"}
+              : expired
+                ? "该作业已截止，无法提交"
+                : "已达到该作业的提交次数上限"}
           </small>
         )}
         {msg && <small className="submitmsg">{msg}</small>}
@@ -944,10 +1119,14 @@ function Detail({
   sub,
   assignment,
   back,
+  auth,
+  onUpdated,
 }: {
   sub: Submission;
   assignment?: Assignment;
   back: () => void;
+  auth: Auth;
+  onUpdated: (submission: Submission) => void;
 }) {
   const [codeOpen, setCodeOpen] = useState(false);
   return (
@@ -962,52 +1141,99 @@ function Detail({
       >
         <SubmissionStatus status={sub.status} />
       </Title>
+      {sub.review && <FinalReview review={sub.review} />}
+      {auth.user.role === "teacher" &&
+        assignment?.teacherId === String(auth.user.id) &&
+        sub.evaluation &&
+        ["graded", "needs_review"].includes(sub.status) && (
+          <TeacherAssessment
+            token={auth.token}
+            submission={sub}
+            onUpdated={onUpdated}
+          />
+        )}
       <div className="detail">
-        <section className="panel feedback-panel">
+        <section
+          className="panel feedback-panel evaluation-report"
+          aria-label="原始自动评估"
+        >
           <div className="feedback-head">
             <span>
-              <small>评估结果</small>
-              <h3>评估反馈</h3>
+              <small>{sub.review ? "保留原始记录" : "评估结果"}</small>
+              <h3>原始自动评估</h3>
             </span>
             {sub.evaluation && (
               <div className="score-orb">
-                <small>总分</small>
-                <Score n={sub.evaluation.total} max={sub.evaluation.maxTotal} />
+                <small>原始总分</small>
+                {evaluationIncomplete(sub.evaluation) ? (
+                  <span className="score-placeholder">未形成总分</span>
+                ) : (
+                  <Score
+                    n={sub.evaluation.total}
+                    max={sub.evaluation.maxTotal}
+                  />
+                )}
               </div>
             )}
           </div>
           {sub.evaluation ? (
             <>
-              <p className="feedback-summary">{sub.evaluation.summary}</p>
-              <div className="evaluation-meta">
-                <span>
-                  置信度 {Math.round((sub.evaluation.confidence || 0) * 100)}%
-                </span>
-                <span>
-                  {sub.evaluation.verified ? "已执行验证" : "未经执行验证"}
-                </span>
-                <span>{sub.evaluation.provider}</span>
-                {sub.evaluation.promptVersion && (
-                  <span>{sub.evaluation.promptVersion}</span>
-                )}
-              </div>
-              {sub.evaluation.contextSources?.length ? (
-                <p className="evaluation-context">
-                  <b>本次评估依据</b>
-                  {sub.evaluation.contextSources.map((source) => (
-                    <span key={source}>
-                      {{
-                        assignment_instructions: "作业说明",
-                        grading_rubric: "评分量规",
-                        reference_solution: "参考实现",
-                        course_knowledge_base: "课程知识库",
-                        knowledge_base: "课程知识库",
-                        test_cases: "测试用例",
-                      }[source] || source}
+              {evaluationIncomplete(sub.evaluation) && (
+                <div className="report-notice">
+                  <Icon name="alert" />
+                  <p>
+                    <b>部分维度尚未评分</b>
+                    <span>
+                      未评分项目不按零分计算。
+                      {sub.review
+                        ? "教师已完成复核，最终成绩以上方复核结果为准。"
+                        : "尚无有效自动总分，等待教师复核。"}
                     </span>
-                  ))}
-                </p>
-              ) : null}
+                  </p>
+                </div>
+              )}
+              <div className="report-summary">
+                <div className="report-section-heading">
+                  <h4>评估概览</h4>
+                  <span>
+                    置信度 {Math.round((sub.evaluation.confidence || 0) * 100)}%
+                  </span>
+                </div>
+                <p className="feedback-summary">{sub.evaluation.summary}</p>
+                <details className="report-provenance">
+                  <summary>
+                    评估信息 <Icon name="chevronRight" />
+                  </summary>
+                  <div className="evaluation-meta">
+                    <span>
+                      {sub.evaluation.execution
+                        ? "有沙箱执行证据"
+                        : "无沙箱执行证据"}
+                    </span>
+                    <span>评估来源 · {sub.evaluation.provider}</span>
+                    {sub.evaluation.promptVersion && (
+                      <span>版本 · {sub.evaluation.promptVersion}</span>
+                    )}
+                  </div>
+                  {sub.evaluation.contextSources?.length ? (
+                    <p className="evaluation-context">
+                      <b>本次评估依据</b>
+                      {sub.evaluation.contextSources.map((source) => (
+                        <span key={source}>
+                          {{
+                            assignment_instructions: "作业说明",
+                            grading_rubric: "评分量规",
+                            reference_solution: "参考实现",
+                            course_knowledge_base: "课程知识库",
+                            knowledge_base: "课程知识库",
+                            test_cases: "测试用例",
+                          }[source] || source}
+                        </span>
+                      ))}
+                    </p>
+                  ) : null}
+                </details>
+              </div>
               <div className="feedback-overview">
                 {sub.evaluation.strengths?.length ? (
                   <FeedbackGroup
@@ -1032,10 +1258,21 @@ function Detail({
                 ) : null}
               </div>
               {sub.evaluation.execution && (
-                <details className="agent-analysis">
+                <details className="agent-analysis report-tests">
                   <summary>
-                    沙箱测试：{sub.evaluation.execution.passed}/
-                    {sub.evaluation.execution.total} 通过
+                    <span className="report-test-label">
+                      <Icon name="code" />
+                      沙箱测试
+                    </span>
+                    <span className="report-test-result">
+                      {sub.evaluation.execution.passed} /{" "}
+                      {sub.evaluation.execution.total} 通过
+                    </span>
+                    <span className="report-disclosure">
+                      <span className="when-closed">查看用例</span>
+                      <span className="when-open">收起用例</span>
+                      <Icon name="chevronRight" />
+                    </span>
                   </summary>
                   {sub.evaluation.execution.results.map((result, index) => (
                     <article key={`${result.name}-${index}`}>
@@ -1071,40 +1308,67 @@ function Detail({
                 </details>
               )}
               <div className="dimension-list">
-                {sub.evaluation.dimensions.map((d) => {
+                <div className="report-section-heading">
+                  <h4>评分明细</h4>
+                  <span>{sub.evaluation.dimensions.length} 个维度</span>
+                </div>
+                {sub.evaluation.dimensions.map((d, index) => {
+                  const unscored = dimensionUnscored(sub.evaluation!, d);
                   const criterion =
                     d.criterion ||
                     assignment?.rubric.find((r) => r.key === d.key)
                       ?.description;
                   return (
-                    <div className="dimension" key={d.key}>
-                      <span>
-                        <b>{d.name}</b>
+                    <section
+                      className={`dimension${unscored ? " is-unscored" : ""}`}
+                      key={d.key}
+                      aria-label={d.name}
+                    >
+                      <header className="dimension-heading">
+                        <h5>
+                          <span className="dimension-number">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          {d.name}
+                        </h5>
                         <strong>
-                          {d.score}/{d.maxScore}
+                          {unscored ? (
+                            <span className="dimension-unscored">未评分</span>
+                          ) : (
+                            <>
+                              {d.score}
+                              <small> / {d.maxScore}</small>
+                            </>
+                          )}
                         </strong>
-                      </span>
-                      {criterion && (
-                        <p className="criterion">
-                          <em>教师评判标准</em>
-                          {criterion}
-                        </p>
+                      </header>
+                      {!unscored && (
+                        <div className="dimension-meter" aria-hidden="true">
+                          <span
+                            style={{
+                              width: `${d.maxScore > 0 ? Math.max(0, Math.min(100, (d.score / d.maxScore) * 100)) : 0}%`,
+                            }}
+                          />
+                        </div>
                       )}
-                      <i>
-                        <b
-                          style={{
-                            width: `${d.maxScore > 0 ? Math.max(0, Math.min(100, (d.score / d.maxScore) * 100)) : 0}%`,
-                          }}
-                        />
-                      </i>
-                      <p>
-                        <em>评价依据</em>
-                        {d.evidence}
-                      </p>
-                      <small>
-                        <b>改进建议</b>
-                        {d.suggestion}
-                      </small>
+                      <div className="dimension-content">
+                        {criterion && (
+                          <p className="criterion">
+                            <em>教师评判标准</em>
+                            {criterion}
+                          </p>
+                        )}
+                        <p>
+                          <em>评价依据</em>
+                          {d.evidence}
+                        </p>
+                        {d.suggestion && (
+                          <small className="dimension-suggestion">
+                            <b>改进建议</b>
+                            {d.suggestion}
+                          </small>
+                        )}
+                      </div>
                       {((d.evidenceType && d.evidenceType !== "未标注") ||
                         d.confidence > 0 ||
                         d.verified) && (
@@ -1114,7 +1378,7 @@ function Detail({
                           {d.verified ? "已验证" : "未执行验证"}
                         </small>
                       )}
-                    </div>
+                    </section>
                   );
                 })}
               </div>
@@ -1226,7 +1490,18 @@ function FeedbackGroup({
 }) {
   return (
     <section className={`feedback-group ${kind}`}>
-      <h4>{title}</h4>
+      <h4>
+        <Icon
+          name={
+            kind === "good"
+              ? "check"
+              : kind === "issue"
+                ? "alert"
+                : "arrowRight"
+          }
+        />
+        {title}
+      </h4>
       <ul>
         {items.map((item, index) => (
           <li key={index}>{item}</li>

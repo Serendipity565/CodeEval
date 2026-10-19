@@ -61,7 +61,7 @@ type codeAnalysis struct {
 }
 
 type historyItem struct {
-	Total        int      `json:"total"`
+	Total        *int     `json:"total,omitempty"`
 	Summary      string   `json:"summary"`
 	Issues       []string `json:"issues"`
 	Improvements []string `json:"improvements"`
@@ -371,6 +371,7 @@ func validateAndNormalize(result *domain.Evaluation, rubric []domain.RubricItem,
 			return fmt.Errorf("rubric item %q has invalid evidence type", item.Key)
 		}
 		d.Name, d.Criterion, d.MaxScore = item.Name, item.Description, item.Weight
+		d.Unscored = false
 		if d.Score < 0 {
 			d.Score = 0
 		}
@@ -381,6 +382,7 @@ func validateAndNormalize(result *domain.Evaluation, rubric []domain.RubricItem,
 		normalized = append(normalized, d)
 	}
 	result.Dimensions, result.Total, result.MaxTotal = normalized, total, 100
+	result.Incomplete = false
 	return nil
 }
 
@@ -450,7 +452,14 @@ func compactHistory(history []domain.Submission) []historyItem {
 		if submission.Evaluation == nil {
 			continue
 		}
-		out = append(out, historyItem{Total: submission.Evaluation.Total, Summary: submission.Evaluation.Summary, Issues: submission.Evaluation.Issues, Improvements: submission.Evaluation.Improvements, SubmittedAt: submission.SubmittedAt.Format(time.RFC3339)})
+		item := historyItem{Summary: submission.Evaluation.Summary, Issues: submission.Evaluation.Issues, Improvements: submission.Evaluation.Improvements, SubmittedAt: submission.SubmittedAt.Format(time.RFC3339)}
+		if total, _, complete := domain.FinalScores(submission); complete {
+			item.Total = &total
+		}
+		if submission.Review != nil {
+			item.Summary += " 教师复核：" + submission.Review.Comment
+		}
+		out = append(out, item)
 	}
 	return out
 }

@@ -1,7 +1,16 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 import CodeMirror, {
   EditorView,
+  EditorState,
   type ReactCodeMirrorRef,
   type ViewUpdate,
 } from "@uiw/react-codemirror";
@@ -11,6 +20,12 @@ import { java } from "@codemirror/lang-java";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import type { Extension } from "@codemirror/state";
+import {
+  gotoLine,
+  openSearchPanel,
+  search,
+  searchPanelOpen,
+} from "@codemirror/search";
 import { formatDocument, hasFormatter } from "../../formatters";
 import { Icon } from "../ui";
 import { forestTheme } from "./theme";
@@ -31,10 +46,40 @@ const setup = {
   closeBrackets: true,
   indentOnInput: true,
 };
+const noop = () => {};
 
-type Glyph = "format" | "copy" | "expand" | "collapse" | "wrap" | "lock";
+const editorPhrases = EditorState.phrases.of({
+  Find: "查找代码",
+  Replace: "替换为",
+  next: "下一个",
+  previous: "上一个",
+  all: "选中全部",
+  "match case": "区分大小写",
+  regexp: "正则表达式",
+  "by word": "全词匹配",
+  replace: "替换",
+  "replace all": "全部替换",
+  close: "关闭面板",
+  "Go to line": "跳转到行",
+  go: "跳转",
+  "current match": "当前匹配",
+  "on line": "所在行",
+  "replaced match on line $": "已替换第 $ 行的匹配项",
+  "replaced $ matches": "已替换 $ 处匹配项",
+  "Fold line": "折叠代码行",
+  "Unfold line": "展开代码行",
+});
+
+type Glyph =
+  "format" | "copy" | "expand" | "collapse" | "wrap" | "lock" | "search";
 function EditorGlyph({ name }: { name: Glyph }) {
   const paths = {
+    search: (
+      <>
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="m16 16 5 5" />
+      </>
+    ),
     format: (
       <>
         <path d="M8 5H4v4M16 19h4v-4M4 5l6 6M20 19l-6-6M14 5h6M16 9h4M4 15h4M4 19h6" />
@@ -82,7 +127,7 @@ function EditorGlyph({ name }: { name: Glyph }) {
 export default function CodeEditor({
   language,
   value,
-  onChange = () => {},
+  onChange = noop,
   readOnly = false,
   height,
   label,
@@ -107,7 +152,9 @@ export default function CodeEditor({
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [wrap, setWrap] = useState(false);
-  const [position, setPosition] = useState({ line: 1, column: 1 });
+  const [fontSize, setFontSize] = useState(14);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [position, setPosition] = useState({ line: 1, column: 1, selected: 0 });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -121,12 +168,21 @@ export default function CodeEditor({
     return [
       ...(lang ? [lang] : []),
       ...(wrap ? [EditorView.lineWrapping] : []),
+      search({ top: true }),
+      editorPhrases,
+      EditorView.contentAttributes.of({
+        "aria-label": `${caption}（${language}${readOnly ? "，只读" : ""}）`,
+        tabindex: "0",
+      }),
     ];
-  }, [language, wrap]);
+  }, [language, wrap, caption, readOnly]);
   const basicSetup = useMemo(
     () => ({ ...setup, highlightActiveLine: !readOnly }),
     [readOnly],
   );
+  useEffect(() => {
+    editor.current?.view?.requestMeasure();
+  }, [fontSize]);
 
   // Move the portal's existing host: the editor, selection and undo history survive fullscreen.
   useLayoutEffect(() => {
@@ -158,16 +214,26 @@ export default function CodeEditor({
     [],
   );
 
-  function updatePosition(update: ViewUpdate) {
+  const updatePosition = useCallback((update: ViewUpdate) => {
+    const isSearchOpen = searchPanelOpen(update.state);
+    setSearchOpen((current) =>
+      current === isSearchOpen ? current : isSearchOpen,
+    );
     if (!update.selectionSet && !update.docChanged) return;
     const cursor = update.state.selection.main.head;
     const line = update.state.doc.lineAt(cursor);
-    setPosition((current) =>
-      current.line === line.number && current.column === cursor - line.from + 1
-        ? current
-        : { line: line.number, column: cursor - line.from + 1 },
+    const selected = update.state.selection.ranges.reduce(
+      (total, range) => total + range.to - range.from,
+      0,
     );
-  }
+    setPosition((current) =>
+      current.line === line.number &&
+      current.column === cursor - line.from + 1 &&
+      current.selected === selected
+        ? current
+        : { line: line.number, column: cursor - line.from + 1, selected },
+    );
+  }, []);
   async function formatCode() {
     const view = editor.current?.view;
     if (
@@ -218,6 +284,9 @@ export default function CodeEditor({
       aria-modal={expanded || undefined}
       aria-label={expanded ? `${language} 全屏代码编辑器` : undefined}
       className={`code-editor studio-editor ${expanded ? "is-expanded" : ""} ${readOnly ? "is-readonly" : ""}`}
+      style={{ "--editor-font-size": `${fontSize}px` } as CSSProperties}
+      // CodeMirror's line dialog owns its form; do not submit the surrounding assignment.
+      onSubmit={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (
           !readOnly &&
@@ -228,12 +297,20 @@ export default function CodeEditor({
           event.preventDefault();
           void formatCode();
         }
-        if (event.key === "Escape") setExpanded(false);
+        if (expanded && event.key === "Escape" && !event.defaultPrevented) {
+          event.preventDefault();
+          setExpanded(false);
+        }
         if (expanded && event.key === "Tab" && !event.defaultPrevented) {
           const focusable = Array.from(
             container.current?.querySelectorAll<HTMLElement>(
-              'button:not(:disabled), [tabindex="0"]',
+              'button, input, select, textarea, a[href], [contenteditable="true"], [tabindex]',
             ) ?? [],
+          ).filter(
+            (element) =>
+              element.tabIndex >= 0 &&
+              !element.matches(":disabled") &&
+              element.getClientRects().length > 0,
           );
           const first = focusable[0],
             last = focusable[focusable.length - 1];
@@ -254,15 +331,26 @@ export default function CodeEditor({
       <header className="studio-header">
         <span className="studio-file-tab">
           <Icon name="code" />
-          <b>
-            {readOnly ? "submission" : "solution"}.{extensionFor(language)}
-          </b>
+          <span className="studio-file-name">
+            {expanded && <small>{caption}</small>}
+            <b>
+              {readOnly ? "submission" : "solution"}.{extensionFor(language)}
+            </b>
+          </span>
           <span className="studio-file-mode">{readOnly ? "只读" : "编辑"}</span>
         </span>
-        <span className="editor-tools studio-tools">
+        <span
+          className="editor-tools studio-tools"
+          role="group"
+          aria-label="代码工具"
+        >
           {!readOnly && (
             <button
               type="button"
+              className="studio-format"
+              data-state={formatState}
+              aria-label="格式化代码"
+              aria-busy={formatState === "loading"}
               title="格式化代码 · Shift + Alt + F"
               disabled={!hasFormatter(language) || formatState === "loading"}
               onClick={() => void formatCode()}
@@ -283,6 +371,18 @@ export default function CodeEditor({
           )}
           <button
             type="button"
+            aria-label="查找代码"
+            aria-expanded={searchOpen}
+            title="查找代码 · Ctrl / ⌘ + F"
+            onClick={() => {
+              if (editor.current?.view) openSearchPanel(editor.current.view);
+            }}
+          >
+            <EditorGlyph name="search" />
+            <span>查找</span>
+          </button>
+          <button
+            type="button"
             className="studio-wrap"
             aria-pressed={wrap}
             aria-label="自动换行"
@@ -294,6 +394,9 @@ export default function CodeEditor({
           </button>
           <button
             type="button"
+            className="studio-copy"
+            data-state={copied ? "done" : "idle"}
+            aria-label="复制代码"
             onClick={() => void copyCode()}
             title="复制代码"
           >
@@ -303,19 +406,23 @@ export default function CodeEditor({
           <button
             ref={expandButton}
             type="button"
+            className="studio-expand"
+            aria-label={expanded ? "退出全屏" : "全屏编辑器"}
             aria-pressed={expanded}
             onClick={() => setExpanded((v) => !v)}
             title={expanded ? "退出全屏 · Esc" : "全屏编辑器"}
           >
             <EditorGlyph name={expanded ? "collapse" : "expand"} />
-            <span>{expanded ? "退出全屏" : "全屏"}</span>
+            <span>{expanded ? "退出" : "全屏"}</span>
           </button>
         </span>
       </header>
       <CodeMirror
         ref={editor}
         value={value}
-        height={height ?? (readOnly ? "420px" : "460px")}
+        height={readOnly ? "auto" : (height ?? "460px")}
+        minHeight={readOnly ? "180px" : undefined}
+        maxHeight={readOnly && !expanded ? (height ?? "420px") : undefined}
         theme={forestTheme}
         readOnly={readOnly}
         editable={!readOnly}
@@ -323,7 +430,7 @@ export default function CodeEditor({
         onChange={onChange}
         onUpdate={updatePosition}
         basicSetup={basicSetup}
-        aria-label={`${caption}（${language}）`}
+        placeholder={readOnly ? "此提交没有代码内容" : "在这里写下你的解答…"}
       />
       {error && (
         <div className="studio-error" role="alert">
@@ -357,14 +464,60 @@ export default function CodeEditor({
             </>
           )}
         </span>
-        <span className="studio-cursor">
+        <button
+          type="button"
+          className="studio-cursor"
+          title="跳转到指定行 · Ctrl / ⌘ + Alt + G"
+          aria-label={`跳转到行，当前第 ${position.line} 行，第 ${position.column} 列`}
+          onClick={() => {
+            if (editor.current?.view) gotoLine(editor.current.view);
+          }}
+        >
           行 {position.line}，列 {position.column}
+        </button>
+        <span
+          className={`studio-document-size ${position.selected ? "has-selection" : ""}`}
+        >
+          {position.selected ? (
+            `已选 ${position.selected} 字符`
+          ) : (
+            <>
+              {lines} 行
+              <span className="studio-char-count"> · {value.length} 字符</span>
+            </>
+          )}
         </span>
-        <span className="studio-document-size">
-          {lines} 行
-          <span className="studio-char-count"> · {value.length} 字符</span>
+        <span
+          className="studio-type-controls"
+          role="group"
+          aria-label="代码字号"
+        >
+          <button
+            type="button"
+            aria-label="缩小代码字号"
+            disabled={fontSize <= 12}
+            onClick={() => setFontSize((size) => Math.max(12, size - 1))}
+          >
+            A−
+          </button>
+          <button
+            type="button"
+            className="studio-type-reset"
+            aria-label={`当前字号 ${fontSize}，恢复默认字号`}
+            title="恢复默认字号"
+            onClick={() => setFontSize(14)}
+          >
+            {fontSize}
+          </button>
+          <button
+            type="button"
+            aria-label="放大代码字号"
+            disabled={fontSize >= 20}
+            onClick={() => setFontSize((size) => Math.min(20, size + 1))}
+          >
+            A+
+          </button>
         </span>
-        <span className="studio-encoding">UTF-8</span>
       </footer>
       <span className="sr-only" role="status">
         {copied ? "代码已复制" : formatState === "done" ? "代码已格式化" : ""}

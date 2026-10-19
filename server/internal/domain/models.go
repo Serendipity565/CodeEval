@@ -68,6 +68,7 @@ type DimensionScore struct {
 	Name         string  `json:"name"`
 	Criterion    string  `json:"criterion"`
 	Score        int     `json:"score"`
+	Unscored     bool    `json:"unscored"`
 	MaxScore     int     `json:"maxScore"`
 	Evidence     string  `json:"evidence"`
 	Suggestion   string  `json:"suggestion"`
@@ -77,6 +78,8 @@ type DimensionScore struct {
 }
 type Evaluation struct {
 	Total            int                `json:"total"`
+	Incomplete       bool               `json:"incomplete"`
+	DurationMS       int64              `json:"durationMs,omitempty"`
 	MaxTotal         int                `json:"maxTotal"`
 	Status           string             `json:"status"`
 	Summary          string             `json:"summary"`
@@ -101,9 +104,11 @@ type Submission struct {
 	ID           string      `json:"id"`
 	AssignmentID string      `json:"assignmentId"`
 	StudentName  string      `json:"studentName"`
+	StudentID    string      `json:"studentId"`
 	Code         string      `json:"code"`
 	Status       string      `json:"status"`
 	Progress     int         `json:"progress"`
 	SubmittedAt  time.Time   `json:"submittedAt"`
 	Evaluation   *Evaluation `json:"evaluation,omitempty"`
+	Review       *Review     `json:"review,omitempty"`
 }

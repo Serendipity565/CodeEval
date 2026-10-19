@@ -23,10 +23,10 @@ func applyExecutionEvidence(result *domain.Evaluation, assignment domain.Assignm
 		return
 	}
 	result.Execution = execution
-	result.Verified = true
+	result.Verified = false
 	for i := range result.Dimensions {
 		item := assignment.Rubric[i]
-		if !isFunctionalityCriterion(item) {
+		if !isFunctionalityCriterion(item) || execution.TotalWeight <= 0 {
 			continue
 		}
 		ratio := 0.0
@@ -34,6 +34,7 @@ func applyExecutionEvidence(result *domain.Evaluation, assignment domain.Assignm
 			ratio = float64(execution.PassedWeight) / float64(execution.TotalWeight)
 		}
 		result.Dimensions[i].Score = int(math.Round(float64(item.Weight) * ratio))
+		result.Dimensions[i].Unscored = false
 		result.Dimensions[i].Confidence = 1
 		result.Dimensions[i].Verified = true
 		result.Dimensions[i].EvidenceType = "execution"
@@ -52,6 +53,7 @@ func applyExecutionEvidence(result *domain.Evaluation, assignment domain.Assignm
 	if len(result.Dimensions) > 0 {
 		result.Confidence = confidence / float64(len(result.Dimensions))
 	}
+	domain.NormalizeLegacyEvaluation(result)
 }
 
 func NewService(cfg config.Config) *Service {
@@ -62,15 +64,22 @@ func NewService(cfg config.Config) *Service {
 	}
 }
 
-func (s *Service) Evaluate(ctx context.Context, assignment domain.Assignment, code string, history []domain.Submission) (domain.Evaluation, error) {
+func (s *Service) Evaluate(ctx context.Context, assignment domain.Assignment, code string, history []domain.Submission) (result domain.Evaluation, err error) {
+	started := time.Now()
+	defer func() {
+		if err == nil {
+			result.DurationMS = time.Since(started).Milliseconds()
+		}
+	}()
 	execution, err := s.sandbox.Run(ctx, assignment.Language, code, assignment.TestCases)
 	if err != nil {
 		return domain.Evaluation{}, err
 	}
 	if !assignment.LLMEvaluationEnabled {
-		result := Evaluate(code, assignment.Rubric)
+		result := evaluateLocal(assignment.Language, code, assignment.Rubric)
 		result.Provider = "rules"
 		applyExecutionEvidence(&result, assignment, execution)
+		domain.NormalizeLegacyEvaluation(&result)
 		return result, nil
 	}
 	if s.deepseek.APIKeyMissing() {

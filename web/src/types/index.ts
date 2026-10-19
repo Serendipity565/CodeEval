@@ -31,6 +31,8 @@ export type Assignment = {
   knowledgeBase?: string;
 };
 export type Evaluation = {
+  incomplete?: boolean;
+  durationMs?: number;
   total: number;
   maxTotal: number;
   summary: string;
@@ -73,6 +75,7 @@ export type Evaluation = {
     explanation: string;
   }[];
   dimensions: {
+    unscored?: boolean;
     key: string;
     name: string;
     criterion?: string;
@@ -88,12 +91,74 @@ export type Evaluation = {
 export type Submission = {
   id: string;
   assignmentId: string;
+  studentId: string;
   studentName: string;
   submittedAt: string;
   status: "queued" | "evaluating" | "graded" | "needs_review" | "failed";
   progress: number;
   code: string;
   evaluation?: Evaluation;
+  review?: Review;
+};
+export type AssessmentDimension = {
+  key: string;
+  name: string;
+  score: number;
+  maxScore: number;
+};
+export type Review = {
+  id: string;
+  reviewerName: string;
+  comment: string;
+  dimensions: AssessmentDimension[];
+  total: number;
+  maxTotal: number;
+  createdAt: string;
+};
+export type ExpertRating = Omit<Review, "reviewerName"> & {
+  expertName: string;
+  durationSeconds: number;
+};
+export type Assessment = { reviews: Review[]; expertRatings: ExpertRating[] };
+export type AssignmentComparison = {
+  assignmentId: string;
+  selection: "latest_per_student";
+  latestSubmissionCount: number;
+  pairedCount: number;
+  excludedCount: number;
+  metrics: null | {
+    aiMean: number;
+    expertMean: number;
+    aiStdDev: number;
+    expertStdDev: number;
+    meanAbsoluteError: number;
+    rootMeanSquaredError: number;
+    meanBias: number;
+    withinFivePointsRate: number;
+    aiMeanDurationSeconds: number | null;
+    expertMeanDurationSeconds: number | null;
+    aiTimedCount: number;
+    expertTimedCount: number;
+  };
+  pairs: {
+    submissionId: string;
+    studentId: string;
+    studentName: string;
+    aiTotal: number;
+    expertMean: number;
+    difference: number;
+    expertCount: number;
+    aiDurationSeconds: number | null;
+    expertDurationSeconds: number | null;
+    dimensions: {
+      key: string;
+      name: string;
+      maxScore: number;
+      aiScore: number;
+      expertMean: number;
+      difference: number;
+    }[];
+  }[];
 };
 export type User = {
   id: number;
@@ -102,4 +167,49 @@ export type User = {
   role: "teacher" | "student";
 };
 export type AuthState = { token: string; user: User };
-export type View = "home" | "assignments" | "submissions" | "publish" | "edit";
+export type View =
+  | "home"
+  | "assignments"
+  | "submissions"
+  | "publish"
+  | "edit"
+  | "comparison"
+  | "similarity";
+
+export type SimilarityRange = { startLine: number; endLine: number };
+export type SimilarityMatch = {
+  a: SimilarityRange;
+  b: SimilarityRange;
+  tokens: number;
+  kind: "exact" | "renamed";
+};
+export type SimilaritySource = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  submittedAt: string;
+  code: string;
+  tokenCount: number;
+  excludedTokens: number;
+};
+export type SimilarityPair = {
+  a: string;
+  b: string;
+  similarity: number;
+  coverageA: number;
+  coverageB: number;
+  matchedTokens: number;
+  matches: SimilarityMatch[];
+};
+export type SimilarityReport = {
+  assignmentId: string;
+  language: string;
+  selection: "latest_per_student" | "selected_pair";
+  generatedAt: string;
+  version: string;
+  minTokens: number;
+  template: string;
+  comparedPairs: number;
+  sources: SimilaritySource[];
+  pairs: SimilarityPair[];
+};
