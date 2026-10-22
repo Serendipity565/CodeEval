@@ -24,6 +24,16 @@
   --color-info-bg: #eaf0f5;
   --font-sans: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "DM Mono", "SFMono-Regular", Consolas, monospace;
+  --font-size-small: 12px;
+  --font-size-body: 14px;
+  --font-size-subheading: 16px;
+  --font-size-heading: 20px;
+  --font-size-metric: 24px;
+  --font-size-page: 28px;
+  --control-height: 36px;
+  --control-height-touch: 44px;
+  --course-search-width: 260px;
+  --course-search-width-compact: 160px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

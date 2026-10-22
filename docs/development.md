@@ -24,13 +24,21 @@ Vite 默认地址为 `http://localhost:5173`，并把 `/api` 代理到 `http://l
 | --- | --- |
 | `database.*` | MySQL 地址、凭据和连接池；Compose 内主机名为 `mysql` |
 | `jwt.secret` | 登录令牌签名密钥 |
-| `seed.enabled` | 是否写入开发演示数据；模板默认为 `false` |
+| `seed.enabled` | 是否补入演示账号、课程、选课和评分快照；模板默认为 `false` |
 | `sandbox.enabled`、`runner_url`、`runner_token` | 沙箱开关、Runner 地址及内部鉴权 |
 | `sandbox.supported_languages` | 教师可选的作业语言 |
 | `sandbox.max_concurrent_sandboxes` | API Worker 并发数，目前允许 1 或 2 |
 | `deepseek.*` | AI 用例生成及启用大模型评估的作业所用配置 |
 
 不启用 AI 评分的作业使用本地规则评估；教师使用“AI 生成用例”或为作业启用大模型评估时，需要可用的 DeepSeek API Key。AI 生成的用例是可编辑草稿，教师保存后才用于提交测试。
+
+## 体验演示数据
+
+将 `server/config.yaml` 的 `seed.enabled` 设为 `true`，停止旧后端进程后重新运行 `make server-dev`；Compose 部署执行 `docker compose up -d --build server`。需要启动最新代码，单独刷新网页不会触发初始化。
+
+初始教师账号为 `teacher`、`teacher02`，学生账号为 `student01` 至 `student08`；新建演示账号的统一密码为 `CodeEval123!`。已有同名账号的密码不会重置。全部账号、选课情况与推荐演示步骤见[演示数据](demo-data.md#演示账号与密码)。
+
+重复启动只补缺失数据；如需恢复全新演示状态，按[清空并重新初始化演示库](demo-data.md#清空并重新初始化演示库)操作，先停止后端，再清空包含课程、选课关系的全部 9 张表。
 
 ## 检查与构建
 

@@ -14,14 +14,17 @@ const mockPassword = "CodeEval123!"
 //go:embed fixtures/recorded_seed.json
 var recordedSeedJSON []byte
 
-// SeedMockData restores actual browser-generated evaluation results. No model
-// calls, simulated reviews or invented scores are made during initialization.
+// SeedMockData restores actual browser-generated evaluation results, then adds
+// illustrative courses and enrollments. It never invents grades or calls a model.
 func SeedMockData(s *MySQLStore) error {
 	snapshot, err := loadRecordedSeed()
 	if err != nil {
 		return err
 	}
-	return SeedRecordedData(s, snapshot)
+	if err := SeedRecordedData(s, snapshot); err != nil {
+		return err
+	}
+	return seedCourseDemoData(s, snapshot)
 }
 
 func loadRecordedSeed() (RecordedSeed, error) {

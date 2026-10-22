@@ -22,6 +22,7 @@ jwt:
   expires_hours: 24
 
 seed:
+  # 补入真实评分快照，以及课程、选课和未提交学生演示数据；重复启动只补缺失记录。
   enabled: false
 
 deepseek:

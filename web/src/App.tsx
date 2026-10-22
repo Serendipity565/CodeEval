@@ -1,7 +1,11 @@
+import TeacherCourse from "./components/courses/TeacherCourse";
+import Courses from "./components/courses/Courses";
+import AssignmentProgress from "./components/courses/AssignmentProgress";
 import AssignmentActions from "./components/assessment/AssignmentActions";
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type {
   Assignment,
+  Course,
   AuthState as Auth,
   Rubric,
   Submission,
@@ -35,6 +39,7 @@ import {
   finalScore,
 } from "./assessment";
 import {
+  coursePath,
   assignmentPath,
   comparisonPath,
   similarityPath,
@@ -101,7 +106,8 @@ function App() {
         navigate(
           path.startsWith("/workspace/") ||
             path.startsWith("/assignments/") ||
-            path.startsWith("/submissions/")
+            path.startsWith("/submissions/") ||
+            path.startsWith("/courses/")
             ? path
             : viewPath("home"),
           true,
@@ -137,19 +143,30 @@ function Workspace({
   const teacher = auth.user.role === "teacher",
     view = route.view,
     [as, setAs] = useState<Assignment[]>([]),
+    [courses, setCourses] = useState<Course[]>([]),
     [ss, setSs] = useState<Submission[]>([]),
     [err, setErr] = useState(""),
     [loading, setLoading] = useState(true),
     [hasLoaded, setHasLoaded] = useState(false),
     selected = ss.find((item) => item.id === route.submissionId);
-  const setView = (next: View) => navigate(viewPath(next));
+  const setView = (next: View) =>
+    navigate(viewPath(next === "publish" ? "courses" : next));
+  const course = courses.find((c) => c.id === route.courseId);
+  const courseAssignments = route.courseId
+    ? as.filter((a) => a.courseId === route.courseId)
+    : as;
+  const publishInCourse = (next: View) =>
+    next === "publish" && course
+      ? navigate(`${coursePath(course.id)}/publish`)
+      : setView(next);
   const backTo = (fallback: string) => {
     const from = window.history.state?.from;
     if (
       typeof from === "string" &&
       (from.startsWith("/workspace/") ||
         from.startsWith("/assignments/") ||
-        from.startsWith("/submissions/"))
+        from.startsWith("/submissions/") ||
+        from.startsWith("/courses/"))
     ) {
       window.history.back();
     } else {
@@ -169,8 +186,10 @@ function Workspace({
     return Promise.all([
       req("/assignments", auth.token),
       req("/submissions", auth.token),
+      req("/courses", auth.token),
     ])
-      .then(([a, s]) => {
+      .then(([a, s, c]) => {
+        setCourses(c);
         setAs(a);
         setSs(s);
         setHasLoaded(true);
@@ -183,7 +202,7 @@ function Workspace({
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [auth.token, path]);
   useEffect(() => {
     if (
       !selected ||
@@ -219,6 +238,7 @@ function Workspace({
           {(
             [
               ["home", "工作台"],
+              ["courses", "课程"],
               ["assignments", teacher ? "作业" : "我的作业"],
               ["submissions", teacher ? "提交" : "提交记录"],
             ] as [View, string][]
@@ -244,9 +264,11 @@ function Workspace({
                 name={
                   v === "home"
                     ? "home"
-                    : v === "assignments"
-                      ? "assignments"
-                      : "submissions"
+                    : v === "courses"
+                      ? "courses"
+                      : v === "assignments"
+                        ? "assignments"
+                        : "submissions"
                 }
               />
               <span>{n}</span>
@@ -277,6 +299,7 @@ function Workspace({
                 ? "提交详情"
                 : {
                     home: "工作台",
+                    courses: "课程",
                     assignments: "作业",
                     submissions: "提交记录",
                     publish: "发布作业",
@@ -401,6 +424,91 @@ function Workspace({
                 <Empty text="这项作业不存在或无权查看评分对照。" />
               </section>
             )
+          ) : view === "courses" ||
+            (view === "publish" && (!teacher || !course)) ? (
+            route.courseId && view === "courses" ? (
+              course && (teacher || course.enrolled) ? (
+                <section className="course-detail-page">
+                  <button className="back" onClick={() => setView("courses")}>
+                    <Icon name="chevronLeft" />
+                    返回课程
+                  </button>
+                  <div className="course-context">
+                    <div className="course-context-copy">
+                      <span className="course-context-label">
+                        <Icon name="courses" />
+                        课程详情
+                      </span>
+                      <h2>{course.title}</h2>
+                      <span className="course-context-teacher">
+                        <Icon name="user" />
+                        {course.teacherName} · 授课教师
+                      </span>
+                      {course.description && <p>{course.description}</p>}
+                    </div>
+                    <dl className="course-context-metrics">
+                      <div>
+                        <dt>选课学生</dt>
+                        <dd>
+                          {course.studentCount}
+                          <small>人</small>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>课程作业</dt>
+                        <dd>
+                          {course.assignmentCount}
+                          <small>项</small>
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  {teacher ? (
+                    <TeacherCourse course={course} token={auth.token}>
+                      <TeacherAssignments
+                        as={courseAssignments}
+                        ss={ss}
+                        go={publishInCourse}
+                        teacherId={String(auth.user.id)}
+                        compare={(id) => navigate(comparisonPath(id))}
+                        similarity={(id) => navigate(similarityPath(id))}
+                        edit={(id) => navigate(assignmentPath(id))}
+                      />
+                    </TeacherCourse>
+                  ) : (
+                    <StudentAssignments
+                      as={courseAssignments}
+                      ss={ss}
+                      open={(id) => navigate(assignmentPath(id))}
+                      back={() => setView("courses")}
+                      onSubmissionChange={upsertSubmission}
+                      onCreated={(submission) =>
+                        navigate(submissionPath(submission.id))
+                      }
+                    />
+                  )}
+                </section>
+              ) : (
+                <section className="panel">
+                  <Empty
+                    text="课程不存在或尚未选课。"
+                    action={
+                      <button onClick={() => setView("courses")}>
+                        浏览课程
+                      </button>
+                    }
+                  />
+                </section>
+              )
+            ) : (
+              <Courses
+                courses={courses}
+                teacher={teacher}
+                token={auth.token}
+                open={(id) => navigate(coursePath(id))}
+                reload={load}
+              />
+            )
           ) : view === "home" ? (
             <Home
               teacher={teacher}
@@ -410,7 +518,19 @@ function Workspace({
               pick={setSelected}
             />
           ) : view === "assignments" ? (
-            teacher ? (
+            teacher && route.assignmentId ? (
+              as.find((a) => a.id === route.assignmentId) ? (
+                <AssignmentProgress
+                  assignment={as.find((a) => a.id === route.assignmentId)!}
+                  token={auth.token}
+                  back={() => backTo(viewPath("assignments"))}
+                  edit={() => navigate(editPath(route.assignmentId!))}
+                  openSubmission={(id) => navigate(submissionPath(id))}
+                />
+              ) : (
+                <Empty text="作业不存在或无权查看。" />
+              )
+            ) : teacher ? (
               <TeacherAssignments
                 as={as}
                 ss={ss}
@@ -419,7 +539,7 @@ function Workspace({
                 compare={(id) => navigate(comparisonPath(id))}
                 similarity={(id) => navigate(similarityPath(id))}
                 edit={(id) => {
-                  navigate(editPath(id));
+                  navigate(assignmentPath(id));
                 }}
               />
             ) : (
@@ -440,13 +560,14 @@ function Workspace({
           ) : view === "publish" ? (
             <Publish
               token={auth.token}
-              back={() => backTo(viewPath("assignments"))}
+              course={course}
+              back={() => navigate(coursePath(course!.id))}
               done={async () => {
                 await load();
-                navigate(viewPath("assignments"), true);
+                navigate(coursePath(course!.id), true);
               }}
             />
-          ) : (
+          ) : teacher && as.some((a) => a.id === route.assignmentId) ? (
             <Publish
               token={auth.token}
               assignmentId={route.assignmentId}
@@ -456,6 +577,8 @@ function Workspace({
                 navigate(viewPath("assignments"), true);
               }}
             />
+          ) : (
+            <Empty text="无权访问此页面。" />
           )}
         </div>
         <footer className="workspace-footer">
@@ -563,14 +686,24 @@ function TeacherAssignments({
                         {a.title}
                       </button>
                     </h3>
-                    <p>{a.description || "暂无作业说明"}</p>
+                    <p>
+                      {a.courseTitle} · {a.description || "暂无作业说明"}
+                    </p>
                   </div>
                   <dl className="assignment-sheet-metrics">
                     <div>
-                      <dt>提交记录</dt>
+                      <dt>已提交 / 应提交</dt>
                       <dd>
-                        {sub.length}
-                        <small>份</small>
+                        {a.submittedStudents} / {a.expectedStudents}
+                        <small>人</small>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>提交率</dt>
+                      <dd>
+                        {a.submissionRate == null
+                          ? "—"
+                          : `${Math.round(a.submissionRate * 10) / 10}%`}
                       </dd>
                     </div>
                     <div>
@@ -1550,14 +1683,18 @@ function Publish({
   token,
   done,
   assignmentId,
+  course,
   back,
 }: {
   token: string;
+  course?: Course;
   done: () => Promise<void>;
   assignmentId?: string;
   back?: () => void;
 }) {
   const [t, setT] = useState(""),
+    [courseID, setCourseID] = useState(course?.id || ""),
+    [courseTitle, setCourseTitle] = useState(course?.title || ""),
     [lang, setLang] = useState("Python"),
     [languages, setLanguages] = useState<string[]>([]),
     [desc, setDesc] = useState(""),
@@ -1603,6 +1740,8 @@ function Publish({
     setErr("");
     void req<Assignment>(`/assignments/${assignmentId}`, token)
       .then((item) => {
+        setCourseID(item.courseId);
+        setCourseTitle(item.courseTitle);
         setT(item.title);
         setLang(item.language);
         setDesc(item.description);
@@ -1707,6 +1846,7 @@ function Publish({
         {
           method: assignmentId ? "PUT" : "POST",
           body: JSON.stringify({
+            courseId: courseID,
             title: assignmentId ? t : t.trim(),
             language: lang,
             description: desc.trim(),
@@ -1761,6 +1901,9 @@ function Publish({
               : "按本次作业目标设置评分项、权重和提交规则"
           }
         />
+        <p className="course-note">
+          所属课程：{courseTitle || "正在读取…"} · 学生选课后可提交本作业
+        </p>
         <form onSubmit={go}>
           <label className="wide" id="assignment-basic">
             作业标题

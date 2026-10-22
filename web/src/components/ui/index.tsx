@@ -3,6 +3,7 @@ import type { Submission } from "../../types";
 import "./ui.css";
 
 export type IconName =
+  | "courses"
   | "home"
   | "assignments"
   | "submissions"
@@ -16,6 +17,7 @@ export type IconName =
   | "alert"
   | "clock"
   | "check"
+  | "close"
   | "user"
   | "calendar"
   | "arrowUpRight"
@@ -27,6 +29,12 @@ export type IconName =
   | "eyeOff";
 
 const paths: Record<IconName, ReactNode> = {
+  courses: (
+    <>
+      <path d="M12 5c-3-2-6-2-9-1v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-3-1-6-1-9 1Z" />
+      <path d="M12 5v15" />
+    </>
+  ),
   home: (
     <>
       <path d="m3 10 9-7 9 7" />
@@ -87,6 +95,7 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   check: <path d="m5 12 4 4L19 6" />,
+  close: <path d="m6 6 12 12M18 6 6 18" />,
   user: (
     <>
       <circle cx="12" cy="8" r="4" />

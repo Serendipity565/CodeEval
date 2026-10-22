@@ -2,6 +2,7 @@ import { apiRequest } from "./client";
 import type { Assignment, Rubric, TestCase } from "../types";
 export type CreateAssignmentInput = Pick<
   Assignment,
+  | "courseId"
   | "title"
   | "language"
   | "description"

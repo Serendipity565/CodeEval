@@ -26,6 +26,7 @@ type User struct {
 	CreatedAt    time.Time
 }
 type AssignmentRecord struct {
+	CourseID             uint `gorm:"index;not null;default:0"`
 	ID                   uint `gorm:"primaryKey"`
 	TeacherID            uint `gorm:"index"`
 	Title, Language      string
@@ -100,10 +101,14 @@ func NewMySQL(cfg config.Config) (*MySQLStore, error) {
 	if err := sqlDB.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("ping mysql: %w", err)
 	}
-	if err := db.AutoMigrate(&User{}, &AssignmentRecord{}, &TestCaseRecord{}, &SubmissionRecord{}, &EvaluationJobRecord{}, &ReviewRecord{}, &ExpertRatingRecord{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &CourseRecord{}, &EnrollmentRecord{}, &AssignmentRecord{}, &TestCaseRecord{}, &SubmissionRecord{}, &EvaluationJobRecord{}, &ReviewRecord{}, &ExpertRatingRecord{}); err != nil {
 		return nil, fmt.Errorf("migrate mysql: %w", err)
 	}
-	return &MySQLStore{db: db}, nil
+	s := &MySQLStore{db: db}
+	if err := s.MigrateLegacyCourses(); err != nil {
+		return nil, fmt.Errorf("migrate legacy courses: %w", err)
+	}
+	return s, nil
 }
 func (s *MySQLStore) FindUser(username string) (User, error) {
 	var u User
@@ -122,7 +127,7 @@ func (s *MySQLStore) CreateAssignment(teacherID uint, a domain.Assignment) (doma
 	if e != nil {
 		return a, e
 	}
-	r := AssignmentRecord{TeacherID: teacherID, Title: a.Title, Language: a.Language, Description: a.Description, ReferenceSolution: a.ReferenceSolution, KnowledgeBase: a.KnowledgeBase, Status: a.Status, MaxSubmissions: a.MaxSubmissions, DueAt: a.DueAt, RubricJSON: b, LLMEvaluationEnabled: a.LLMEvaluationEnabled}
+	r := AssignmentRecord{CourseID: mustID(a.CourseID), TeacherID: teacherID, Title: a.Title, Language: a.Language, Description: a.Description, ReferenceSolution: a.ReferenceSolution, KnowledgeBase: a.KnowledgeBase, Status: a.Status, MaxSubmissions: a.MaxSubmissions, DueAt: a.DueAt, RubricJSON: b, LLMEvaluationEnabled: a.LLMEvaluationEnabled}
 	e = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&r).Error; err != nil {
 			return err
@@ -136,6 +141,7 @@ func (s *MySQLStore) CreateAssignment(teacherID uint, a domain.Assignment) (doma
 		return nil
 	})
 	a.ID = fmt.Sprint(r.ID)
+	a.TeacherID = fmt.Sprint(teacherID)
 	a.HasReferenceMaterial = strings.TrimSpace(a.ReferenceSolution) != "" || strings.TrimSpace(a.KnowledgeBase) != ""
 	return a, e
 }
@@ -466,7 +472,7 @@ func assignmentFrom(r AssignmentRecord) domain.Assignment {
 	if r.Status == "" {
 		r.Status = "open"
 	}
-	return domain.Assignment{ID: fmt.Sprint(r.ID), TeacherID: fmt.Sprint(r.TeacherID), Title: r.Title, Language: r.Language, Description: r.Description, Status: r.Status, MaxSubmissions: r.MaxSubmissions, DueAt: r.DueAt, Rubric: rubric, LLMEvaluationEnabled: r.LLMEvaluationEnabled, ReferenceSolution: r.ReferenceSolution, KnowledgeBase: r.KnowledgeBase, HasReferenceMaterial: strings.TrimSpace(r.ReferenceSolution) != "" || strings.TrimSpace(r.KnowledgeBase) != ""}
+	return domain.Assignment{CourseID: fmt.Sprint(r.CourseID), ID: fmt.Sprint(r.ID), TeacherID: fmt.Sprint(r.TeacherID), Title: r.Title, Language: r.Language, Description: r.Description, Status: r.Status, MaxSubmissions: r.MaxSubmissions, DueAt: r.DueAt, Rubric: rubric, LLMEvaluationEnabled: r.LLMEvaluationEnabled, ReferenceSolution: r.ReferenceSolution, KnowledgeBase: r.KnowledgeBase, HasReferenceMaterial: strings.TrimSpace(r.ReferenceSolution) != "" || strings.TrimSpace(r.KnowledgeBase) != ""}
 }
 func submissionFrom(r SubmissionRecord, name string) domain.Submission {
 	var evaluation *domain.Evaluation

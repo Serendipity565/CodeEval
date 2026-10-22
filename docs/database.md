@@ -28,13 +28,16 @@ database:
 3. 使用 `PingContext` 在 10 秒内验证数据库可用性。
 4. 设置最大空闲连接数、最大连接数和连接生命周期。
 5. 执行 `AutoMigrate`。
-6. 根据 `seed.enabled` 决定是否导入演示数据。
+6. 将未归属课程的已有作业按教师归入“编程实践”，自动加入已有提交的学生；重复启动不会重复迁移。旧版本自动生成且名称、说明均未修改的默认课程同步改为“编程实践”，保留课程 ID、作业和选课关系。
+7. 根据 `seed.enabled` 决定是否导入评分快照、补齐课程与选课演示数据；新导入的演示作业优先归属“C++ 程序设计”，已有课程归属保持不变。随后处理仍未归属课程的历史作业。
 
 ## 2. 表关系
 
 ```text
 users (teacher)
-  └── assignment_records.teacher_id
+  └── course_records.teacher_id
+        ├── enrollment_records.course_id → enrollment_records.student_id → users (student)
+        └── assignment_records.course_id (teacher_id 保留发布教师)
         ├── test_case_records.assignment_id
         └── submission_records.assignment_id
               ├── submission_records.student_id → users (student)
@@ -58,11 +61,20 @@ users (teacher)
 | `role` | 用户角色 | `teacher` 或 `student`，普通索引 |
 | `created_at` | 创建时间 | GORM 自动写入 |
 
+### course_records 与 enrollment_records
+
+`course_records` 保存课程名称（`title`）、说明（`description`）、教师 ID（`teacher_id`）和创建时间。教师只管理自己的课程。
+
+`enrollment_records` 使用 `(course_id, student_id)` 联合主键防止重复选课。学生只可选课，重复请求幂等；本次不提供退课。选课后可以访问课程已有作业，未选课学生无法通过作业详情或提交 API 访问该课程作业。
+
+作业响应增加 `courseId`、`courseTitle`、`expectedStudents`、`submittedStudents` 和 `submissionRate`。应提交人数为当前选课人数；已提交人数为选课学生中有提交记录的去重人数，包含排队和评估失败的提交；提交率使用百分数（0–100），无人选课时为 `null`。名单接口返回每位学生的最近一次提交，尚未提交的学生同样保留。
+
 ### assignment_records
 
 | 字段 | 含义 | 约束/说明 |
 | --- | --- | --- |
 | `id` | 作业 ID | 自增主键 |
+| `course_id` | 所属课程 | 普通索引；新作业必须指定教师本人的课程，发布后不可转移 |
 | `teacher_id` | 发布教师 ID | 普通索引，逻辑关联 `users.id` |
 | `title` | 作业标题 | 必填 |
 | `language` | 编程语言 | 如 Go、Python、Java、C++ |
@@ -178,6 +190,16 @@ users (teacher)
 
 ## 4. 相关文档
 
-- [演示数据](demo-data.md)：初始化开关、账号、实际评分与快照导出。
+- [演示数据](demo-data.md)：初始化开关、全部演示账号与密码、选课关系、九表清空重建、实际评分与快照导出。
 - [提交与评估](evaluation.md)：评分语义、教师复核及专家对照口径。
 - [开发与配置](development.md)：本地启动、数据库配置和检查命令。
+
+## 课程接口
+
+- `GET /api/v1/courses`：学生查看全部课程和本人选课状态，教师查看本人课程。
+- `POST /api/v1/courses`：教师创建课程，字段 `title`、`description`。
+- `POST /api/v1/courses/:id/enroll`：学生选课，重复选课不会增加人数。
+- `GET /api/v1/courses/:id/students`：仅课程所属教师可查看全部选课学生，返回 `id`、`name`、`username`、`enrolledAt`；没有作业或提交的学生也包含在内。
+- `POST /api/v1/assignments`：除既有字段外必须传入 `courseId`，并验证课程归属。
+- `GET /api/v1/assignments`：仅返回教师本人或学生已选课程内的作业。
+- `GET /api/v1/assignments/:id/students`：作业所有者查看选课学生及其最近提交。

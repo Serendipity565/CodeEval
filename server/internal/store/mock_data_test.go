@@ -101,6 +101,7 @@ func TestSeedMockDataReplaysActualResultsAndPreservesExistingData(t *testing.T) 
 				}
 			}
 			steps = append(steps, assessmentStep{kind: "commit"})
+			steps = append(steps, courseDemoSeedSteps(t, snapshot, existing)...)
 			if err := SeedMockData(assessmentTestStore(t, steps)); err != nil {
 				t.Fatal(err)
 			}

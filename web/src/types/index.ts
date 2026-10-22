@@ -12,7 +12,34 @@ export type TestCase = {
   weight: number;
   timeoutMs: number;
 };
+export type Course = {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  title: string;
+  description: string;
+  studentCount: number;
+  assignmentCount: number;
+  enrolled: boolean;
+};
+export type CourseStudent = {
+  id: string;
+  name: string;
+  username: string;
+  enrolledAt: string;
+};
+export type AssignmentStudent = {
+  id: string;
+  name: string;
+  submissionId?: string;
+  submittedAt?: string;
+};
 export type Assignment = {
+  courseId: string;
+  courseTitle: string;
+  expectedStudents: number;
+  submittedStudents: number;
+  submissionRate: number | null;
   id: string;
   teacherId: string;
   teacherName: string;
@@ -168,6 +195,7 @@ export type User = {
 };
 export type AuthState = { token: string; user: User };
 export type View =
+  | "courses"
   | "home"
   | "assignments"
   | "submissions"

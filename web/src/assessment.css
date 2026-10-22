@@ -467,7 +467,7 @@
 }
 .assignment-sheet-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   align-items: center;
   gap: 48px;
   padding: 14px 28px 28px;
@@ -506,7 +506,7 @@
 }
 .assignment-sheet-metrics {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
   padding-left: 28px;
   gap: 24px;
@@ -523,7 +523,7 @@
   align-items: baseline;
   gap: 6px;
   color: var(--color-text);
-  font: 30px/1.2 var(--font-mono);
+  font: 24px/1.2 var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 .assignment-sheet-metrics small {
@@ -603,11 +603,12 @@
 }
 @media (max-width: 900px) {
   .assignment-sheet-body {
-    grid-template-columns: minmax(0, 1fr) 200px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
   .assignment-sheet-metrics {
-    padding-left: 20px;
+    padding-left: 0;
+    border-left: 0;
     gap: 16px;
   }
   .assignment-sheet-footer {
@@ -649,7 +650,7 @@
     gap: 20px;
   }
   .assignment-sheet-metrics dd {
-    font-size: 26px;
+    font-size: 20px;
   }
   .assignment-sheet-footer {
     padding: 16px 18px;

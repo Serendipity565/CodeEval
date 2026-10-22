@@ -37,7 +37,35 @@ type ExecutionEvidence struct {
 	TotalWeight  int          `json:"totalWeight"`
 	Results      []TestResult `json:"results"`
 }
+type Course struct {
+	ID              string `json:"id"`
+	TeacherID       string `json:"teacherId"`
+	TeacherName     string `json:"teacherName"`
+	Title           string `json:"title"`
+	Description     string `json:"description"`
+	StudentCount    int64  `json:"studentCount"`
+	AssignmentCount int64  `json:"assignmentCount"`
+	Enrolled        bool   `json:"enrolled"`
+}
+type CourseStudent struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Username   string    `json:"username"`
+	EnrolledAt time.Time `json:"enrolledAt"`
+}
+type AssignmentStudent struct {
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	SubmissionID string     `json:"submissionId,omitempty"`
+	SubmittedAt  *time.Time `json:"submittedAt,omitempty"`
+}
 type Assignment struct {
+	CourseID          string   `json:"courseId"`
+	CourseTitle       string   `json:"courseTitle"`
+	ExpectedStudents  int64    `json:"expectedStudents"`
+	SubmittedStudents int64    `json:"submittedStudents"`
+	SubmissionRate    *float64 `json:"submissionRate"`
+
 	ID                   string       `json:"id"`
 	TeacherID            string       `json:"teacherId"`
 	TeacherName          string       `json:"teacherName"`

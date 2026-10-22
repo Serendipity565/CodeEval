@@ -31,6 +31,9 @@ func main() {
 		if err := store.SeedMockData(db); err != nil {
 			panic(err)
 		}
+		if err := db.MigrateLegacyCourses(); err != nil {
+			panic(err)
+		}
 	}
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.DebugMode)

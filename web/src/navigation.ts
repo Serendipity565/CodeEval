@@ -2,6 +2,7 @@ import type { View } from "./types";
 
 export type WorkspaceRoute = {
   view: View;
+  courseId?: string;
   assignmentId?: string;
   submissionId?: string;
 };
@@ -16,6 +17,12 @@ export function readWorkspaceRoute(pathname: string): WorkspaceRoute {
     } catch {
       return { view: "home" };
     }
+  }
+  if (parts[0] === "courses" && decodedId) {
+    return {
+      view: parts[2] === "publish" ? "publish" : "courses",
+      courseId: decodedId,
+    };
   }
   if (parts[0] === "assignments" && parts[1]) {
     if (parts[2] === "similarity")
@@ -32,6 +39,7 @@ export function readWorkspaceRoute(pathname: string): WorkspaceRoute {
   if (parts[0] === "workspace") {
     const view = parts[1];
     if (
+      view === "courses" ||
       view === "assignments" ||
       view === "submissions" ||
       view === "publish"
@@ -58,3 +66,5 @@ export const comparisonPath = (id: string) =>
 
 export const similarityPath = (id: string) =>
   `${assignmentPath(id)}/similarity`;
+
+export const coursePath = (id: string) => `/courses/${encodeURIComponent(id)}`;

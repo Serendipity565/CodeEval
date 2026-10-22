@@ -52,6 +52,11 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/auth/register", h.register)
 	secured := r.Group("", h.requireAuth)
 	secured.GET("/me", h.me)
+	secured.GET("/courses", h.courses)
+	secured.GET("/courses/:id/students", h.requireRole("teacher"), h.courseStudents)
+	secured.POST("/courses", h.requireRole("teacher"), h.createCourse)
+	secured.POST("/courses/:id/enroll", h.requireRole("student"), h.enrollCourse)
+	secured.GET("/assignments/:id/students", h.requireRole("teacher"), h.assignmentStudents)
 	secured.GET("/assignments", h.assignments)
 	secured.GET("/assignments/:id", h.assignment)
 	secured.GET("/assignments/:id/comparison", h.requireRole("teacher"), h.assignmentComparison)
@@ -204,7 +209,7 @@ func (h *Handler) me(c *gin.Context) {
 	c.JSON(200, gin.H{"id": i.ID, "displayName": i.Name, "role": i.Role})
 }
 func (h *Handler) assignments(c *gin.Context) {
-	items, err := h.store.ListAssignments()
+	items, err := h.store.AssignmentsFor(current(c).ID, current(c).Role)
 	if err != nil {
 		serverError(c, err)
 		return
@@ -226,9 +231,20 @@ func (h *Handler) assignment(c *gin.Context) {
 		serverError(c, err)
 		return
 	}
+	if !h.canAccessAssignment(c, a) {
+		if !c.Writer.Written() {
+			c.JSON(404, gin.H{"error": "作业不存在或尚未选课"})
+		}
+		return
+	}
+	if err := h.store.PopulateAssignmentCourse(&a); err != nil {
+		serverError(c, err)
+		return
+	}
 	if current(c).Role == "teacher" && a.TeacherID == strconv.FormatUint(uint64(current(c).ID), 10) {
 		c.JSON(200, gin.H{
 			"id": a.ID, "teacherId": a.TeacherID, "teacherName": a.TeacherName,
+			"courseId": a.CourseID, "courseTitle": a.CourseTitle, "expectedStudents": a.ExpectedStudents, "submittedStudents": a.SubmittedStudents, "submissionRate": a.SubmissionRate,
 			"title": a.Title, "status": a.Status, "maxSubmissions": a.MaxSubmissions,
 			"language": a.Language, "description": a.Description, "dueAt": a.DueAt,
 			"rubric": a.Rubric, "testCases": a.TestCases,
@@ -242,6 +258,7 @@ func (h *Handler) assignment(c *gin.Context) {
 }
 
 type assignmentInput struct {
+	CourseID             string              `json:"courseId"`
 	Title                string              `json:"title"`
 	Language             string              `json:"language"`
 	Description          string              `json:"description"`
@@ -280,8 +297,26 @@ func (h *Handler) createAssignment(c *gin.Context) {
 		c.JSON(400, gin.H{"error": message})
 		return
 	}
-	a, err := h.store.CreateAssignment(current(c).ID, domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, TestCases: in.TestCases, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase})
+	courseID, parseErr := strconv.ParseUint(in.CourseID, 10, 64)
+	if parseErr != nil || courseID == 0 {
+		c.JSON(400, gin.H{"error": "请先进入课程再发布作业"})
+		return
+	}
+	owns, err := h.store.OwnsCourse(uint(courseID), current(c).ID)
 	if err != nil {
+		serverError(c, err)
+		return
+	}
+	if !owns {
+		c.JSON(404, gin.H{"error": "课程不存在或无权发布作业"})
+		return
+	}
+	a, err := h.store.CreateAssignment(current(c).ID, domain.Assignment{CourseID: in.CourseID, Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, TestCases: in.TestCases, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase})
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	if err := h.store.PopulateAssignmentCourse(&a); err != nil {
 		serverError(c, err)
 		return
 	}
@@ -312,13 +347,17 @@ func (h *Handler) updateAssignment(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "assignment title and language cannot be changed"})
 		return
 	}
-	a := domain.Assignment{Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, TestCases: in.TestCases, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase}
+	a := domain.Assignment{CourseID: existing.CourseID, Title: in.Title, Language: in.Language, Description: in.Description, Status: in.Status, MaxSubmissions: in.MaxSubmissions, DueAt: in.DueAt, Rubric: in.Rubric, TestCases: in.TestCases, LLMEvaluationEnabled: in.LLMEvaluationEnabled, ReferenceSolution: in.ReferenceSolution, KnowledgeBase: in.KnowledgeBase}
 	updated, err := h.store.UpdateAssignment(uint(id), current(c).ID, a)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c.JSON(404, gin.H{"error": "assignment not found"})
 		return
 	}
 	if err != nil {
+		serverError(c, err)
+		return
+	}
+	if err := h.store.PopulateAssignmentCourse(&updated); err != nil {
 		serverError(c, err)
 		return
 	}
@@ -405,6 +444,12 @@ func (h *Handler) createSubmission(c *gin.Context) {
 	}
 	if err != nil {
 		serverError(c, err)
+		return
+	}
+	if !h.canAccessAssignment(c, a) {
+		if !c.Writer.Written() {
+			c.JSON(403, gin.H{"error": "请先选择该作业所属课程"})
+		}
 		return
 	}
 	if a.Status != "open" {
