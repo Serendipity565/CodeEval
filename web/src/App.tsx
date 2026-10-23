@@ -3,6 +3,7 @@ import Courses from "./components/courses/Courses";
 import AssignmentProgress from "./components/courses/AssignmentProgress";
 import AssignmentActions from "./components/assessment/AssignmentActions";
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type {
   Assignment,
   Course,
@@ -24,14 +25,16 @@ import {
   SubmissionStatus,
 } from "./components/ui";
 import Home from "./components/Home";
+import Dialog from "./components/ui/Dialog";
 import TeacherAssessment, {
   FinalReview,
 } from "./components/assessment/TeacherAssessment";
-import AssignmentComparison from "./components/assessment/AssignmentComparison";
 const CodeSimilarity = lazy(
   () => import("./components/similarity/CodeSimilarity"),
 );
 import SubmissionScore from "./components/assessment/SubmissionScore";
+import EvaluationEvidence from "./components/assessment/EvaluationEvidence";
+import { latestSubmissions } from "./submissions";
 import { useDeadlineClock } from "./hooks/useDeadlineClock";
 import {
   dimensionUnscored,
@@ -41,7 +44,6 @@ import {
 import {
   coursePath,
   assignmentPath,
-  comparisonPath,
   similarityPath,
   editPath,
   readWorkspaceRoute,
@@ -149,8 +151,15 @@ function Workspace({
     [loading, setLoading] = useState(true),
     [hasLoaded, setHasLoaded] = useState(false),
     selected = ss.find((item) => item.id === route.submissionId);
-  const setView = (next: View) =>
-    navigate(viewPath(next === "publish" ? "courses" : next));
+  const setView = (next: View) => navigate(viewPath(next));
+  const activeView: View = route.courseId
+    ? "courses"
+    : view === "publish" || view === "edit" || view === "similarity"
+      ? "assignments"
+      : view;
+  const ownedCourses = courses.filter(
+    (item) => item.teacherId === String(auth.user.id),
+  );
   const course = courses.find((c) => c.id === route.courseId);
   const courseAssignments = route.courseId
     ? as.filter((a) => a.courseId === route.courseId)
@@ -244,17 +253,8 @@ function Workspace({
             ] as [View, string][]
           ).map(([v, n]) => (
             <button
-              className={
-                view === v ||
-                ((view === "publish" ||
-                  view === "edit" ||
-                  view === "comparison" ||
-                  view === "similarity") &&
-                  v === "assignments")
-                  ? "on"
-                  : ""
-              }
-              aria-current={view === v ? "page" : undefined}
+              className={activeView === v ? "on" : ""}
+              aria-current={activeView === v ? "page" : undefined}
               onClick={() => {
                 setView(v);
               }}
@@ -272,7 +272,9 @@ function Workspace({
                 }
               />
               <span>{n}</span>
-              {v === "submissions" && <em>{hasLoaded ? ss.length : "—"}</em>}
+              {v === "submissions" && (
+                <em>{hasLoaded ? latestSubmissions(ss).length : "—"}</em>
+              )}
             </button>
           ))}
         </nav>
@@ -304,7 +306,6 @@ function Workspace({
                     submissions: "提交记录",
                     publish: "发布作业",
                     edit: "修改作业",
-                    comparison: "评分对照",
                     similarity: "代码查重",
                   }[view]}
             </h1>
@@ -372,6 +373,7 @@ function Workspace({
               sub={selected}
               assignment={as.find((a) => a.id === selected.assignmentId)}
               back={() => backTo(viewPath("submissions"))}
+              key={selected.id}
               auth={auth}
               onUpdated={upsertSubmission}
             />
@@ -403,29 +405,7 @@ function Workspace({
                 <Empty text="这项作业不存在或无权查看代码查重。" />
               </section>
             )
-          ) : view === "comparison" ? (
-            teacher &&
-            as.some(
-              (assignment) =>
-                assignment.id === route.assignmentId &&
-                assignment.teacherId === String(auth.user.id),
-            ) ? (
-              <AssignmentComparison
-                assignment={as.find(
-                  (assignment) => assignment.id === route.assignmentId,
-                )!}
-                token={auth.token}
-                back={() => backTo(viewPath("assignments"))}
-                openSubmission={(id) => navigate(submissionPath(id))}
-                openSubmissions={() => setView("submissions")}
-              />
-            ) : (
-              <section className="panel">
-                <Empty text="这项作业不存在或无权查看评分对照。" />
-              </section>
-            )
-          ) : view === "courses" ||
-            (view === "publish" && (!teacher || !course)) ? (
+          ) : view === "courses" ? (
             route.courseId && view === "courses" ? (
               course && (teacher || course.enrolled) ? (
                 <section className="course-detail-page">
@@ -466,11 +446,11 @@ function Workspace({
                   {teacher ? (
                     <TeacherCourse course={course} token={auth.token}>
                       <TeacherAssignments
+                        course={course}
                         as={courseAssignments}
                         ss={ss}
                         go={publishInCourse}
                         teacherId={String(auth.user.id)}
-                        compare={(id) => navigate(comparisonPath(id))}
                         similarity={(id) => navigate(similarityPath(id))}
                         edit={(id) => navigate(assignmentPath(id))}
                       />
@@ -536,7 +516,6 @@ function Workspace({
                 ss={ss}
                 go={setView}
                 teacherId={String(auth.user.id)}
-                compare={(id) => navigate(comparisonPath(id))}
                 similarity={(id) => navigate(similarityPath(id))}
                 edit={(id) => {
                   navigate(assignmentPath(id));
@@ -558,15 +537,31 @@ function Workspace({
           ) : view === "submissions" ? (
             <Submissions teacher={teacher} as={as} ss={ss} pick={setSelected} />
           ) : view === "publish" ? (
-            <Publish
-              token={auth.token}
-              course={course}
-              back={() => navigate(coursePath(course!.id))}
-              done={async () => {
-                await load();
-                navigate(coursePath(course!.id), true);
-              }}
-            />
+            teacher &&
+            (!route.courseId || course?.teacherId === String(auth.user.id)) ? (
+              <Publish
+                key={`publish-${route.courseId ?? "all"}`}
+                token={auth.token}
+                course={course}
+                courses={ownedCourses}
+                backLabel={course ? "返回课程作业" : "返回作业"}
+                openCourses={() => setView("courses")}
+                back={() =>
+                  navigate(
+                    course ? coursePath(course.id) : viewPath("assignments"),
+                  )
+                }
+                done={async () => {
+                  await load();
+                  navigate(
+                    course ? coursePath(course.id) : viewPath("assignments"),
+                    true,
+                  );
+                }}
+              />
+            ) : (
+              <Empty text="课程不存在或无权发布作业。" />
+            )
           ) : teacher && as.some((a) => a.id === route.assignmentId) ? (
             <Publish
               token={auth.token}
@@ -596,17 +591,17 @@ function TeacherAssignments({
   ss,
   go,
   edit,
-  compare,
   similarity,
   teacherId,
+  course,
 }: {
   as: Assignment[];
   ss: Submission[];
   go: (v: View) => void;
   edit: (id: string) => void;
-  compare: (id: string) => void;
   similarity: (id: string) => void;
   teacherId: string;
+  course?: Course;
 }) {
   const [statuses, setStatuses] = useState<
       Record<string, Assignment["status"]>
@@ -630,7 +625,7 @@ function TeacherAssignments({
   return (
     <section className="teacher-assignment-page">
       <Title
-        title="全部作业"
+        title={course ? "课程作业" : "全部作业"}
         note={`共 ${as.length} 项作业 · 查看提交进度，管理教学评估`}
       >
         <button className="primary" onClick={() => go("publish")}>
@@ -727,7 +722,6 @@ function TeacherAssignments({
                     owner={a.teacherId === teacherId}
                     edit={() => edit(a.id)}
                     similarity={() => similarity(a.id)}
-                    compare={() => compare(a.id)}
                   />
                 </footer>
               </article>
@@ -937,7 +931,7 @@ function Submissions({
     [sort, setSort] = useState("newest");
   const list = useMemo(
     () =>
-      ss
+      latestSubmissions(ss)
         .filter(
           (s) =>
             (aid === "all" || s.assignmentId === aid) &&
@@ -972,8 +966,8 @@ function Submissions({
         title={teacher ? "学生提交列表" : "我的提交记录"}
         note={
           teacher
-            ? "查看每位学生的代码与评估结果"
-            : "回顾每次提交的代码和对应评价"
+            ? "每项作业仅显示每位学生的最新一次提交"
+            : "每项作业仅显示最新一次提交的代码和评价"
         }
       />
       <div className="filters">
@@ -1272,19 +1266,30 @@ function Detail({
         title={assignment?.title || "作业提交"}
         note={`${sub.studentName} · ${fmt(sub.submittedAt)}`}
       >
-        <SubmissionStatus status={sub.status} />
+        <div className="submission-detail-actions">
+          <SubmissionStatus status={sub.status} />
+          <button
+            type="button"
+            className="submission-action"
+            aria-haspopup="dialog"
+            onClick={() => setCodeOpen(true)}
+          >
+            <Icon name="code" />
+            查看代码
+          </button>
+          {auth.user.role === "teacher" &&
+            assignment?.teacherId === String(auth.user.id) &&
+            sub.evaluation &&
+            ["graded", "needs_review"].includes(sub.status) && (
+              <TeacherAssessment
+                token={auth.token}
+                submission={sub}
+                onUpdated={onUpdated}
+              />
+            )}
+        </div>
       </Title>
       {sub.review && <FinalReview review={sub.review} />}
-      {auth.user.role === "teacher" &&
-        assignment?.teacherId === String(auth.user.id) &&
-        sub.evaluation &&
-        ["graded", "needs_review"].includes(sub.status) && (
-          <TeacherAssessment
-            token={auth.token}
-            submission={sub}
-            onUpdated={onUpdated}
-          />
-        )}
       <div className="detail">
         <section
           className="panel feedback-panel evaluation-report"
@@ -1333,10 +1338,7 @@ function Detail({
                   </span>
                 </div>
                 <p className="feedback-summary">{sub.evaluation.summary}</p>
-                <details className="report-provenance">
-                  <summary>
-                    评估信息 <Icon name="chevronRight" />
-                  </summary>
+                <div className="report-provenance">
                   <div className="evaluation-meta">
                     <span>
                       {sub.evaluation.execution
@@ -1365,7 +1367,7 @@ function Detail({
                       ))}
                     </p>
                   ) : null}
-                </details>
+                </div>
               </div>
               <div className="feedback-overview">
                 {sub.evaluation.strengths?.length ? (
@@ -1390,56 +1392,7 @@ function Detail({
                   />
                 ) : null}
               </div>
-              {sub.evaluation.execution && (
-                <details className="agent-analysis report-tests">
-                  <summary>
-                    <span className="report-test-label">
-                      <Icon name="code" />
-                      沙箱测试
-                    </span>
-                    <span className="report-test-result">
-                      {sub.evaluation.execution.passed} /{" "}
-                      {sub.evaluation.execution.total} 通过
-                    </span>
-                    <span className="report-disclosure">
-                      <span className="when-closed">查看用例</span>
-                      <span className="when-open">收起用例</span>
-                      <Icon name="chevronRight" />
-                    </span>
-                  </summary>
-                  {sub.evaluation.execution.results.map((result, index) => (
-                    <article key={`${result.name}-${index}`}>
-                      <b>
-                        {result.passed ? "✓" : "✕"} {result.name}
-                      </b>
-                      <span>
-                        {result.durationMs}ms
-                        {result.error ? ` · ${result.error}` : ""}
-                      </span>
-                      {result.hidden ? (
-                        <small className="hidden-test-note">
-                          隐藏用例 · 输入输出不公开
-                        </small>
-                      ) : (
-                        <div className="test-result-io">
-                          <section>
-                            <em>输入</em>
-                            <pre>{result.input || "（空输入）"}</pre>
-                          </section>
-                          <section>
-                            <em>期望输出</em>
-                            <pre>{result.expected || "（无输出）"}</pre>
-                          </section>
-                          <section>
-                            <em>实际输出</em>
-                            <pre>{result.actual || "（无输出）"}</pre>
-                          </section>
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </details>
-              )}
+              <EvaluationEvidence evaluation={sub.evaluation} />
               <div className="dimension-list">
                 <div className="report-section-heading">
                   <h4>评分明细</h4>
@@ -1515,49 +1468,20 @@ function Detail({
                   );
                 })}
               </div>
-              {sub.evaluation.analysis?.length ? (
-                <details className="agent-analysis">
-                  <summary>
-                    查看详细分析证据（{sub.evaluation.analysis.length} 项）
-                  </summary>
-                  {sub.evaluation.analysis.map((finding, index) => (
-                    <article key={`${finding.category}-${index}`}>
-                      <b>
-                        {finding.category} · {finding.severity}
-                      </b>
-                      <small>{finding.location || "未标注位置"}</small>
-                      <p>{finding.evidence}</p>
-                      <span>{finding.explanation}</span>
-                    </article>
-                  ))}
-                </details>
-              ) : null}
             </>
           ) : (
             <EvaluationProgress submission={sub} />
           )}
         </section>
-        <section
-          className={`panel highlighted-code collapsible-code ${codeOpen ? "open" : ""}`}
-        >
-          <button
-            className="code-collapse-trigger"
-            type="button"
-            aria-expanded={codeOpen}
-            onClick={() => setCodeOpen((v) => !v)}
+        {codeOpen && (
+          <Dialog
+            title="提交代码"
+            note={`${sub.studentName} · ${assignment?.language || "代码"} · ${sub.code.split("\n").length} 行`}
+            wide
+            flush
+            onClose={() => setCodeOpen(false)}
           >
-            <span>
-              <small>提交代码</small>
-              <b>提交代码 · {assignment?.language || ""}</b>
-            </span>
-            <i>{sub.code.split("\n").length} 行</i>
-            <strong>
-              {codeOpen ? "收起代码" : "展开代码"}
-              <Icon name="chevronRight" />
-            </strong>
-          </button>
-          {codeOpen && (
-            <div className="code-collapse-body submitted-code-layout">
+            <div className="submitted-code-layout">
               <aside className="submitted-brief">
                 <span className="eyebrow">作业信息</span>
                 <h3>{assignment?.title || "题目说明"}</h3>
@@ -1601,13 +1525,14 @@ function Detail({
                     label="提交快照"
                     execution={sub.evaluation?.execution}
                     readOnly
+                    allowFullscreen={false}
                     height="530px"
                   />
                 </Suspense>
               </div>
             </div>
-          )}
-        </section>
+          </Dialog>
+        )}
       </div>
     </>
   );
@@ -1685,15 +1610,29 @@ function Publish({
   assignmentId,
   course,
   back,
+  courses = [],
+  openCourses,
+  backLabel = "返回作业",
 }: {
   token: string;
   course?: Course;
   done: () => Promise<void>;
   assignmentId?: string;
   back?: () => void;
+  courses?: Course[];
+  openCourses?: () => void;
+  backLabel?: string;
 }) {
+  const [materialDialog, setMaterialDialog] = useState<
+    "reference" | "knowledge" | null
+  >(null);
+  const [materialDraft, setMaterialDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testGenerationError, setTestGenerationError] = useState("");
   const [t, setT] = useState(""),
-    [courseID, setCourseID] = useState(course?.id || ""),
+    [courseID, setCourseID] = useState(
+      course?.id || (courses.length === 1 ? courses[0].id : ""),
+    ),
     [courseTitle, setCourseTitle] = useState(course?.title || ""),
     [lang, setLang] = useState("Python"),
     [languages, setLanguages] = useState<string[]>([]),
@@ -1795,11 +1734,11 @@ function Publish({
     );
   async function generateTests() {
     if (!t.trim() || !desc.trim()) {
-      setErr("请先填写作业标题和说明，再生成测试用例");
+      setTestGenerationError("请先填写作业标题和说明，再生成测试用例。");
       return;
     }
     setGeneratingTests(true);
-    setErr("");
+    setTestGenerationError("");
     try {
       const result = await req<{ testCases: TestCase[] }>(
         "/assignments/generate-tests",
@@ -1816,13 +1755,20 @@ function Publish({
       );
       setTests(result.testCases);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "AI 生成测试用例失败");
+      setTestGenerationError(
+        e instanceof Error ? e.message : "AI 生成测试用例失败",
+      );
     } finally {
       setGeneratingTests(false);
     }
   }
   async function go(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
+    if (!assignmentId && !courses.some((item) => item.id === courseID)) {
+      setErr("请选择您授课的课程");
+      return;
+    }
     if (!t.trim()) {
       setErr("请填写作业标题");
       return;
@@ -1839,6 +1785,8 @@ function Publish({
       setErr("评分项权重之和必须为 100%");
       return;
     }
+    setSaving(true);
+    setErr("");
     try {
       await req(
         assignmentId ? `/assignments/${assignmentId}` : "/assignments",
@@ -1871,345 +1819,768 @@ function Publish({
       await done();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "发布失败");
+    } finally {
+      setSaving(false);
     }
   }
-  return (
-    <div className="publish-layout">
-      <aside className="publish-outline" aria-label="作业设置目录">
-        <span>作业设置</span>
-        <nav>
-          <a href="#assignment-basic">基本信息</a>
-          <a href="#assignment-content">题目与资料</a>
-          <a href="#assignment-rubric">评分量规</a>
-          <a href="#assignment-tests">测试用例</a>
-          <a href="#assignment-evaluation">评估方式</a>
-        </nav>
-        <p>发布前请确认截止时间、总分权重和测试用例。</p>
-      </aside>
-      <section className="panel publish">
+  if (!assignmentId && !course && !courses.length) {
+    return (
+      <section className="panel">
         {back && (
-          <button className="back publish-back" onClick={back}>
+          <button className="back" onClick={back}>
             <Icon name="chevronLeft" />
             返回作业
           </button>
         )}
         <Title
-          title={assignmentId ? "作业详情与修改" : "创建新作业"}
-          note={
-            assignmentId
-              ? "修改题目、评分规则、测试数据和提交设置"
-              : "按本次作业目标设置评分项、权重和提交规则"
+          title="发布作业"
+          note="每项作业需要归属一门课程，学生选课后才能提交。"
+        />
+        <Empty
+          text="您还没有授课课程，请先创建课程，再发布作业。"
+          action={
+            openCourses && (
+              <button className="primary" onClick={openCourses}>
+                前往课程页创建课程
+              </button>
+            )
           }
         />
-        <p className="course-note">
-          所属课程：{courseTitle || "正在读取…"} · 学生选课后可提交本作业
-        </p>
-        <form onSubmit={go}>
-          <label className="wide" id="assignment-basic">
-            作业标题
-            {assignmentId ? (
-              <span className="read-only-field">
-                <b>{t || "正在读取作业…"}</b>
-                <small>发布后不可修改</small>
-              </span>
-            ) : (
-              <input
-                required
-                value={t}
-                onChange={(e) => setT(e.target.value)}
-                onBlur={(e) => setT(e.target.value.trim())}
-                placeholder="例如：实现 LRU 缓存"
+      </section>
+    );
+  }
+  const selectedCourseTitle =
+    courseTitle ||
+    courses.find((item) => item.id === courseID)?.title ||
+    "尚未选择课程";
+  const sections = [
+    ["assignment-basic", "基本信息"],
+    ["assignment-content", "题目与资料"],
+    ["assignment-rubric", "评分标准"],
+    ["assignment-tests", "测试用例"],
+    ["assignment-evaluation", "评估与提交"],
+  ];
+  return (
+    <div className="assignment-builder">
+      <header className="builder-page-heading">
+        <div>
+          <h2>{assignmentId ? "编辑作业" : "发布新作业"}</h2>
+          <p>设置清晰的任务要求、评分标准和提交规则。</p>
+        </div>
+        {back && (
+          <button
+            className="back builder-back"
+            onClick={back}
+            disabled={saving}
+          >
+            <Icon name="chevronLeft" />
+            {backLabel}
+          </button>
+        )}
+      </header>
+      <div className="publish-layout">
+        <section className="publish">
+          <form onSubmit={go} aria-busy={saving}>
+            <section className="builder-section" id="assignment-basic">
+              <BuilderSectionHeading
+                number="01"
+                title="基本信息"
+                note="选择课程，设置作业名称和提交期限。"
               />
-            )}
-          </label>
-          <label>
-            编程语言
-            {assignmentId ? (
-              <span className="read-only-field">
-                <b>{lang || "—"}</b>
-                <small>发布后不可修改</small>
-              </span>
-            ) : (
-              <select value={lang} onChange={(e) => setLang(e.target.value)}>
-                {languages.map((language) => (
-                  <option key={language}>{language}</option>
-                ))}
-              </select>
-            )}
-          </label>
-          <label>
-            截止时间
-            <input
-              required
-              type="datetime-local"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-            />
-          </label>
-          <label>
-            初始提交状态
-            <select
-              value={status}
-              onChange={(e) =>
-                setStatus(e.target.value as Assignment["status"])
-              }
-            >
-              <option value="open">开放提交</option>
-              <option value="closed">关闭提交</option>
-            </select>
-          </label>
-          <label>
-            每名学生最多提交次数
-            <input
-              required
-              type="number"
-              min="1"
-              max="100"
-              value={max}
-              onChange={(e) => setMax(Number(e.target.value))}
-            />
-          </label>
-          <label className="wide" id="assignment-content">
-            作业说明
-            <textarea
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              onBlur={(e) => setDesc(e.target.value.trim())}
-              placeholder="描述任务目标、输入输出、约束条件和示例…"
-            />
-          </label>
-          <section className="wide reference-editor-field">
-            <header>
-              <span>
-                <b>参考实现</b>
-                <small>仅教师和评估流程可见，不会返回给学生</small>
-              </span>
-              <em>{lang}</em>
-            </header>
-            <Suspense
-              fallback={
-                <div className="editor-loading">正在加载代码编辑器…</div>
-              }
-            >
-              <CodeEditor
-                language={lang}
-                value={referenceSolution}
-                onChange={setReferenceSolution}
-                label="参考实现"
-                height="360px"
-              />
-            </Suspense>
-          </section>
-          <label className="wide">
-            课程知识库（仅教师和评估智能体可见）
-            <textarea
-              value={knowledgeBase}
-              onChange={(e) => setKnowledgeBase(e.target.value)}
-              onBlur={(e) => setKnowledgeBase(e.target.value.trim())}
-              placeholder="可选：填写知识点、常见错误、评分边界和典型改进方式…"
-            />
-          </label>
-          <section className="rubric-editor wide" id="assignment-rubric">
-            <header>
-              <span>
-                <b>评分量规</b>
-                <small>权重合计必须等于 100%</small>
-              </span>
-              <strong className={total === 100 ? "valid" : "invalid"}>
-                {total}%
-              </strong>
-            </header>
-            {rubric.map((r, index) => (
-              <div className="rubric-row" key={r.key}>
-                <input
-                  required
-                  value={r.name}
-                  onBlur={(e) => update(index, { name: e.target.value.trim() })}
-                  onChange={(e) => update(index, { name: e.target.value })}
-                  placeholder="评分项名称"
-                />
-                <input
-                  required
-                  value={r.description}
-                  onBlur={(e) =>
-                    update(index, { description: e.target.value.trim() })
-                  }
-                  onChange={(e) =>
-                    update(index, { description: e.target.value })
-                  }
-                  placeholder="评判标准说明"
-                />
-                <label>
-                  <input
-                    required
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={r.weight}
-                    onChange={(e) =>
-                      update(index, { weight: Number(e.target.value) })
-                    }
-                  />
-                  <span>%</span>
-                </label>
-                <button
-                  type="button"
-                  disabled={rubric.length === 1}
-                  onClick={() => remove(index)}
-                >
-                  删除
-                </button>
-              </div>
-            ))}
-            <button className="add-criterion" type="button" onClick={add}>
-              <Icon name="plus" />
-              添加评分项
-            </button>
-          </section>
-          <section className="rubric-editor wide" id="assignment-tests">
-            <header>
-              <span>
-                <b>沙箱测试用例</b>
-                <small>
-                  自动生成的内容是可编辑草稿；程序从标准输入读取，隐藏用例不会展示给学生
-                </small>
-              </span>
-              <button
-                className="add-criterion"
-                type="button"
-                disabled={generatingTests}
-                onClick={generateTests}
-              >
-                {generatingTests
-                  ? "生成中…"
-                  : tests.length
-                    ? "重新生成草稿"
-                    : "生成测试草稿"}
-              </button>
-            </header>
-            <p className="execution-contract-inline">
-              {executionContract(lang)}
-            </p>
-            <div className="test-case-list">
-              {tests.map((test, index) => (
-                <article
-                  className="test-case-card"
-                  key={`${test.name}-${index}`}
-                >
-                  <header>
+              <div className="builder-fields">
+                <label className="wide builder-title-field">
+                  <span className="builder-label-text">
+                    作业标题 <i aria-hidden="true">*</i>
+                  </span>
+                  {assignmentId ? (
+                    <span className="read-only-field">
+                      <b>{t || "正在读取作业…"}</b>
+                      <small>发布后不可修改</small>
+                    </span>
+                  ) : (
                     <input
                       required
-                      value={test.name}
-                      onBlur={(e) =>
-                        updateTest(index, { name: e.target.value.trim() })
-                      }
-                      onChange={(e) =>
-                        updateTest(index, { name: e.target.value })
-                      }
-                      placeholder="用例名称"
+                      aria-label="作业标题"
+                      value={t}
+                      onChange={(event) => setT(event.target.value)}
+                      onBlur={(event) => setT(event.target.value.trim())}
+                      placeholder="为这次练习起一个清晰的名称"
                     />
-                    <label className="test-hidden">
+                  )}
+                </label>
+                <label>
+                  <span className="builder-label-text">
+                    所属课程 <i aria-hidden="true">*</i>
+                  </span>
+                  {assignmentId || course ? (
+                    <span className="read-only-field">
+                      <Icon name="courses" />
+                      <b>{selectedCourseTitle}</b>
+                    </span>
+                  ) : (
+                    <span className="builder-control-with-icon">
+                      <Icon name="courses" />
+                      <select
+                        required
+                        aria-label="所属课程"
+                        value={courseID}
+                        onChange={(event) => setCourseID(event.target.value)}
+                      >
+                        <option value="" disabled>
+                          请选择授课课程
+                        </option>
+                        {courses.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.title}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                  )}
+                </label>
+                <label>
+                  <span className="builder-label-text">
+                    编程语言 <i aria-hidden="true">*</i>
+                  </span>
+                  {assignmentId ? (
+                    <span className="read-only-field">
+                      <Icon name="code" />
+                      <b>{lang || "—"}</b>
+                      <small>发布后不可修改</small>
+                    </span>
+                  ) : (
+                    <span className="builder-control-with-icon">
+                      <Icon name="code" />
+                      <select
+                        aria-label="编程语言"
+                        value={lang}
+                        onChange={(event) => setLang(event.target.value)}
+                      >
+                        {languages.map((language) => (
+                          <option key={language}>{language}</option>
+                        ))}
+                      </select>
+                    </span>
+                  )}
+                </label>
+                <div className="builder-schedule wide">
+                  <div className="builder-schedule-caption">
+                    <Icon name="clock" />
+                    <span>提交安排</span>
+                  </div>
+                  <div className="builder-schedule-fields">
+                    <label>
+                      截止时间
                       <input
-                        type="checkbox"
-                        checked={test.hidden}
-                        onChange={(e) =>
-                          updateTest(index, { hidden: e.target.checked })
-                        }
+                        required
+                        aria-label="截止时间"
+                        type="datetime-local"
+                        value={due}
+                        onChange={(event) => setDue(event.target.value)}
                       />
-                      <span>隐藏用例</span>
+                      <small>学生需在此时间前完成提交</small>
+                    </label>
+                    <label>
+                      每名学生最多提交次数
+                      <span className="builder-unit-input">
+                        <input
+                          required
+                          aria-label="每名学生最多提交次数"
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={max}
+                          onChange={(event) =>
+                            setMax(Number(event.target.value))
+                          }
+                        />
+                        <span>次</span>
+                      </span>
+                      <small>允许学生在截止前修改并重新提交</small>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section className="builder-section" id="assignment-content">
+              <BuilderSectionHeading
+                number="02"
+                title="题目与资料"
+                note="说明任务要求，按需补充评分时使用的教学资料。"
+              />
+              <label className="builder-description">
+                作业说明
+                <textarea
+                  rows={7}
+                  value={desc}
+                  onChange={(event) => setDesc(event.target.value)}
+                  onBlur={(event) => setDesc(event.target.value.trim())}
+                  placeholder={
+                    "建议包含以下内容：\n· 需要完成的任务\n· 输入、输出格式和示例\n· 约束条件与边界情况"
+                  }
+                />
+              </label>
+              <div className="builder-materials-heading">
+                <span>辅助资料</span>
+                <small>
+                  <Icon name="eyeOff" />
+                  仅教师与评估流程可见
+                </small>
+              </div>
+              <div className="builder-materials">
+                {(
+                  [
+                    [
+                      "reference",
+                      "参考实现",
+                      "提供参考代码，辅助核查解答。",
+                      referenceSolution,
+                      "code",
+                    ],
+                    [
+                      "knowledge",
+                      "课程知识库",
+                      "补充知识点、评分边界与常见错误。",
+                      knowledgeBase,
+                      "courses",
+                    ],
+                  ] as const
+                ).map(([kind, name, note, value, icon]) => (
+                  <div className="builder-material" key={kind}>
+                    <span className="builder-material-icon">
+                      <Icon name={icon} />
+                    </span>
+                    <div>
+                      <b>{name}</b>
+                      <p>
+                        {value.trim()
+                          ? `已添加 · ${value.split("\n").length} 行`
+                          : note}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="builder-text-button"
+                      aria-haspopup="dialog"
+                      aria-label={`${value.trim() ? "编辑" : "添加"}${name}`}
+                      onClick={() => {
+                        setMaterialDraft(value);
+                        setMaterialDialog(kind);
+                      }}
+                    >
+                      <Icon name={value.trim() ? "settings" : "plus"} />
+                      {value.trim() ? "编辑" : "添加"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="builder-section" id="assignment-rubric">
+              <BuilderSectionHeading
+                number="03"
+                title="评分标准"
+                note="明确每个评分项及其权重，合计为 100%。"
+              >
+                <span
+                  className={`builder-total ${total === 100 ? "valid" : "invalid"}`}
+                >
+                  <Icon name={total === 100 ? "check" : "alert"} />
+                  合计 {total}%
+                </span>
+              </BuilderSectionHeading>
+              <div className="builder-weight-bar" aria-hidden="true">
+                {rubric.map((item, index) => (
+                  <span
+                    key={item.key}
+                    style={{
+                      width: `${(Math.max(0, item.weight) / Math.max(100, total)) * 100}%`,
+                      opacity: 1 - (index % 4) * 0.18,
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="builder-rubric-list">
+                {rubric.map((r, index) => (
+                  <div className="builder-rubric-row" key={r.key}>
+                    <label>
+                      评分项
+                      <input
+                        required
+                        aria-label={`评分项 ${index + 1} 名称`}
+                        value={r.name}
+                        onBlur={(event) =>
+                          update(index, { name: event.target.value.trim() })
+                        }
+                        onChange={(event) =>
+                          update(index, { name: event.target.value })
+                        }
+                        placeholder="例如：功能实现"
+                      />
+                    </label>
+                    <label>
+                      评判标准
+                      <input
+                        required
+                        aria-label={`评分项 ${index + 1} 评判标准`}
+                        value={r.description}
+                        onBlur={(event) =>
+                          update(index, {
+                            description: event.target.value.trim(),
+                          })
+                        }
+                        onChange={(event) =>
+                          update(index, { description: event.target.value })
+                        }
+                        placeholder="说明达到该评分项的要求"
+                      />
+                    </label>
+                    <label>
+                      权重
+                      <span className="builder-unit-input">
+                        <input
+                          required
+                          aria-label={`评分项 ${index + 1} 权重`}
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={r.weight}
+                          onChange={(event) =>
+                            update(index, {
+                              weight: Number(event.target.value),
+                            })
+                          }
+                        />
+                        <span>%</span>
+                      </span>
                     </label>
                     <button
                       type="button"
-                      onClick={() =>
-                        setTests((items) => items.filter((_, i) => i !== index))
+                      className="builder-remove"
+                      aria-label={`删除评分项 ${index + 1}`}
+                      title="删除评分项"
+                      disabled={rubric.length === 1}
+                      onClick={() => remove(index)}
+                    >
+                      <Icon name="close" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button className="builder-add" type="button" onClick={add}>
+                <Icon name="plus" />
+                添加评分项
+              </button>
+            </section>
+            <section className="builder-section" id="assignment-tests">
+              <BuilderSectionHeading
+                number="04"
+                title="测试用例"
+                note="使用输入和期望输出，验证程序的运行结果。"
+              >
+                <button
+                  className="builder-secondary"
+                  type="button"
+                  disabled={generatingTests}
+                  onClick={generateTests}
+                  aria-describedby={
+                    testGenerationError ? "test-generation-error" : undefined
+                  }
+                >
+                  <Icon name="refresh" />
+                  {generatingTests
+                    ? "正在生成…"
+                    : tests.length
+                      ? "重新生成草稿"
+                      : "AI 生成用例"}
+                </button>
+              </BuilderSectionHeading>
+              {testGenerationError && (
+                <div
+                  className="builder-generation-error"
+                  id="test-generation-error"
+                  role="alert"
+                >
+                  <Icon name="alert" />
+                  <span>{testGenerationError}</span>
+                  {(!t.trim() || !desc.trim()) && (
+                    <a
+                      href={
+                        !t.trim() ? "#assignment-basic" : "#assignment-content"
                       }
                     >
-                      删除
-                    </button>
-                  </header>
-                  <div className="test-case-io">
-                    <label>
-                      标准输入
-                      <textarea
-                        value={test.input}
-                        onChange={(e) =>
-                          updateTest(index, { input: e.target.value })
+                      去填写
+                      <Icon name="arrowUpRight" />
+                    </a>
+                  )}
+                </div>
+              )}
+              <p className="builder-test-hint">
+                <Icon name="code" />
+                {executionContract(lang)}
+              </p>
+              {!tests.length && (
+                <div className="builder-tests-empty">
+                  <Icon name="code" />
+                  <b>从一个测试用例开始</b>
+                  <p>可手动添加，也可让 AI 生成草稿后再核对。</p>
+                </div>
+              )}
+              <div className="builder-test-list">
+                {tests.map((test, index) => (
+                  <article className="builder-case-card" key={index}>
+                    <header className="builder-case-heading">
+                      <span className="builder-case-index">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <label className="builder-case-name">
+                        <span className="sr-only">用例名称</span>
+                        <input
+                          required
+                          aria-label={`测试用例 ${index + 1} 名称`}
+                          value={test.name}
+                          onBlur={(event) =>
+                            updateTest(index, {
+                              name: event.target.value.trim(),
+                            })
+                          }
+                          onChange={(event) =>
+                            updateTest(index, { name: event.target.value })
+                          }
+                          placeholder="为测试用例命名"
+                        />
+                      </label>
+                      <span
+                        className={`builder-case-badge ${test.hidden ? "hidden" : "public"}`}
+                      >
+                        {test.hidden ? "隐藏用例" : "公开用例"}
+                      </span>
+                      <button
+                        type="button"
+                        className="builder-remove"
+                        aria-label={`删除测试用例 ${index + 1}`}
+                        title="删除此用例"
+                        onClick={() =>
+                          setTests((items) =>
+                            items.filter((_, i) => i !== index),
+                          )
                         }
-                        placeholder="可为空，换行会原样传入 stdin"
-                      />
-                    </label>
-                    <label>
-                      期望输出
-                      <textarea
-                        value={test.expected}
-                        onChange={(e) =>
-                          updateTest(index, { expected: e.target.value })
-                        }
-                        placeholder="可为空，按标准输出比较"
-                      />
-                    </label>
-                  </div>
-                  <footer>
-                    <label>
-                      权重
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={test.weight}
-                        onChange={(e) =>
-                          updateTest(index, { weight: Number(e.target.value) })
-                        }
-                      />
-                    </label>
-                    <label>
-                      超时（毫秒）
-                      <input
-                        type="number"
-                        min="100"
-                        max="10000"
-                        step="100"
-                        value={test.timeoutMs}
-                        onChange={(e) =>
-                          updateTest(index, {
-                            timeoutMs: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </label>
-                  </footer>
-                </article>
-              ))}
-            </div>
-            <button className="add-criterion" type="button" onClick={addTest}>
-              <Icon name="plus" />
-              添加测试用例
-            </button>
-          </section>
-          <label className="toggle wide" id="assignment-evaluation">
-            <input
-              type="checkbox"
-              checked={llm}
-              onChange={(e) => setLlm(e.target.checked)}
-            />
-            <i />
-            <span>
-              <b>启用模型辅助评估</b>
-              <small>根据评分量规生成逐项理由、证据与改进建议</small>
+                      >
+                        <Icon name="close" />
+                      </button>
+                    </header>
+                    <div className="builder-case-io">
+                      <label>
+                        <span>
+                          <Icon name="code" />
+                          标准输入
+                        </span>
+                        <textarea
+                          aria-label={`测试用例 ${index + 1} 标准输入`}
+                          value={test.input}
+                          onChange={(event) =>
+                            updateTest(index, { input: event.target.value })
+                          }
+                          placeholder={"输入程序运行时读取的数据\n例如：1 2"}
+                        />
+                      </label>
+                      <label>
+                        <span>
+                          <Icon name="check" />
+                          期望输出
+                        </span>
+                        <textarea
+                          aria-label={`测试用例 ${index + 1} 期望输出`}
+                          value={test.expected}
+                          onChange={(event) =>
+                            updateTest(index, { expected: event.target.value })
+                          }
+                          placeholder={"输入正确运行时应输出的结果\n例如：3"}
+                        />
+                      </label>
+                    </div>
+                    <footer className="builder-case-settings">
+                      <div className="builder-case-parameters">
+                        <label>
+                          用例权重
+                          <input
+                            aria-label={`测试用例 ${index + 1} 权重`}
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={test.weight}
+                            onChange={(event) =>
+                              updateTest(index, {
+                                weight: Number(event.target.value),
+                              })
+                            }
+                          />
+                        </label>
+                        <label>
+                          运行超时
+                          <span className="builder-unit-input">
+                            <input
+                              aria-label={`测试用例 ${index + 1} 超时毫秒`}
+                              type="number"
+                              min="100"
+                              max="10000"
+                              step="100"
+                              value={test.timeoutMs}
+                              onChange={(event) =>
+                                updateTest(index, {
+                                  timeoutMs: Number(event.target.value),
+                                })
+                              }
+                            />
+                            <span>ms</span>
+                          </span>
+                        </label>
+                      </div>
+                      <label className="builder-case-visibility">
+                        <input
+                          type="checkbox"
+                          checked={test.hidden}
+                          onChange={(event) =>
+                            updateTest(index, { hidden: event.target.checked })
+                          }
+                        />
+                        <span>
+                          <b>设为隐藏用例</b>
+                          <small>
+                            {test.hidden
+                              ? "输入和期望输出不向学生公开"
+                              : "学生可查看此用例的输入和期望输出"}
+                          </small>
+                        </span>
+                      </label>
+                    </footer>
+                  </article>
+                ))}
+              </div>
+              <button className="builder-add" type="button" onClick={addTest}>
+                <Icon name="plus" />
+                添加测试用例
+              </button>
+            </section>
+            <section className="builder-section" id="assignment-evaluation">
+              <BuilderSectionHeading
+                number="05"
+                title="评估与提交"
+                note="设置评估方式，以及发布后的提交状态。"
+              />
+              <label className="builder-switch">
+                <span>
+                  <b>模型辅助评估</b>
+                  <small>
+                    结合评分标准和教学资料，生成评价依据与改进建议。
+                  </small>
+                </span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={llm}
+                  onChange={(event) => setLlm(event.target.checked)}
+                />
+                <i className="builder-switch-track" aria-hidden="true" />
+              </label>
+              <div className="builder-release-row">
+                <label>
+                  提交开放状态
+                  <select
+                    value={status}
+                    onChange={(event) =>
+                      setStatus(event.target.value as Assignment["status"])
+                    }
+                  >
+                    <option value="open">发布后立即开放</option>
+                    <option value="closed">暂不开放提交</option>
+                  </select>
+                </label>
+                <p>
+                  {status === "open"
+                    ? "发布后，选课学生即可在截止时间前提交解答。"
+                    : "作业发布后暂不接收提交，可在作业列表中手动开放。"}
+                </p>
+              </div>
+            </section>
+            {err && (
+              <p className="builder-error" role="alert">
+                <Icon name="alert" />
+                {err}
+              </p>
+            )}
+            <footer className="builder-actions">
+              <span>
+                <Icon name={total === 100 ? "check" : "alert"} />
+                {total === 100
+                  ? `${rubric.length} 个评分项 · ${tests.length} 个测试用例`
+                  : `评分权重合计 ${total}%，需调整为 100%`}
+              </span>
+              <div>
+                {back && (
+                  <button
+                    type="button"
+                    className="builder-secondary"
+                    onClick={back}
+                    disabled={saving}
+                  >
+                    取消
+                  </button>
+                )}
+                <button
+                  className="primary"
+                  disabled={
+                    saving ||
+                    generatingTests ||
+                    total !== 100 ||
+                    !languages.length ||
+                    (!assignmentId && !courseID)
+                  }
+                >
+                  {saving
+                    ? "正在保存…"
+                    : assignmentId
+                      ? "保存修改"
+                      : "发布作业"}
+                  <Icon name={saving ? "refresh" : "arrowRight"} />
+                </button>
+              </div>
+            </footer>
+          </form>
+        </section>
+        <aside className="publish-outline" aria-label="作业设置概览">
+          <div className="builder-summary">
+            <span className="builder-summary-icon">
+              <Icon name="assignments" />
             </span>
-          </label>
-          {err && <i className="error wide">{err}</i>}
-          <footer className="wide">
-            <button
-              className="primary"
-              disabled={total !== 100 || !languages.length}
-            >
-              {assignmentId ? "保存修改" : "发布作业"}
-            </button>
-          </footer>
-        </form>
-      </section>
+            <h3>发布概览</h3>
+            <p className="builder-summary-title">
+              {t.trim() || "尚未填写作业标题"}
+            </p>
+            <dl>
+              <div>
+                <dt>所属课程</dt>
+                <dd>{selectedCourseTitle}</dd>
+              </div>
+              <div>
+                <dt>编程语言</dt>
+                <dd>{lang}</dd>
+              </div>
+              <div>
+                <dt>截止时间</dt>
+                <dd>{due ? due.replace("T", " ") : "尚未设置"}</dd>
+              </div>
+            </dl>
+            <div className="builder-summary-metrics">
+              <span>
+                <b>{max || "—"}</b>次提交机会
+              </span>
+              <span>
+                <b>
+                  {total}
+                  <small>%</small>
+                </b>
+                评分权重
+              </span>
+            </div>
+            <p className="builder-summary-note">
+              <Icon name="user" />
+              仅所选课程的学生可提交本作业
+            </p>
+          </div>
+          <nav aria-label="作业设置目录">
+            {sections.map(([id, name], index) => (
+              <a key={id} href={`#${id}`}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                {name}
+                <Icon name="chevronRight" />
+              </a>
+            ))}
+          </nav>
+        </aside>
+      </div>
+      {materialDialog && (
+        <Dialog
+          title={materialDialog === "reference" ? "参考实现" : "课程知识库"}
+          note="仅教师与评估流程可见，学生无法查看。"
+          wide={materialDialog === "reference"}
+          onClose={() => setMaterialDialog(null)}
+        >
+          <form
+            className="builder-material-editor"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (materialDialog === "reference")
+                setReferenceSolution(materialDraft);
+              else setKnowledgeBase(materialDraft.trim());
+              setMaterialDialog(null);
+            }}
+          >
+            {materialDialog === "reference" ? (
+              <Suspense
+                fallback={
+                  <div className="editor-loading">正在加载代码编辑器…</div>
+                }
+              >
+                <CodeEditor
+                  language={lang}
+                  value={materialDraft}
+                  onChange={setMaterialDraft}
+                  label="参考实现"
+                  allowFullscreen={false}
+                  height="420px"
+                />
+              </Suspense>
+            ) : (
+              <label>
+                教学资料
+                <textarea
+                  rows={12}
+                  value={materialDraft}
+                  onChange={(event) => setMaterialDraft(event.target.value)}
+                  placeholder="填写知识点、常见错误、评分边界和典型改进方式…"
+                />
+              </label>
+            )}
+            <div className="dialog-form-actions">
+              <button
+                type="button"
+                className="submission-action"
+                onClick={() => setMaterialDialog(null)}
+              >
+                取消
+              </button>
+              <button className="primary" type="submit">
+                应用到作业
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
     </div>
   );
 }
+
+function BuilderSectionHeading({
+  number,
+  title,
+  note,
+  children,
+}: {
+  number: string;
+  title: string;
+  note: string;
+  children?: ReactNode;
+}) {
+  return (
+    <header className="builder-section-heading">
+      <span className="builder-section-number">{number}</span>
+      <div>
+        <h3>{title}</h3>
+        <p>{note}</p>
+      </div>
+      {children}
+    </header>
+  );
+}
+
 export default App;

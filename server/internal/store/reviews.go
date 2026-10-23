@@ -134,35 +134,24 @@ func lockAssessmentSubmission(tx *gorm.DB, submissionID, teacherID uint) (Submis
 	return row, nil
 }
 
-func (s *MySQLStore) SubmissionAssessment(submissionID, teacherID uint) ([]domain.Review, []domain.ExpertRating, error) {
-	reviews, ratings := make([]domain.Review, 0), make([]domain.ExpertRating, 0)
+func (s *MySQLStore) SubmissionAssessment(submissionID, teacherID uint) ([]domain.Review, error) {
+	reviews := make([]domain.Review, 0)
 	var submission SubmissionRecord
 	if err := ownedSubmissionQuery(s.db, submissionID, teacherID).First(&submission).Error; err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	var reviewRows []ReviewRecord
 	if err := s.db.Where("submission_id = ?", submissionID).Order("id desc").Find(&reviewRows).Error; err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	for _, row := range reviewRows {
 		item, err := reviewFrom(row)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		reviews = append(reviews, item)
 	}
-	var ratingRows []ExpertRatingRecord
-	if err := s.db.Where("submission_id = ?", submissionID).Order("id desc").Find(&ratingRows).Error; err != nil {
-		return nil, nil, err
-	}
-	for _, row := range ratingRows {
-		item, err := expertRatingFrom(row)
-		if err != nil {
-			return nil, nil, err
-		}
-		ratings = append(ratings, item)
-	}
-	return reviews, ratings, nil
+	return reviews, nil
 }
 
 func (s *MySQLStore) CreateReview(submissionID, teacherID uint, reviewerName string, input domain.ReviewInput) (domain.Submission, error) {

@@ -38,12 +38,12 @@ func (h *Handler) submissionAssessment(c *gin.Context) {
 	if !ok {
 		return
 	}
-	reviews, ratings, err := h.store.SubmissionAssessment(id, current(c).ID)
+	reviews, err := h.store.SubmissionAssessment(id, current(c).ID)
 	if err != nil {
 		assessmentError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"reviews": reviews, "expertRatings": ratings})
+	c.JSON(http.StatusOK, gin.H{"reviews": reviews})
 }
 
 func (h *Handler) createReview(c *gin.Context) {
@@ -66,22 +66,4 @@ func (h *Handler) createReview(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, submission)
-}
-
-func (h *Handler) saveExpertRating(c *gin.Context) {
-	id, ok := assessmentSubmissionID(c)
-	if !ok {
-		return
-	}
-	var input domain.ExpertRatingInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "专家评分格式不正确，分数和用时必须为整数"})
-		return
-	}
-	rating, err := h.store.SaveExpertRating(id, current(c).ID, input)
-	if err != nil {
-		assessmentError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, rating)
 }

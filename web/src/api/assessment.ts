@@ -1,10 +1,5 @@
 import { apiRequest } from "./client";
-import type {
-  Assessment,
-  AssignmentComparison,
-  ExpertRating,
-  Submission,
-} from "../types";
+import type { Assessment, Submission } from "../types";
 
 type ScoresInput = {
   dimensions: { key: string; score: number }[];
@@ -24,19 +19,4 @@ export const saveReview = (
     `/submissions/${encodeURIComponent(id)}/reviews`,
     token,
     { method: "POST", body: JSON.stringify(input) },
-  );
-export const saveExpertRating = (
-  token: string,
-  id: string,
-  input: ScoresInput & { expertName: string; durationSeconds: number },
-) =>
-  apiRequest<ExpertRating>(
-    `/submissions/${encodeURIComponent(id)}/expert-ratings`,
-    token,
-    { method: "POST", body: JSON.stringify(input) },
-  );
-export const getComparison = (token: string, id: string) =>
-  apiRequest<AssignmentComparison>(
-    `/assignments/${encodeURIComponent(id)}/comparison`,
-    token,
   );

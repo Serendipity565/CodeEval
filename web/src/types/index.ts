@@ -142,51 +142,7 @@ export type Review = {
   maxTotal: number;
   createdAt: string;
 };
-export type ExpertRating = Omit<Review, "reviewerName"> & {
-  expertName: string;
-  durationSeconds: number;
-};
-export type Assessment = { reviews: Review[]; expertRatings: ExpertRating[] };
-export type AssignmentComparison = {
-  assignmentId: string;
-  selection: "latest_per_student";
-  latestSubmissionCount: number;
-  pairedCount: number;
-  excludedCount: number;
-  metrics: null | {
-    aiMean: number;
-    expertMean: number;
-    aiStdDev: number;
-    expertStdDev: number;
-    meanAbsoluteError: number;
-    rootMeanSquaredError: number;
-    meanBias: number;
-    withinFivePointsRate: number;
-    aiMeanDurationSeconds: number | null;
-    expertMeanDurationSeconds: number | null;
-    aiTimedCount: number;
-    expertTimedCount: number;
-  };
-  pairs: {
-    submissionId: string;
-    studentId: string;
-    studentName: string;
-    aiTotal: number;
-    expertMean: number;
-    difference: number;
-    expertCount: number;
-    aiDurationSeconds: number | null;
-    expertDurationSeconds: number | null;
-    dimensions: {
-      key: string;
-      name: string;
-      maxScore: number;
-      aiScore: number;
-      expertMean: number;
-      difference: number;
-    }[];
-  }[];
-};
+export type Assessment = { reviews: Review[] };
 export type User = {
   id: number;
   username: string;
@@ -201,7 +157,6 @@ export type View =
   | "submissions"
   | "publish"
   | "edit"
-  | "comparison"
   | "similarity";
 
 export type SimilarityRange = { startLine: number; endLine: number };

@@ -264,7 +264,7 @@ func TestExpertUpsertKeepsIDAndDoesNotWriteSubmission(t *testing.T) {
 
 func TestAssessmentOwnershipRejectsBeforeReadingPrivateRecords(t *testing.T) {
 	store := assessmentTestStore(t, []assessmentStep{{kind: "query", contains: []string{"assignment_id IN (SELECT `id` FROM `assignment_records` WHERE teacher_id = ?)"}, columns: []string{"id"}}})
-	_, _, err := store.SubmissionAssessment(7, 99)
+	_, err := store.SubmissionAssessment(7, 99)
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Fatalf("unauthorized read: %v", err)
 	}

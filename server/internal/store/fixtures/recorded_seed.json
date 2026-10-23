@@ -4,7 +4,7 @@
   "source": "CodeEval browser submissions + sandbox execution + model evaluation",
   "users": [
     {
-      "username": "teacher",
+      "username": "teacher01",
       "displayName": "李老师",
       "role": "teacher"
     },
@@ -41,7 +41,7 @@
   ],
   "assignment": {
     "sourceId": 1,
-    "teacher": "teacher",
+    "teacher": "teacher01",
     "title": "两数之和：返回下标",
     "language": "C++",
     "description": "使用 C++ 编写完整程序。第一行输入整数 n 和 target，第二行输入 n 个整数（1 ≤ n ≤ 10000，数值绝对值不超过 1000000）。输出和为 target 的两个不同元素的零基下标。按右下标递增顺序查找；同一右下标有多个左下标时，选择最近的左下标；无解时输出 -1 -1。处理重复元素、负数、零和无解情况，尽量达到 O(n) 时间复杂度。只输出答案，不输出提示语。",

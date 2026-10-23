@@ -108,7 +108,7 @@ users (teacher)
 | `student_id` | 提交学生 ID | 普通索引，逻辑关联 `users.id` |
 | `code` | 学生代码 | LONGTEXT |
 | `status` | 评估状态 | `queued`、`evaluating`、`needs_review`、`graded` 或 `failed`；教师复核后为 `graded` |
-| `evaluation_json` | 原始自动评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本；教师复核与专家评分不会覆盖此字段 |
+| `evaluation_json` | 原始自动评估结果 | JSON，包含总分、维度得分、证据、置信度、第一阶段分析和评估器版本；教师复核不会覆盖此字段 |
 | `submitted_at` | 提交时间 | 由后端写入 |
 | `progress` | 评估进度 | 0–100；已完成或失败时为 100 |
 
@@ -167,7 +167,7 @@ users (teacher)
 
 ### expert_rating_records
 
-专家评分用于独立对照实验，不修改最终成绩，也不返回给学生。作业发布教师代为录入各位专家评分。同一提交、同一规范化专家身份更新同一条记录，避免重复计入样本。
+历史专家评分表，仅为兼容已有数据库保留。专家评分录入、查询与评分对照功能已移除，不再提供对应接口。
 
 | 字段 | 含义 | 约束/说明 |
 | --- | --- | --- |
@@ -182,16 +182,16 @@ users (teacher)
 | `duration_seconds` | 专家评分用时 | 0–86400 秒；0 表示未记录 |
 | `created_at`、`updated_at` | 初次录入、最近修订时间 | 同一专家修订保留 `created_at` |
 
-`POST /api/v1/submissions/:id/expert-ratings` 接受 `expertName`、`dimensions`、`comment`、`durationSeconds`，返回 ExpertRating。`GET /api/v1/submissions/:id/assessment` 返回 `{ "reviews": [], "expertRatings": [] }`，两组均按 ID 倒序。两类评分的读写接口均要求教师身份和作业归属；越权访问返回 404。
+`GET /api/v1/submissions/:id/assessment` 仅返回 `{ "reviews": [] }`，按复核 ID 倒序。复核读写接口均要求教师身份和作业归属；越权访问返回 404。
 
 评分维度按该提交 **原始 `evaluation_json.dimensions` 的 key 和 maxScore** 校验，作业之后改量规不会改变旧提交的评分尺度。所有维度必须各出现一次，每项分数必须显式提供整数，范围为 0 到原满分；缺失或 null 不视为零。尚在排队或运行的提交/任务返回 409；没有原始评估量规的失败提交不能录入人工评分。接口不会把当前作业量规或模型推断分数当作人工输入补齐。
 
-教师提交列表仅包含其发布作业中的提交；`GET /api/v1/assignments/:id/comparison` 返回该作业的 AI 与专家评分对照。其数据读取 `AssignmentComparisonData(assignmentID, teacherID)` 同样校验作业归属，并返回保留原自动评估的提交和按提交 ID 分组的独立专家评分。
+教师提交列表仅包含其发布作业中的提交，界面按每项作业、每名学生保留最新一次提交。底层提交接口仍返回完整历史，以支持提交次数限制和历史详情访问。
 
 ## 4. 相关文档
 
 - [演示数据](demo-data.md)：初始化开关、全部演示账号与密码、选课关系、九表清空重建、实际评分与快照导出。
-- [提交与评估](evaluation.md)：评分语义、教师复核及专家对照口径。
+- [提交与评估](evaluation.md)：评分语义、教师复核及最新提交展示。
 - [开发与配置](development.md)：本地启动、数据库配置和检查命令。
 
 ## 课程接口

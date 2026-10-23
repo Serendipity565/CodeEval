@@ -129,6 +129,7 @@ export default function CodeEditor({
   value,
   onChange = noop,
   readOnly = false,
+  allowFullscreen = true,
   height,
   label,
   execution,
@@ -137,6 +138,7 @@ export default function CodeEditor({
   value: string;
   onChange?: (value: string) => void;
   readOnly?: boolean;
+  allowFullscreen?: boolean;
   height?: string;
   label?: string;
   execution?: { passed: number; total: number };
@@ -403,18 +405,20 @@ export default function CodeEditor({
             {copied ? <Icon name="check" /> : <EditorGlyph name="copy" />}
             <span>{copied ? "已复制" : "复制"}</span>
           </button>
-          <button
-            ref={expandButton}
-            type="button"
-            className="studio-expand"
-            aria-label={expanded ? "退出全屏" : "全屏编辑器"}
-            aria-pressed={expanded}
-            onClick={() => setExpanded((v) => !v)}
-            title={expanded ? "退出全屏 · Esc" : "全屏编辑器"}
-          >
-            <EditorGlyph name={expanded ? "collapse" : "expand"} />
-            <span>{expanded ? "退出" : "全屏"}</span>
-          </button>
+          {allowFullscreen && (
+            <button
+              ref={expandButton}
+              type="button"
+              className="studio-expand"
+              aria-label={expanded ? "退出全屏" : "全屏编辑器"}
+              aria-pressed={expanded}
+              onClick={() => setExpanded((v) => !v)}
+              title={expanded ? "退出全屏 · Esc" : "全屏编辑器"}
+            >
+              <EditorGlyph name={expanded ? "collapse" : "expand"} />
+              <span>{expanded ? "退出" : "全屏"}</span>
+            </button>
+          )}
         </span>
       </header>
       <CodeMirror

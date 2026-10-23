@@ -21,7 +21,7 @@ func TestAssessmentEndpointsRequireTeacher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, endpoint := range []struct{ method, path string }{{http.MethodGet, "/api/submissions/7/assessment"}, {http.MethodPost, "/api/submissions/7/reviews"}, {http.MethodPost, "/api/submissions/7/expert-ratings"}, {http.MethodGet, "/api/assignments/2/comparison"}} {
+	for _, endpoint := range []struct{ method, path string }{{http.MethodGet, "/api/submissions/7/assessment"}, {http.MethodPost, "/api/submissions/7/reviews"}} {
 		t.Run(endpoint.path, func(t *testing.T) {
 			request := httptest.NewRequest(endpoint.method, endpoint.path, strings.NewReader(`{}`))
 			request.Header.Set("Authorization", "Bearer "+token)
@@ -65,6 +65,29 @@ func TestAssessmentErrorsUseConflictAndOwnershipStatus(t *testing.T) {
 		assessmentError(context, item.err)
 		if response.Code != item.status {
 			t.Fatalf("%v returned %d, want %d", item.err, response.Code, item.status)
+		}
+	}
+}
+
+func TestExpertScoringEndpointsRemoved(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := &Handler{auth: auth.New("assessment-test-secret", 1)}
+	router := gin.New()
+	handler.Register(router.Group("/api"))
+	token, err := handler.auth.Issue(9, "teacher", "教师")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, endpoint := range []struct{ method, path string }{
+		{http.MethodPost, "/api/submissions/7/expert-ratings"},
+		{http.MethodGet, "/api/assignments/2/comparison"},
+	} {
+		request := httptest.NewRequest(endpoint.method, endpoint.path, strings.NewReader(`{}`))
+		request.Header.Set("Authorization", "Bearer "+token)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("removed endpoint %s returned %d", endpoint.path, response.Code)
 		}
 	}
 }

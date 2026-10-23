@@ -5,13 +5,11 @@ export default function AssignmentActions({
   owner,
   edit,
   similarity,
-  compare,
 }: {
   title: string;
   owner: boolean;
   edit: () => void;
   similarity: () => void;
-  compare: () => void;
 }) {
   return (
     <div
@@ -32,14 +30,6 @@ export default function AssignmentActions({
           >
             <Icon name="code" />
             <span>代码查重</span>
-          </button>
-          <button
-            type="button"
-            onClick={compare}
-            title="比较自动评分与专家评分"
-          >
-            <Icon name="activity" />
-            <span>评分对照</span>
           </button>
         </>
       )}

@@ -14,6 +14,7 @@ import type {
 } from "../../types";
 import { checkSimilarity } from "../../api/similarity";
 import { Empty, Icon } from "../ui";
+import Dialog from "../ui/Dialog";
 import {
   downloadSimilarityHTML,
   matchLabel,
@@ -53,6 +54,9 @@ export default function CodeSimilarity({
   const [page, setPage] = useState(0);
   const [wrapCode, setWrapCode] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState("");
   const requestNumber = useRef(0);
   const choices = useMemo(
     () =>
@@ -142,10 +146,15 @@ export default function CodeSimilarity({
           <h2>{assignment.title}</h2>
           <p>比对提交，沿着相似片段回到代码。</p>
         </div>
-        <span className="similarity-heading-note">
+        <button
+          type="button"
+          className="submission-action"
+          aria-haspopup="dialog"
+          onClick={() => setHelpOpen(true)}
+        >
           <Icon name="eye" />
-          教师复核工具
-        </span>
+          检测说明
+        </button>
       </header>
       <section
         className={`panel similarity-settings ${settingsOpen ? "" : "collapsed"}`}
@@ -237,26 +246,28 @@ export default function CodeSimilarity({
                 ))}
               </div>
             )}
-            <details>
-              <summary>
-                <Icon name="plus" />
-                排除公共代码<span>可选</span>
-              </summary>
-              <p>
-                粘贴发给学生的题目框架或示例代码。仅排除至少 8
-                个连续原始词元一致的片段；请勿粘贴完整参考答案。
-              </p>
-              <textarea
-                aria-label="公共代码"
-                rows={7}
-                value={template}
-                onChange={(e) => {
-                  invalidate();
-                  setTemplate(e.target.value);
+            <div className="similarity-template-setting">
+              <span>
+                公共代码{" "}
+                <small>
+                  {template
+                    ? `已设置 · ${template.split("\n").length} 行`
+                    : "可选，用于排除题目框架和示例代码"}
+                </small>
+              </span>
+              <button
+                type="button"
+                className="submission-action"
+                aria-haspopup="dialog"
+                onClick={() => {
+                  setTemplateDraft(template);
+                  setTemplateOpen(true);
                 }}
-                placeholder="例如：统一提供的函数、类或输入输出框架"
-              />
-            </details>
+              >
+                <Icon name={template ? "settings" : "plus"} />
+                {template ? "修改公共代码" : "设置公共代码"}
+              </button>
+            </div>
           </fieldset>
           <button
             className={`primary ${loading ? "similarity-loading" : ""}`}
@@ -287,23 +298,67 @@ export default function CodeSimilarity({
           )}
         </div>
       </section>
-      <details className="panel similarity-method">
-        <summary>
-          <Icon name="eye" />
-          检测方法与判读说明
-          <Icon name="chevronRight" />
-        </summary>
-        <p>{similarityMethod}</p>
-        <p>
-          标识符匹配要求片段内保持一致的替换关系；不自动排除“全班常见代码”，以免掩盖实际重复。Python
-          保留每行缩进。
-        </p>
-        <p>{similarityCaution}</p>
-        <small>
-          每批最多 200 人；单份代码最多 20000 个词元、200000 字节，整批最多
-          300000 个词元。超出计算预算时会明确提示，不返回部分结果。
-        </small>
-      </details>
+      {helpOpen && (
+        <Dialog title="检测方法与判读说明" onClose={() => setHelpOpen(false)}>
+          <div className="similarity-method">
+            <p>{similarityMethod}</p>
+            <p>
+              标识符匹配要求片段内保持一致的替换关系；不自动排除“全班常见代码”，以免掩盖实际重复。Python
+              保留每行缩进。
+            </p>
+            <p>{similarityCaution}</p>
+            <small>
+              每批最多 200 人；单份代码最多 20000 个词元、200000 字节，整批最多
+              300000 个词元。超出计算预算时会明确提示，不返回部分结果。
+            </small>
+          </div>
+        </Dialog>
+      )}
+      {templateOpen && (
+        <Dialog
+          title="排除公共代码"
+          note="粘贴统一提供给学生的题目框架或示例代码，请勿粘贴完整参考答案。"
+          onClose={() => setTemplateOpen(false)}
+        >
+          <form
+            className="similarity-template-editor"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (templateDraft !== template) {
+                invalidate();
+                setTemplate(templateDraft);
+              }
+              setTemplateOpen(false);
+            }}
+          >
+            <label>
+              公共代码
+              <textarea
+                rows={10}
+                value={templateDraft}
+                onChange={(event) => setTemplateDraft(event.target.value)}
+                placeholder="例如：统一提供的函数、类或输入输出框架"
+              />
+            </label>
+            <p>
+              仅排除至少 8
+              个连续原始词元一致的片段。保存修改后需重新检测；留空保存可移除已有设置。
+            </p>
+            <div className="dialog-form-actions">
+              <button
+                type="button"
+                className="submission-action"
+                onClick={() => setTemplateOpen(false)}
+              >
+                取消
+              </button>
+              <button type="submit" className="primary">
+                保存设置
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
       {loading && (
         <section className="panel" role="status">
           正在提取代码特征并比对相似片段，请稍候…

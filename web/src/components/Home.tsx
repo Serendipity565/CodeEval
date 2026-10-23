@@ -164,7 +164,7 @@ export default function Home({
         </div>
         <button
           className="primary"
-          onClick={() => go(teacher ? "courses" : "assignments")}
+          onClick={() => go(teacher ? "publish" : "assignments")}
         >
           <Icon name={teacher ? "plus" : "arrowRight"} />
           {teacher ? "发布新作业" : "继续我的作业"}

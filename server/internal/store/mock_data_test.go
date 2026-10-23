@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +27,11 @@ func TestSeedMockDataReplaysActualResultsAndPreservesExistingData(t *testing.T) 
 			name = "repeated import"
 		}
 		t.Run(name, func(t *testing.T) {
-			steps := []assessmentStep{{kind: "begin"}}
+			rename := assessmentStep{kind: "query", contains: []string{"FROM `users`", "username IN", "FOR UPDATE"}, columns: []string{"id", "username", "role"}}
+			if existing {
+				rename.rows = [][]driver.Value{{int64(100), "teacher01", "teacher"}}
+			}
+			steps := []assessmentStep{{kind: "begin"}, rename, {kind: "commit"}, {kind: "begin"}}
 			for i, user := range snapshot.Users {
 				user := user
 				query := assessmentStep{kind: "query", contains: []string{"FROM `users`", "username = ?"}, columns: []string{"id", "role"}}
@@ -151,6 +156,52 @@ func TestRecordedCPPCodeMatchesCapturedExecution(t *testing.T) {
 				if passed != e.Execution.Results[i].Passed {
 					t.Fatalf("%s disagrees with captured sandbox result: %q", c.Name, output)
 				}
+			}
+		})
+	}
+}
+
+func TestDemoTeacherUsernameMigrationPreservesIdentityAndRejectsCollisions(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		users    [][]driver.Value
+		rename   bool
+		conflict bool
+	}{
+		{name: "fresh database"},
+		{name: "existing demo teacher", users: [][]driver.Value{{int64(7), "teacher", "teacher", "preserved-password-hash"}}, rename: true},
+		{name: "already renamed", users: [][]driver.Value{{int64(7), "teacher01", "teacher", "preserved-password-hash"}}},
+		{name: "occupied target", users: [][]driver.Value{{int64(7), "teacher", "teacher", "old-hash"}, {int64(8), "teacher01", "teacher", "other-hash"}}, conflict: true},
+		{name: "unrelated student account", users: [][]driver.Value{{int64(7), "teacher", "student", "preserved-password-hash"}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			steps := []assessmentStep{{kind: "begin"}, {kind: "query", contains: []string{"FROM `users`", "username IN (?,?)", "ORDER BY id ASC", "FOR UPDATE"}, columns: []string{"id", "username", "role", "password_hash"}, rows: test.users}}
+			if test.rename {
+				steps = append(steps, assessmentStep{kind: "exec", contains: []string{"UPDATE `users` SET `username`=? WHERE id = ? AND username = ? AND role = ?"}, check: func(args []driver.NamedValue) {
+					want := []driver.Value{"teacher01", int64(7), "teacher", "teacher"}
+					if len(args) != len(want) {
+						t.Fatalf("rename changed more than the username: %+v", args)
+					}
+					for i, value := range want {
+						if args[i].Value != value {
+							t.Fatalf("rename must preserve user ID and role: %+v", args)
+						}
+					}
+				}})
+			}
+			end := "commit"
+			if test.conflict {
+				end = "rollback"
+			}
+			steps = append(steps, assessmentStep{kind: end})
+			s := assessmentTestStore(t, steps)
+			err := s.MigrateDemoTeacherUsername()
+			if test.conflict {
+				if !errors.Is(err, ErrUsernameTaken) {
+					t.Fatalf("target collision accepted: %v", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

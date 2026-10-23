@@ -4,9 +4,11 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const mockPassword = "CodeEval123!"
@@ -21,10 +23,40 @@ func SeedMockData(s *MySQLStore) error {
 	if err != nil {
 		return err
 	}
+	if err := s.MigrateDemoTeacherUsername(); err != nil {
+		return err
+	}
 	if err := SeedRecordedData(s, snapshot); err != nil {
 		return err
 	}
 	return seedCourseDemoData(s, snapshot)
+}
+
+// MigrateDemoTeacherUsername preserves the original user ID, password and all
+// relationships. An occupied target is a conflict, never a reason to merge users.
+func (s *MySQLStore) MigrateDemoTeacherUsername() error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var users []User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("username IN ?", []string{"teacher", "teacher01"}).Order("id ASC").Find(&users).Error; err != nil {
+			return err
+		}
+		var previous, target *User
+		for i := range users {
+			if users[i].Username == "teacher" {
+				previous = &users[i]
+			}
+			if users[i].Username == "teacher01" {
+				target = &users[i]
+			}
+		}
+		if previous == nil || previous.Role != "teacher" {
+			return nil
+		}
+		if target != nil {
+			return fmt.Errorf("cannot rename demo account teacher to teacher01: %w", ErrUsernameTaken)
+		}
+		return tx.Model(&User{}).Where("id = ? AND username = ? AND role = ?", previous.ID, "teacher", "teacher").Update("username", "teacher01").Error
+	})
 }
 
 func loadRecordedSeed() (RecordedSeed, error) {

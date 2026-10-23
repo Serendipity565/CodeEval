@@ -59,12 +59,10 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	secured.GET("/assignments/:id/students", h.requireRole("teacher"), h.assignmentStudents)
 	secured.GET("/assignments", h.assignments)
 	secured.GET("/assignments/:id", h.assignment)
-	secured.GET("/assignments/:id/comparison", h.requireRole("teacher"), h.assignmentComparison)
 	secured.POST("/assignments/:id/similarity", h.requireRole("teacher"), h.assignmentSimilarity)
 	secured.GET("/submissions", h.submissions)
 	secured.GET("/submissions/:id/assessment", h.requireRole("teacher"), h.submissionAssessment)
 	secured.POST("/submissions/:id/reviews", h.requireRole("teacher"), h.createReview)
-	secured.POST("/submissions/:id/expert-ratings", h.requireRole("teacher"), h.saveExpertRating)
 	secured.GET("/dashboard", h.dashboard)
 	secured.GET("/capabilities", h.capabilities)
 	secured.POST("/assignments", h.requireRole("teacher"), h.createAssignment)
@@ -299,7 +297,7 @@ func (h *Handler) createAssignment(c *gin.Context) {
 	}
 	courseID, parseErr := strconv.ParseUint(in.CourseID, 10, 64)
 	if parseErr != nil || courseID == 0 {
-		c.JSON(400, gin.H{"error": "请先进入课程再发布作业"})
+		c.JSON(400, gin.H{"error": "请选择有效的所属课程"})
 		return
 	}
 	owns, err := h.store.OwnsCourse(uint(courseID), current(c).ID)

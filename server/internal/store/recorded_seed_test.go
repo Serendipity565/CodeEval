@@ -13,7 +13,7 @@ func recordedSeedTestFixture() RecordedSeed {
 	now := time.Now().UTC()
 	rubric, _ := json.Marshal([]domain.RubricItem{{Key: "correctness", Name: "功能", Weight: 100}})
 	evaluation, _ := json.Marshal(domain.Evaluation{Provider: "deepseek-agent", ModelCalls: 2, Status: "graded", DurationMS: 1200, Total: 100, MaxTotal: 100, Execution: &domain.ExecutionEvidence{Language: "C++", CompileOK: true, Total: 1, Passed: 1, TotalWeight: 1, PassedWeight: 1, Results: []domain.TestResult{{Name: "basic", Passed: true}}}, Dimensions: []domain.DimensionScore{{Key: "correctness", Name: "功能", Score: 100, MaxScore: 100, Evidence: "test execution"}}})
-	return RecordedSeed{Version: 1, CapturedAt: now, Users: []RecordedSeedUser{{"teacher", "教师", "teacher"}, {"student01", "学生", "student"}}, Assignment: RecordedSeedAssignment{Teacher: "teacher", Language: "C++", LLMEvaluationEnabled: true, Rubric: rubric, Tests: []domain.TestCase{{Name: "basic", Weight: 1}}}, Submissions: []RecordedSeedSubmission{{Student: "student01", Code: "int main() {}", SubmittedAt: now, Evaluation: evaluation}}}
+	return RecordedSeed{Version: 1, CapturedAt: now, Users: []RecordedSeedUser{{"teacher01", "教师", "teacher"}, {"student01", "学生", "student"}}, Assignment: RecordedSeedAssignment{Teacher: "teacher01", Language: "C++", LLMEvaluationEnabled: true, Rubric: rubric, Tests: []domain.TestCase{{Name: "basic", Weight: 1}}}, Submissions: []RecordedSeedSubmission{{Student: "student01", Code: "int main() {}", SubmittedAt: now, Evaluation: evaluation}}}
 }
 func TestRecordedSeedRequiresCompleteActualEvidence(t *testing.T) {
 	valid := recordedSeedTestFixture()

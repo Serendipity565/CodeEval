@@ -101,38 +101,18 @@
 .report-provenance {
   margin-top: 10px;
 }
-.report-provenance > summary {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  width: fit-content;
-  min-height: 36px;
-  cursor: pointer;
-  color: #6b7c70;
-  font-size: 12px;
-  list-style: none;
-}
-.report-provenance > summary .icon {
-  width: 13px;
-  height: 13px;
-}
-.report-provenance summary::-webkit-details-marker,
-.evaluation-report .report-tests > summary::-webkit-details-marker {
-  display: none;
-}
-.report-provenance > summary:hover {
-  color: #255f49;
-}
 .evaluation-report .report-provenance .evaluation-meta {
   display: flex;
   flex-wrap: wrap;
-  margin: 4px 0 12px;
-  gap: 6px;
+  margin: 12px 0 0;
+  gap: 6px 14px;
 }
 .evaluation-report .report-provenance .evaluation-meta span {
   font-size: 12px !important;
-  padding: 5px 8px;
-  background: #f1f4ef;
+  padding: 0;
+  background: none;
+  color: #7a887b;
+  border: 0;
 }
 .evaluation-report .report-provenance .evaluation-context {
   margin: 12px 0;
@@ -188,83 +168,6 @@
 }
 .evaluation-report .feedback-group li + li {
   margin-top: 6px;
-}
-.evaluation-report .agent-analysis {
-  margin: 0 var(--report-inset) 28px;
-  padding-top: 18px;
-}
-.evaluation-report .report-tests {
-  padding: 0;
-  border: 1px solid #dde6db;
-  border-radius: 8px;
-  background: #f7f9f4;
-}
-.evaluation-report .report-tests > summary {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 17px 18px;
-  min-height: 58px;
-  list-style: none;
-  color: #355942;
-}
-.report-test-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.report-test-label .icon {
-  width: 18px;
-  height: 18px;
-}
-.report-test-result {
-  font-family: var(--font-mono, "DM Mono", monospace);
-  font-size: 13px;
-  font-weight: 400;
-}
-.report-disclosure {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 400;
-  color: #667b68;
-}
-.report-disclosure .icon {
-  width: 15px;
-  height: 15px;
-}
-.report-tests:not([open]) .when-open,
-.report-tests[open] .when-closed {
-  display: none;
-}
-.report-tests[open] .report-disclosure .icon,
-.report-provenance[open] > summary .icon {
-  transform: rotate(90deg);
-}
-.evaluation-report .report-tests article {
-  margin: 0 18px 14px;
-  padding: 16px;
-  background: #fff;
-  border: 1px solid #e5eae2;
-  border-radius: 6px;
-}
-.evaluation-report .report-tests > summary:hover {
-  background: #eef3e9;
-  border-radius: 8px;
-}
-.evaluation-report summary:focus-visible {
-  outline: 2px solid #47775c;
-  outline-offset: 4px;
-  border-radius: 4px;
-}
-.evaluation-report summary .icon,
-.evaluation-report summary {
-  transition:
-    transform 180ms ease,
-    background-color 180ms ease,
-    color 180ms ease;
 }
 .evaluation-report .dimension-list {
   padding: 0 var(--report-inset) 12px;
@@ -423,29 +326,6 @@
   .report-notice p {
     font-size: 12px;
   }
-  .evaluation-report .report-tests > summary {
-    flex-wrap: wrap;
-    column-gap: 12px;
-    row-gap: 10px;
-    padding: 14px;
-  }
-  .report-test-label {
-    font-size: 13px;
-    gap: 7px;
-  }
-  .report-test-result {
-    margin-left: auto;
-    font-size: 12px;
-  }
-  .report-disclosure {
-    flex-basis: 100%;
-    margin-left: 0;
-    justify-content: space-between;
-  }
-  .evaluation-report .report-tests article {
-    margin-inline: 10px;
-    padding: 12px;
-  }
   .dimension-content {
     grid-template-columns: 1fr;
     gap: 14px;
@@ -460,14 +340,5 @@
   .evaluation-report .dimension-content .dimension-suggestion b {
     display: block;
     margin-bottom: 4px;
-  }
-  .report-provenance > summary {
-    min-height: 44px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .evaluation-report summary,
-  .evaluation-report summary .icon {
-    transition: none;
   }
 }

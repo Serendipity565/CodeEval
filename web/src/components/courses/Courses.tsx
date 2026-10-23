@@ -2,6 +2,7 @@ import { FormEvent, useRef, useState } from "react";
 import type { Course } from "../../types";
 import { apiRequest } from "../../api/client";
 import { Empty, Icon, Title } from "../ui";
+import Dialog from "../ui/Dialog";
 import "./courses.css";
 
 export default function Courses({
@@ -23,6 +24,7 @@ export default function Courses({
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [createError, setCreateError] = useState("");
   const [queries, setQueries] = useState({ all: "", selected: "" });
   const query = queries[tab];
   const setQuery = (value: string) =>
@@ -47,17 +49,19 @@ export default function Courses({
   };
   async function create(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setBusy("create");
-    setError("");
+    setCreateError("");
     try {
       const c = await apiRequest<Course>("/courses", token, {
         method: "POST",
         body: JSON.stringify({ title, description }),
       });
       await reload();
+      setCreating(false);
       open(c.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建失败");
+      setCreateError(e instanceof Error ? e.message : "创建失败");
     } finally {
       setBusy("");
     }
@@ -87,8 +91,11 @@ export default function Courses({
         {teacher && (
           <button
             className="primary"
-            aria-expanded={creating}
-            onClick={() => setCreating(!creating)}
+            aria-haspopup="dialog"
+            onClick={() => {
+              setCreateError("");
+              setCreating(true);
+            }}
           >
             <Icon name="plus" />
             创建课程
@@ -101,44 +108,56 @@ export default function Courses({
         </p>
       )}
       {teacher && creating && (
-        <form className="panel course-create" onSubmit={create}>
-          <div className="course-create-heading">
-            <Icon name="courses" />
-            <h3>新建课程</h3>
-            <span>创建后即可发布作业</span>
-          </div>
-          <label>
-            课程名称
-            <input
-              autoFocus
-              required
-              maxLength={100}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </label>
-          <label>
-            课程说明
-            <textarea
-              maxLength={2000}
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </label>
-          <div className="course-actions">
-            <button
-              className="course-button"
-              type="button"
-              onClick={() => setCreating(false)}
-            >
-              取消
-            </button>
-            <button className="primary" disabled={!!busy}>
-              {busy === "create" ? "正在创建…" : "创建课程"}
-            </button>
-          </div>
-        </form>
+        <Dialog
+          title="创建课程"
+          note="填写课程信息，创建后即可发布作业。"
+          onClose={() => setCreating(false)}
+          dismissible={busy !== "create"}
+        >
+          <form
+            className="course-create"
+            onSubmit={create}
+            aria-busy={busy === "create"}
+          >
+            {createError && (
+              <p className="alert" role="alert">
+                {createError}
+              </p>
+            )}
+            <fieldset disabled={busy === "create"}>
+              <label>
+                课程名称
+                <input
+                  required
+                  maxLength={100}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </label>
+              <label>
+                课程说明
+                <textarea
+                  maxLength={2000}
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+              <div className="course-actions">
+                <button
+                  className="course-button"
+                  type="button"
+                  onClick={() => setCreating(false)}
+                >
+                  取消
+                </button>
+                <button className="primary" disabled={!!busy}>
+                  {busy === "create" ? "正在创建…" : "创建课程"}
+                </button>
+              </div>
+            </fieldset>
+          </form>
+        </Dialog>
       )}
       <div className="course-catalog-controls">
         {!teacher && (

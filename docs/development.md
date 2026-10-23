@@ -36,7 +36,7 @@ Vite 默认地址为 `http://localhost:5173`，并把 `/api` 代理到 `http://l
 
 将 `server/config.yaml` 的 `seed.enabled` 设为 `true`，停止旧后端进程后重新运行 `make server-dev`；Compose 部署执行 `docker compose up -d --build server`。需要启动最新代码，单独刷新网页不会触发初始化。
 
-初始教师账号为 `teacher`、`teacher02`，学生账号为 `student01` 至 `student08`；新建演示账号的统一密码为 `CodeEval123!`。已有同名账号的密码不会重置。全部账号、选课情况与推荐演示步骤见[演示数据](demo-data.md#演示账号与密码)。
+初始教师账号为 `teacher01`、`teacher02`，学生账号为 `student01` 至 `student08`；新建演示账号的统一密码为 `CodeEval123!`。已有同名账号的密码不会重置。全部账号、选课情况与推荐演示步骤见[演示数据](demo-data.md#演示账号与密码)。
 
 重复启动只补缺失数据；如需恢复全新演示状态，按[清空并重新初始化演示库](demo-data.md#清空并重新初始化演示库)操作，先停止后端，再清空包含课程、选课关系的全部 9 张表。
 
