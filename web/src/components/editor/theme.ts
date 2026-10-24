@@ -1,85 +1,122 @@
 import { EditorView } from "@uiw/react-codemirror";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { tags } from "@lezer/highlight";
+import { tagHighlighter, tags } from "@lezer/highlight";
 
-export const forestTheme = [
+// VS Code Dark+ palette: microsoft/vscode/extensions/theme-defaults/themes/.
+// CSS variables keep every code surface, including comparisons, in sync.
+export const vscodeDarkTheme = [
   EditorView.theme(
     {
-      "&": { color: "#dbe5d5", backgroundColor: "#26372d" },
-      ".cm-content": { caretColor: "#dbe9a1" },
-      ".cm-cursor, .cm-dropCursor": { borderLeftColor: "#dbe9a1" },
+      "&": { color: "var(--code-fg)", backgroundColor: "var(--code-bg)" },
+      ".cm-content": { caretColor: "var(--code-fg)" },
+      ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--code-fg)" },
       "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
-        { backgroundColor: "#4d6245" },
+        { backgroundColor: "var(--code-selection)" },
       ".cm-gutters": {
-        color: "#889b82",
-        backgroundColor: "#26372d",
+        color: "var(--code-line-number)",
+        backgroundColor: "var(--code-bg)",
         border: "none",
       },
-      ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "#304334" },
-      ".cm-activeLineGutter": { color: "#dbe9a1" },
-      ".cm-matchingBracket": { color: "#e9efbe", backgroundColor: "#4b6042" },
+      ".cm-activeLine, .cm-activeLineGutter": {
+        backgroundColor: "var(--code-active-line)",
+      },
+      ".cm-activeLineGutter": { color: "#c6c6c6" },
+      ".cm-matchingBracket": {
+        color: "var(--code-fg)",
+        backgroundColor: "#0064001a",
+        outline: "1px solid #888888",
+      },
       ".cm-searchMatch": {
-        backgroundColor: "#61703f80",
-        outline: "1px solid #9aab68",
+        backgroundColor: "#515c6a80",
+        outline: "1px solid #888888",
       },
-      ".cm-searchMatch.cm-searchMatch-selected": {
-        backgroundColor: "#7f8d4680",
-      },
-      ".cm-selectionMatch": { backgroundColor: "#435c4180" },
+      ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "#613315" },
+      ".cm-selectionMatch": { backgroundColor: "#add6ff26" },
       ".cm-tooltip": {
-        color: "#dbe5d5",
-        backgroundColor: "#2c4032",
-        border: "1px solid #53654c",
+        color: "var(--code-fg)",
+        backgroundColor: "var(--code-panel)",
+        border: "1px solid var(--code-border)",
       },
       ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
-        color: "#e3edc0",
-        backgroundColor: "#42583d",
+        color: "#ffffff",
+        backgroundColor: "#04395e",
       },
-      ".cm-panels": { color: "#dbe5d5", backgroundColor: "#203126" },
+      ".cm-panels": {
+        color: "var(--code-fg)",
+        backgroundColor: "var(--code-panel)",
+      },
       ".cm-textfield": {
-        color: "#e0e8da",
-        backgroundColor: "#293c2e",
-        border: "1px solid #52654a",
+        color: "var(--code-fg)",
+        backgroundColor: "var(--code-input)",
+        border: "1px solid var(--code-border)",
       },
       ".cm-button": {
-        color: "#dbe5d5",
+        color: "var(--code-fg)",
         backgroundImage: "none",
-        backgroundColor: "#384d38",
+        backgroundColor: "var(--code-hover)",
       },
       ".cm-foldPlaceholder": {
-        color: "#c3d896",
-        backgroundColor: "#344a35",
-        border: "1px solid #4d6446",
+        color: "var(--code-muted)",
+        backgroundColor: "var(--code-hover)",
+        border: "1px solid var(--code-border)",
       },
     },
     { dark: true },
   ),
   syntaxHighlighting(
     HighlightStyle.define([
-      { tag: tags.comment, color: "#92a68a", fontStyle: "italic" },
-      {
-        tag: [tags.keyword, tags.modifier, tags.controlKeyword],
-        color: "#c3d896",
-      },
+      { tag: tags.comment, color: "var(--code-comment)" },
+      { tag: [tags.keyword, tags.modifier], color: "var(--code-keyword)" },
+      { tag: tags.controlKeyword, color: "var(--code-control)" },
       {
         tag: [
           tags.function(tags.variableName),
           tags.function(tags.propertyName),
         ],
-        color: "#e5d3a5",
+        color: "var(--code-function)",
       },
-      { tag: [tags.string, tags.special(tags.string)], color: "#b8d6b0" },
-      { tag: [tags.number, tags.bool, tags.null], color: "#e3c897" },
+      {
+        tag: [tags.string, tags.special(tags.string)],
+        color: "var(--code-string)",
+      },
+      { tag: tags.number, color: "var(--code-number)" },
+      { tag: [tags.bool, tags.null], color: "var(--code-keyword)" },
       {
         tag: [tags.typeName, tags.className, tags.namespace],
-        color: "#b1d0bd",
+        color: "var(--code-type)",
       },
       {
         tag: [tags.operator, tags.punctuation, tags.bracket],
-        color: "#b9c9ad",
+        color: "var(--code-fg)",
       },
-      { tag: [tags.variableName, tags.propertyName], color: "#dbe5d5" },
-      { tag: tags.invalid, color: "#f0b1a0", textDecoration: "underline wavy" },
+      {
+        tag: [tags.variableName, tags.propertyName],
+        color: "var(--code-variable)",
+      },
+      {
+        tag: tags.invalid,
+        color: "var(--code-invalid)",
+        textDecoration: "underline wavy",
+      },
     ]),
   ),
 ];
+
+// The comparison view uses spans instead of CodeMirror; retain identical tags.
+export const vscodeClassHighlighter = tagHighlighter([
+  { tag: tags.comment, class: "tok-comment" },
+  { tag: [tags.keyword, tags.modifier], class: "tok-keyword" },
+  { tag: tags.controlKeyword, class: "tok-control" },
+  {
+    tag: [tags.function(tags.variableName), tags.function(tags.propertyName)],
+    class: "tok-function",
+  },
+  { tag: [tags.string, tags.special(tags.string)], class: "tok-string" },
+  { tag: tags.number, class: "tok-number" },
+  { tag: [tags.bool, tags.null], class: "tok-bool" },
+  {
+    tag: [tags.typeName, tags.className, tags.namespace],
+    class: "tok-typeName",
+  },
+  { tag: [tags.variableName, tags.propertyName], class: "tok-variable" },
+]);

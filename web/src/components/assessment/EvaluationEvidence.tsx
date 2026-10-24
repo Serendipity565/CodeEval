@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { Evaluation } from "../../types";
 import Dialog from "../ui/Dialog";
-import { Empty, Icon } from "../ui";
+import TestResults from "./TestResults";
+import { Icon } from "../ui";
 
 export default function EvaluationEvidence({
   evaluation,
@@ -51,67 +52,18 @@ export default function EvaluationEvidence({
           title={view === "tests" ? "测试用例详情" : "详细分析证据"}
           note={
             view === "tests" && execution
-              ? `${execution.passed} / ${execution.total} 个测试通过，隐藏用例的输入输出不公开。`
+              ? "查看每个用例的运行状态，对照期望输出与实际结果。"
               : `共 ${findings.length} 项代码分析记录`
           }
           wide={view === "tests"}
+          className={view === "tests" ? "test-results-dialog" : undefined}
           onClose={() => setView(null)}
         >
-          <div className="evaluation-evidence-list">
-            {view === "tests" && execution ? (
-              <>
-                {!execution.compileOk && execution.compileError && (
-                  <article className="test-failed">
-                    <h3>编译失败</h3>
-                    <pre className="evidence-text">
-                      {execution.compileError}
-                    </pre>
-                  </article>
-                )}
-                {execution.results.map((result, index) => (
-                  <article key={`${result.name}-${index}`}>
-                    <header>
-                      <h3>{result.name}</h3>
-                      <span
-                        className={`test-outcome ${result.passed ? "passed" : "failed"}`}
-                      >
-                        {result.passed ? "通过" : "未通过"}
-                      </span>
-                      <small>
-                        {result.durationMs} ms · 退出码 {result.exitCode}
-                      </small>
-                    </header>
-                    {result.error && (
-                      <p className="evidence-text">{result.error}</p>
-                    )}
-                    {result.hidden ? (
-                      <p className="hidden-test-note">
-                        隐藏用例 · 输入输出不公开
-                      </p>
-                    ) : (
-                      <div className="test-result-io">
-                        <section>
-                          <em>输入</em>
-                          <pre>{result.input || "（空输入）"}</pre>
-                        </section>
-                        <section>
-                          <em>期望输出</em>
-                          <pre>{result.expected || "（无输出）"}</pre>
-                        </section>
-                        <section>
-                          <em>实际输出</em>
-                          <pre>{result.actual || "（无输出）"}</pre>
-                        </section>
-                      </div>
-                    )}
-                  </article>
-                ))}
-                {!execution.results.length && !execution.compileError && (
-                  <Empty text="暂无测试用例结果。" />
-                )}
-              </>
-            ) : (
-              findings.map((finding, index) => (
+          {view === "tests" && execution ? (
+            <TestResults execution={execution} />
+          ) : (
+            <div className="evaluation-evidence-list">
+              {findings.map((finding, index) => (
                 <article key={`${finding.category}-${index}`}>
                   <header>
                     <h3>{finding.category}</h3>
@@ -122,9 +74,9 @@ export default function EvaluationEvidence({
                   <pre className="evidence-text">{finding.evidence}</pre>
                   <p>{finding.explanation}</p>
                 </article>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </Dialog>
       )}
     </>

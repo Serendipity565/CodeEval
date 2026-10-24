@@ -4,8 +4,8 @@ select:not([multiple]) {
   -webkit-appearance: none;
   padding-right: 36px !important;
   background-image:
-    linear-gradient(45deg, transparent 50%, #53675d 50%),
-    linear-gradient(135deg, #53675d 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--color-brand) 50%),
+    linear-gradient(135deg, var(--color-brand) 50%, transparent 50%);
   background-repeat: no-repeat;
   background-position:
     calc(100% - 17px) 50%,
@@ -16,8 +16,8 @@ select:not([multiple]) {
 select:not([multiple]):disabled {
   opacity: 1;
   background-image:
-    linear-gradient(45deg, transparent 50%, #909d96 50%),
-    linear-gradient(135deg, #909d96 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--color-brand) 50%),
+    linear-gradient(135deg, var(--color-brand) 50%, transparent 50%);
 }
 
 .status-select-wrap {
@@ -36,7 +36,7 @@ select:not([multiple]):disabled {
   height: 6px;
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
-  color: #53675d;
+  color: var(--color-text-secondary);
   pointer-events: none;
   transform: translateY(-70%) rotate(45deg);
 }

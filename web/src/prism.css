@@ -1,0 +1,280 @@
+/* Shared prism surfaces; keep task content readable beneath the atmosphere. */
+.shell {
+  isolation: isolate;
+  position: relative;
+  background: #fff;
+}
+.shell::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 0 8%, #e9f1ffb3, transparent 42%),
+    radial-gradient(ellipse at 100% 18%, #eee7fb99, transparent 42%),
+    radial-gradient(ellipse at 85% 96%, #e5f6f280, transparent 40%);
+}
+.side {
+  background: var(--color-glass);
+  border-bottom-color: #e2e7f180;
+  box-shadow: 0 4px 24px #344a7c04;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+.logo i {
+  background: transparent;
+  box-shadow: none;
+}
+.brand-period {
+  color: var(--color-violet);
+}
+.side nav button::after {
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--gradient-brand);
+  transition: transform var(--motion-base) var(--ease-emphasized);
+}
+.side nav button.on {
+  color: var(--color-brand);
+}
+.side footer > i,
+.header-account > span {
+  color: var(--color-brand);
+  background: linear-gradient(135deg, #e4ebff, #f2e9fb);
+  border: 1px solid #dfe5f3;
+}
+.primary {
+  background: var(--gradient-brand);
+  border-color: #5864cf;
+  box-shadow:
+    0 4px 12px #5562cf20,
+    inset 0 1px 0 #ffffff25;
+  transition:
+    background-color var(--motion-base),
+    filter var(--motion-base),
+    box-shadow var(--motion-base),
+    transform var(--motion-fast);
+}
+.primary:hover:not(:disabled) {
+  background: var(--gradient-brand);
+  filter: brightness(1.03);
+  box-shadow: 0 5px 14px #5562cf26;
+  transform: none;
+}
+:is(.panel, .recent-section, .metric-strip, .schedule-list, .weekly-activity) {
+  background: var(--color-glass);
+  border-color: var(--color-border);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 #fff;
+}
+.panel,
+.recent-section {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.dashboard-heading {
+  padding-block: 8px;
+}
+.dashboard-heading h2 {
+  color: var(--color-text);
+  font-weight: 650;
+}
+.metric-strip {
+  border-radius: 18px;
+}
+.metric {
+  --metric-color: var(--color-brand);
+  --metric-tint: #edf2ff;
+}
+.metric:hover {
+  background: color-mix(in srgb, var(--metric-tint) 60%, transparent);
+}
+.metric-label > .icon {
+  box-sizing: content-box;
+  width: 17px;
+  height: 17px;
+  padding: 8px;
+  margin-block: -6px;
+  color: var(--metric-color);
+  background: var(--metric-tint);
+  border-radius: 10px;
+}
+.metric-value {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.metric-note > .icon {
+  color: var(--metric-color);
+}
+.activity-row:hover {
+  background: #f4f6fc;
+}
+.recent-footnote {
+  background: #f7f9fd;
+}
+.deadline-card {
+  color: #3b426c;
+  background: linear-gradient(125deg, #eef1ffdb, #f5effce6 62%, #fcefe8b3);
+  border-color: #e1def1;
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 #fff;
+}
+.deadline-card::after {
+  content: none;
+}
+.deadline-card-top > span:last-child {
+  border-color: #d9d7ed;
+  background: #ffffff70;
+  color: #68639c;
+}
+.deadline-card :is(p, .deadline-date small) {
+  color: #656786;
+}
+.deadline-date em {
+  color: #68619b;
+  background: #e7e1f5;
+}
+.deadline-card button,
+.deadline-clear > .icon {
+  color: #55538d;
+  border-color: #dcd8ef;
+}
+.weekly-activity {
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+}
+.activity-bar-track {
+  background: #edf0f7;
+}
+.activity-bar-track > i {
+  background: linear-gradient(0deg, #bec8ee, #adbceb);
+}
+.today .activity-bar-track > i {
+  background: var(--gradient-brand);
+}
+.activity-bar-track:hover > i,
+.activity-bar-track:focus-visible > i {
+  background: #8594dc;
+}
+.schedule-list {
+  background: #ffffffa6;
+}
+.schedule-index {
+  color: #7784aa;
+}
+.schedule-item:hover {
+  background: #f5f6fd;
+}
+.course-list > .course-card {
+  --course-color: var(--color-brand);
+  --course-tint: var(--color-brand-subtle);
+}
+.course-card .course-symbol {
+  color: var(--course-color);
+  background: var(--course-tint);
+}
+.course-card:hover {
+  border-color: #c4cee9;
+  box-shadow: var(--shadow-card);
+}
+.course-card .course-card-top {
+  padding-bottom: 3px;
+}
+:where(.table-head, .atable > .table-head, .stable > .table-head) {
+  background: #f4f6fb;
+}
+.segmented {
+  background: #eef1f8;
+}
+.filter-select select:focus {
+  border-color: var(--color-brand);
+}
+.assignment-builder {
+  --builder-accent: var(--color-brand);
+}
+.metric--success {
+  --metric-color: var(--color-success);
+  --metric-tint: var(--color-success-bg);
+}
+.metric--warning {
+  --metric-color: var(--color-warning);
+  --metric-tint: var(--color-warning-bg);
+}
+.metric--neutral {
+  --metric-color: var(--color-text-secondary);
+  --metric-tint: var(--color-surface-subtle);
+}
+.submission-avatar,
+.submission-avatar.avatar-1,
+.submission-avatar.avatar-2 {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+  border-color: var(--color-border);
+}
+.primary::after {
+  content: none;
+}
+.primary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px #5562cf20;
+}
+.side nav button {
+  transition:
+    color var(--motion-fast),
+    background-color var(--motion-fast);
+}
+.course-card .course-membership.is-enrolled {
+  color: var(--color-success);
+}
+.cards article:hover {
+  transform: none;
+  box-shadow: var(--shadow-card);
+  border-color: var(--color-border-strong);
+}
+.cards article::before {
+  content: none;
+}
+.metric-note,
+.section-description,
+.activity-person small,
+.deadline-card p,
+.weekly-heading > span,
+.schedule-item small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (max-width: 767px) {
+  .side {
+    background: #ffffffcc;
+    border-color: #dce3f0;
+    box-shadow:
+      0 8px 32px #4355821a,
+      inset 0 1px 0 #fff;
+  }
+  .side nav button.on {
+    background: linear-gradient(125deg, #edf1ff, #f3edfc);
+  }
+  .dashboard-heading {
+    padding-block: 0;
+  }
+  .metric-label > .icon {
+    padding: 6px;
+    margin-block: -4px;
+    width: 15px;
+    height: 15px;
+  }
+  .weekly-activity {
+    padding: 18px;
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .side,
+  .panel,
+  .recent-section {
+    background: #fffffff5;
+  }
+}

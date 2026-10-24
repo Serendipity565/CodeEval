@@ -28,7 +28,7 @@ import {
 } from "@codemirror/search";
 import { formatDocument, hasFormatter } from "../../formatters";
 import { Icon } from "../ui";
-import { forestTheme } from "./theme";
+import { vscodeDarkTheme } from "./theme";
 
 const languageExtensions: Record<string, () => Extension> = {
   Python: python,
@@ -427,7 +427,7 @@ export default function CodeEditor({
         height={readOnly ? "auto" : (height ?? "460px")}
         minHeight={readOnly ? "180px" : undefined}
         maxHeight={readOnly && !expanded ? (height ?? "420px") : undefined}
-        theme={forestTheme}
+        theme={vscodeDarkTheme}
         readOnly={readOnly}
         editable={!readOnly}
         extensions={extensions}

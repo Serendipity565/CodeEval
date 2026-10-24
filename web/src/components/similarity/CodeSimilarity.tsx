@@ -1,15 +1,8 @@
-import { highlightTree, classHighlighter } from "@lezer/highlight";
-import { python } from "@codemirror/lang-python";
-import { java } from "@codemirror/lang-java";
-import { cpp } from "@codemirror/lang-cpp";
-import { go } from "@codemirror/lang-go";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type {
   Assignment,
-  SimilarityMatch,
   SimilarityPair,
   SimilarityReport,
-  SimilaritySource,
   Submission,
 } from "../../types";
 import { checkSimilarity } from "../../api/similarity";
@@ -17,14 +10,13 @@ import { Empty, Icon } from "../ui";
 import Dialog from "../ui/Dialog";
 import {
   downloadSimilarityHTML,
-  matchLabel,
   printSimilarityReport,
   similarityCaution,
   similarityMethod,
-  similarityBand,
   similarityBands,
   similarityBandNote,
 } from "./report";
+import SimilarityEvidence, { RiskBadge } from "./SimilarityEvidence";
 import "./similarity.css";
 
 const date = (value: string) => new Date(value).toLocaleString("zh-CN");
@@ -48,11 +40,9 @@ export default function CodeSimilarity({
   const [error, setError] = useState("");
   const [report, setReport] = useState<SimilarityReport>();
   const [selectedKey, setSelectedKey] = useState("");
-  const [matchIndex, setMatchIndex] = useState(0);
   const [threshold, setThreshold] = useState(0);
   const [showEmpty, setShowEmpty] = useState(false);
   const [page, setPage] = useState(0);
-  const [wrapCode, setWrapCode] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -81,13 +71,13 @@ export default function CodeSimilarity({
   const pageCount = Math.max(1, Math.ceil(pairs.length / 25));
   const currentPage = Math.min(page, pageCount - 1);
   const visiblePairs = pairs.slice(currentPage * 25, (currentPage + 1) * 25);
-  const selected =
-    visiblePairs.find((pair) => keyOf(pair) === selectedKey) ?? visiblePairs[0];
+  const selected = report?.pairs.find((pair) => keyOf(pair) === selectedKey);
   const a = selected && sourceMap.get(selected.a),
     b = selected && sourceMap.get(selected.b);
   const invalidate = () => {
     requestNumber.current++;
     setReport(undefined);
+    setSelectedKey("");
     setError("");
     setLoading(false);
   };
@@ -96,6 +86,7 @@ export default function CodeSimilarity({
     setLoading(true);
     setError("");
     setReport(undefined);
+    setSelectedKey("");
     try {
       const result = await checkSimilarity(
         token,
@@ -107,8 +98,7 @@ export default function CodeSimilarity({
       setReport(result);
       setSettingsOpen(false);
       setPage(0);
-      setSelectedKey(result.pairs[0] ? keyOf(result.pairs[0]) : "");
-      setMatchIndex(0);
+      setSelectedKey("");
     } catch (failure) {
       if (current === requestNumber.current)
         setError(
@@ -116,18 +106,6 @@ export default function CodeSimilarity({
         );
     } finally {
       if (current === requestNumber.current) setLoading(false);
-    }
-  }
-  function focusMatch(index: number) {
-    setMatchIndex(index);
-    const match = selected?.matches[index];
-    if (!match) return;
-    for (const side of ["a", "b"] as const) {
-      const target = document.getElementById(
-        `similarity-${side}-${match[side].startLine}`,
-      );
-      const viewer = target?.closest(".similarity-code");
-      if (target && viewer) viewer.scrollTop = target.offsetTop - 24;
     }
   }
   return (
@@ -438,7 +416,6 @@ export default function CodeSimilarity({
                   onChange={(e) => {
                     setThreshold(Number(e.target.value));
                     setPage(0);
-                    setMatchIndex(0);
                   }}
                 >
                   {[0, 30, 50, 80].map((n) => (
@@ -523,13 +500,12 @@ export default function CodeSimilarity({
                         <td>
                           <button
                             className="text-action"
-                            aria-pressed={selected === pair}
+                            aria-haspopup="dialog"
                             onClick={() => {
                               setSelectedKey(keyOf(pair));
-                              setMatchIndex(0);
                             }}
                           >
-                            {selected === pair ? "正在查看" : "查看代码"}
+                            查看代码证据
                             <Icon name="arrowRight" />
                           </button>
                         </td>
@@ -555,7 +531,6 @@ export default function CodeSimilarity({
                 disabled={currentPage === 0}
                 onClick={() => {
                   setPage(currentPage - 1);
-                  setMatchIndex(0);
                 }}
               >
                 上一页
@@ -568,7 +543,6 @@ export default function CodeSimilarity({
                 disabled={currentPage + 1 >= pageCount}
                 onClick={() => {
                   setPage(currentPage + 1);
-                  setMatchIndex(0);
                 }}
               >
                 下一页
@@ -576,197 +550,17 @@ export default function CodeSimilarity({
             </nav>
           )}
           {selected && a && b && (
-            <section
-              className="panel similarity-evidence"
+            <SimilarityEvidence
               key={keyOf(selected)}
-            >
-              <div className="similarity-evidence-heading">
-                <h3>
-                  <span className="similarity-step">03</span> 代码证据
-                </h3>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={wrapCode}
-                    onChange={(e) => setWrapCode(e.target.checked)}
-                  />
-                  自动换行
-                </label>
-              </div>
-              <p>
-                <RiskBadge score={selected.similarity} /> {a.studentName} 与{" "}
-                {b.studentName} · 匹配 {selected.matchedTokens}{" "}
-                个词元。选择片段，定位双方代码。
-              </p>
-              <div className="similarity-match-list">
-                {selected.matches.map((match, i) => (
-                  <button
-                    key={i}
-                    className={i === matchIndex ? "active" : ""}
-                    aria-pressed={i === matchIndex}
-                    onClick={() => focusMatch(i)}
-                  >
-                    <b>片段 {String(i + 1).padStart(2, "0")}</b>
-                    <span>
-                      A {match.a.startLine}–{match.a.endLine} 行{" "}
-                      <Icon name="arrowRight" /> B {match.b.startLine}–
-                      {match.b.endLine} 行
-                    </span>
-                    <small>
-                      {matchLabel(match.kind)} · {match.tokens} 词元
-                    </small>
-                  </button>
-                ))}
-              </div>
-              <div className="similarity-viewers">
-                <SourceViewer
-                  side="a"
-                  source={a}
-                  matches={selected.matches}
-                  active={matchIndex}
-                  wrap={wrapCode}
-                  language={assignment.language}
-                />
-                <SourceViewer
-                  side="b"
-                  source={b}
-                  matches={selected.matches}
-                  active={matchIndex}
-                  wrap={wrapCode}
-                  language={assignment.language}
-                />
-              </div>
-            </section>
+              pair={selected}
+              a={a}
+              b={b}
+              language={assignment.language}
+              onClose={() => setSelectedKey("")}
+            />
           )}
         </>
       )}
     </div>
   );
-}
-function RiskBadge({ score }: { score: number }) {
-  const band = similarityBand(score);
-  return (
-    <span className={`similarity-risk risk-${band.tone}`} title={band.range}>
-      {band.label}
-    </span>
-  );
-}
-function SourceViewer({
-  side,
-  source,
-  matches,
-  active,
-  wrap,
-  language,
-}: {
-  side: "a" | "b";
-  source: SimilaritySource;
-  matches: SimilarityMatch[];
-  active: number;
-  wrap: boolean;
-  language: string;
-}) {
-  const [copyState, setCopyState] = useState("");
-  const coloredLines = useMemo(
-    () => highlightCodeLines(source.code, language),
-    [source.code, language],
-  );
-  async function copyCode() {
-    try {
-      await navigator.clipboard.writeText(source.code);
-      setCopyState("已复制");
-    } catch {
-      setCopyState("复制失败");
-    }
-    window.setTimeout(() => setCopyState(""), 2200);
-  }
-  return (
-    <article className="similarity-source">
-      <header>
-        <span className="similarity-file-letter">{side.toUpperCase()}</span>
-        <div>
-          <b>{source.studentName}</b>
-          <small>
-            学生 {source.studentId} · 提交 #{source.id}
-          </small>
-        </div>
-        <button
-          onClick={() => void copyCode()}
-          aria-label={`复制提交 ${side.toUpperCase()} 代码`}
-        >
-          <Icon name={copyState === "已复制" ? "check" : "code"} />
-          <span role="status">{copyState || "复制代码"}</span>
-        </button>
-      </header>
-      <pre
-        className={`similarity-code ${wrap ? "wrap" : ""}`}
-        tabIndex={0}
-        aria-label={`提交 ${side.toUpperCase()} 代码`}
-      >
-        {source.code
-          .replace(/\r\n/g, "\n")
-          .split("\n")
-          .map((text, index) => {
-            const line = index + 1;
-            const match = matches.findIndex(
-              (item) =>
-                line >= item[side].startLine && line <= item[side].endLine,
-            );
-            return (
-              <span
-                id={`similarity-${side}-${line}`}
-                className={`similarity-line ${match >= 0 ? `hit tone-${match % 3}` : ""} ${match === active && match >= 0 ? "active" : ""}`}
-                key={line}
-              >
-                <span className="similarity-line-number" aria-hidden="true">
-                  {line}
-                </span>
-                <code>{coloredLines[index] || text || " "}</code>
-              </span>
-            );
-          })}
-      </pre>
-      <footer>
-        <span>{date(source.submittedAt)}</span>
-        <span>
-          有效 {source.tokenCount} 词元 · 排除 {source.excludedTokens}
-        </span>
-      </footer>
-    </article>
-  );
-}
-
-function highlightCodeLines(code: string, language: string): ReactNode[][] {
-  const source = code.replace(/\r\n/g, "\n");
-  const support = { Python: python, Java: java, "C++": cpp, Go: go }[language];
-  if (!support) return source.split("\n").map((line) => [line]);
-  const ranges: { from: number; to: number; classes: string }[] = [];
-  highlightTree(
-    support().language.parser.parse(source),
-    classHighlighter,
-    (from, to, classes) => ranges.push({ from, to, classes }),
-  );
-  let offset = 0,
-    cursor = 0;
-  return source.split("\n").map((line) => {
-    const end = offset + line.length,
-      nodes: ReactNode[] = [];
-    let position = offset;
-    while (cursor < ranges.length && ranges[cursor].to <= offset) cursor++;
-    for (let j = cursor; j < ranges.length && ranges[j].from < end; j++) {
-      const token = ranges[j],
-        from = Math.max(position, token.from),
-        to = Math.min(end, token.to);
-      if (from > position) nodes.push(source.slice(position, from));
-      nodes.push(
-        <span className={token.classes} key={j}>
-          {source.slice(from, to)}
-        </span>,
-      );
-      position = to;
-    }
-    if (position < end) nodes.push(source.slice(position, end));
-    offset = end + 1;
-    return nodes.length ? nodes : [" "];
-  });
 }

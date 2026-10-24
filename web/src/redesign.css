@@ -13,7 +13,7 @@ button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
 summary:focus-visible {
-  outline: 3px solid rgb(36 84 63 / 20%);
+  outline: 3px solid rgb(38 52 90 / 20%);
   outline-offset: 2px;
 }
 .icon { width: 20px; height: 20px; flex: 0 0 auto; }
@@ -186,7 +186,7 @@ summary:focus-visible {
   border: 1px solid rgb(163 61 54 / 20%);
   border-radius: var(--radius-sm);
 }
-.inline-message { color: var(--color-success); background: var(--color-success-bg); border-color: rgb(40 114 79 / 20%); }
+.inline-message { color: var(--color-success); background: var(--color-success-bg); border-color: rgb(38 52 90 / 20%); }
 .empty { display: grid; min-height: 150px; place-content: center; justify-items: center; padding: 28px; text-align: center; }
 .empty > span { font-weight: 650; }
 .empty p { margin: 5px 0 0; color: var(--color-text-tertiary); font-size: 13px; }
@@ -397,7 +397,7 @@ button.srow:hover { background: var(--color-surface-subtle); }
   font: 11px var(--font-mono);
   font-style: normal;
 }
-.reference-editor-field .code-editor { border-color: #263b32; }
+.reference-editor-field .code-editor { border-color: var(--code-border); }
 .add-criterion { display: inline-flex; align-items: center; gap: 5px; color: var(--color-brand); background: var(--color-brand-subtle); border-radius: var(--radius-sm); }
 .add-criterion .icon { width: 15px; height: 15px; }
 .publish form > footer {
@@ -685,22 +685,6 @@ textarea,
     background-color var(--motion-base) var(--ease-standard),
     transform var(--motion-base) var(--ease-emphasized);
 }
-
-.cards article,
-.teacher-assignment-table .row:not(.th),
-.stable .srow:not(.th) {
-  animation: item-enter var(--motion-base) var(--ease-emphasized) both;
-}
-
-.cards article:nth-child(2),
-.teacher-assignment-table .row:nth-child(3),
-.stable .srow:nth-child(3) { animation-delay: 28ms; }
-.cards article:nth-child(3),
-.teacher-assignment-table .row:nth-child(4),
-.stable .srow:nth-child(4) { animation-delay: 48ms; }
-.cards article:nth-child(n+4),
-.teacher-assignment-table .row:nth-child(n+5),
-.stable .srow:nth-child(n+5) { animation-delay: 64ms; }
 
 .demo-accounts[open] > div,
 .agent-analysis[open] > article,

@@ -13,5 +13,6 @@ import './editor-studio.css'
 import './assessment.css'
 import './evaluation-report.css'
 import './assignment-builder.css'
+import './prism.css'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

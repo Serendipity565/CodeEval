@@ -258,14 +258,14 @@
   border: 1px solid var(--color-border);
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 6px 22px -18px #243b2e40;
+  box-shadow: 0 6px 22px -18px color-mix(in srgb, var(--color-ink) 25%, transparent);
   transition:
     border-color 180ms,
     box-shadow 180ms;
 }
 .assignment-sheet:hover {
-  border-color: #bbcabb;
-  box-shadow: 0 12px 30px -24px #243b2e60;
+  border-color: var(--color-border);
+  box-shadow: 0 12px 30px -24px color-mix(in srgb, var(--color-ink) 38%, transparent);
 }
 .assignment-sheet-top {
   display: flex;
@@ -364,7 +364,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 15px 28px;
-  background: #fafbf8;
+  background: var(--color-surface);
   border-top: 1px solid var(--color-border);
 }
 .assignment-due {
@@ -411,12 +411,12 @@
 }
 .assignment-row-actions button:first-child {
   color: var(--color-brand);
-  border-color: #cfddcf;
-  background: #eef3eb;
+  border-color: var(--color-border);
+  background: var(--color-surface-subtle);
 }
 .assignment-row-actions button:hover {
-  background: #e7efe3;
-  border-color: #aebfa8;
+  background: var(--color-brand-subtle);
+  border-color: var(--color-border-strong);
   color: var(--color-brand);
 }
 .assignment-row-actions .icon {
@@ -567,7 +567,7 @@
   overscroll-behavior: contain;
 }
 .submission-dialog::backdrop {
-  background: rgb(18 32 24 / 36%);
+  background: rgb(38 52 90 / 36%);
 }
 .submission-dialog-wide {
   width: min(1160px, calc(100vw - 40px));

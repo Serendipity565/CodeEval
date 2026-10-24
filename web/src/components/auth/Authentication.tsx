@@ -16,26 +16,44 @@ export function Authentication({
 }) {
   return (
     <main className={`ce-auth ce-auth--${page}`}>
-      <AuthStory />
-      <section
-        className="ce-auth-access"
-        aria-label={page === "login" ? "账号登录" : "创建账号"}
-      >
-        <div className="ce-auth-mobile-brand">
+      <header className="ce-auth-header">
+        <a
+          className="ce-auth-home"
+          href="/login"
+          onClick={(event) => {
+            event.preventDefault();
+            navigate("/login");
+          }}
+          aria-label="CodeEval 首页"
+        >
           <AuthBrand />
-        </div>
-        <div className="ce-auth-form-wrap" key={page}>
-          {page === "login" ? (
-            <Login done={done} openRegister={() => navigate("/register")} />
-          ) : (
-            <Register done={done} back={() => navigate("/login")} />
-          )}
-        </div>
-        <footer className="ce-auth-access-footer">
-          <span>CodeEval</span>
-          <span>让学习的过程被看见</span>
-        </footer>
-      </section>
+        </a>
+        <nav aria-label="产品导航">
+          <a href="#auth-preview">代码与反馈</a>
+          <a href="#auth-access">课程工作台</a>
+        </nav>
+      </header>
+      <div className="ce-auth-layout">
+        <AuthStory />
+        <section
+          className="ce-auth-access"
+          id="auth-access"
+          aria-label={page === "login" ? "账号登录" : "创建账号"}
+        >
+          <div className="ce-auth-form-wrap" key={page}>
+            {page === "login" ? (
+              <Login done={done} openRegister={() => navigate("/register")} />
+            ) : (
+              <Register done={done} back={() => navigate("/login")} />
+            )}
+          </div>
+        </section>
+      </div>
+      <footer className="ce-auth-footer">
+        <span>
+          CodeEval <span>编程课程工作台</span>
+        </span>
+      </footer>
     </main>
   );
 }
@@ -59,35 +77,31 @@ function AuthBrand() {
 function AuthStory() {
   return (
     <aside className="ce-auth-story" aria-label="CodeEval 编程课程工作台">
-      <header className="ce-auth-story-header">
-        <AuthBrand />
-        <span className="ce-auth-edition">编程课程工作台</span>
-      </header>
       <div className="ce-auth-story-main">
-        <div className="ce-auth-kicker">
-          <span /> 从第一行代码开始
-        </div>
         <h1>
           每一次提交，
           <br />
-          都有迹可循<span className="ce-auth-heading-dot">。</span>
+          都有迹可循。
         </h1>
         <p className="ce-auth-story-description">
-          把作业、运行结果与学习反馈连在一起。
-          <br />
-          看见进步，也找到下一步。
+          完成课程作业，运行测试，查看评分依据与改进建议。
         </p>
+        <div className="ce-auth-capabilities" aria-label="课程能力">
+          <span>
+            <AuthGlyph name="code" />
+            在线编程
+          </span>
+          <span>
+            <AuthGlyph name="check" />
+            测试验证
+          </span>
+          <span>
+            <AuthGlyph name="comment" />
+            有据反馈
+          </span>
+        </div>
         <CodeSample />
       </div>
-      <footer className="ce-auth-story-footer">
-        <span>
-          写下想法<span aria-hidden="true">↗</span>验证结果
-          <span aria-hidden="true">↗</span>理解代码
-        </span>
-        <span className="ce-auth-footer-symbol" aria-hidden="true">
-          ⌘
-        </span>
-      </footer>
     </aside>
   );
 }
@@ -103,29 +117,29 @@ function CodeSample() {
     </>,
     <>
       {"    "}
-      <span className="ce-auth-code-keyword">return</span>{" "}
+      <span className="ce-auth-code-control">return</span>{" "}
       <span className="ce-auth-code-function">sum</span>(
     </>,
     <>
-      {"        "}n <span className="ce-auth-code-keyword">for</span> n{" "}
-      <span className="ce-auth-code-keyword">in</span> numbers
+      {"        "}n <span className="ce-auth-code-control">for</span> n{" "}
+      <span className="ce-auth-code-control">in</span> numbers
     </>,
     <>
       {"        "}
-      <span className="ce-auth-code-keyword">if</span> n %{" "}
+      <span className="ce-auth-code-control">if</span> n %{" "}
       <span className="ce-auth-code-number">2</span> =={" "}
       <span className="ce-auth-code-number">0</span>
     </>,
     <>
       {"    "}
-      )<span className="ce-auth-code-caret" />
+      )<span className="ce-auth-code-caret" aria-hidden="true" />
     </>,
   ];
   return (
-    <div className="ce-auth-sample">
+    <div className="ce-auth-sample" id="auth-preview">
       <div className="ce-auth-sample-caption">
         <span>从代码到反馈</span>
-        <span>评估示例 / PYTHON</span>
+        <span>Python · 评估示例</span>
       </div>
       <div className="ce-auth-code-window">
         <div className="ce-auth-code-toolbar">
@@ -133,7 +147,11 @@ function CodeSample() {
             <AuthGlyph name="code" />
             solution.py
           </span>
-          <span>UTF-8</span>
+          <span className="ce-auth-window-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
         </div>
         <div
           className="ce-auth-code-body"
@@ -164,8 +182,8 @@ function CodeSample() {
           <AuthGlyph name="comment" />
         </span>
         <div>
-          <strong>不止看结果，也看思路。</strong>
-          <p>用测试验证正确性，用反馈找到改进方向。</p>
+          <strong>测试结果与改进建议</strong>
+          <p>查看测试是否通过，再根据反馈修改代码。</p>
         </div>
         <span className="ce-auth-note-line" aria-hidden="true" />
       </div>
@@ -215,9 +233,6 @@ function Login({
       aria-describedby={error ? errorId : undefined}
     >
       <div className="ce-auth-form-heading">
-        <div className="ce-auth-form-eyebrow">
-          <span>01</span> / 进入工作台
-        </div>
         <h2>
           欢迎回来<span>。</span>
         </h2>
@@ -228,7 +243,6 @@ function Login({
           <label htmlFor={usernameId}>账号</label>
           <input
             id={usernameId}
-            autoFocus
             autoComplete="username"
             autoCapitalize="none"
             spellCheck={false}
@@ -372,15 +386,6 @@ function Register({ done, back }: AuthProps & { back: () => void }) {
       aria-describedby={error ? `${id}-error` : undefined}
     >
       <div className="ce-auth-form-heading">
-        <button
-          className="ce-auth-back"
-          type="button"
-          onClick={back}
-          disabled={busy}
-        >
-          <AuthGlyph name="arrow" />
-          返回登录
-        </button>
         <h2>
           从这里开始<span>。</span>
         </h2>
@@ -392,7 +397,6 @@ function Register({ done, back }: AuthProps & { back: () => void }) {
             <label htmlFor={`${id}-username`}>账号</label>
             <input
               id={`${id}-username`}
-              autoFocus
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
@@ -441,9 +445,7 @@ function Register({ done, back }: AuthProps & { back: () => void }) {
                 <span>
                   {option === "student" ? "学生" : "教师"}
                   <small>
-                    {option === "student"
-                      ? "完成练习，查看反馈"
-                      : "布置作业，评阅代码"}
+                    {option === "student" ? "练习与反馈" : "发布与评阅"}
                   </small>
                 </span>
                 <span className="ce-auth-radio-mark" aria-hidden="true">

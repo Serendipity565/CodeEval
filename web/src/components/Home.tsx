@@ -1,6 +1,5 @@
 import { evaluationIncomplete, finalScore } from "../assessment";
 import SubmissionScore from "./assessment/SubmissionScore";
-import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Assignment, Submission, View } from "../types";
 import { Empty, Head, Icon, SubmissionStatus } from "./ui";
@@ -14,34 +13,6 @@ const date = (value: string) =>
   });
 const daysLeft = (value: string) =>
   Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
-
-function Count({ value }: { value: number | string }) {
-  const [display, setDisplay] = useState(value);
-  useEffect(() => {
-    if (
-      typeof value !== "number" ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
-      setDisplay(value);
-      return;
-    }
-    let frame: number;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const progress = Math.min((now - start) / 480, 1);
-      setDisplay(Math.round(value * (1 - Math.pow(1 - progress, 3))));
-      if (progress < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
-  return (
-    <>
-      <span aria-hidden="true">{display}</span>
-      <span className="sr-only">{value}</span>
-    </>
-  );
-}
 
 export default function Home({
   teacher,
@@ -119,6 +90,7 @@ export default function Home({
       value: available.length,
       unit: "项",
       note: `全部 ${as.length} 项作业`,
+      tone: "brand",
       icon: "assignments" as const,
       destination: "assignments" as const,
     },
@@ -127,6 +99,7 @@ export default function Home({
       value: ss.length,
       unit: "份",
       note: `近 7 天新增 ${weekly} 份`,
+      tone: "brand",
       icon: "submissions" as const,
       destination: "submissions" as const,
     },
@@ -135,6 +108,12 @@ export default function Home({
       value: average,
       unit: "/ 100",
       note: `来自 ${evaluated.length} 份评估`,
+      tone:
+        typeof average !== "number"
+          ? "neutral"
+          : average >= 60
+            ? "success"
+            : "warning",
       icon: "activity" as const,
       destination: "submissions" as const,
     },
@@ -143,6 +122,7 @@ export default function Home({
       value: teacher ? reviews.length : low.length,
       unit: "份",
       note: teacher ? "失败与待复核提交" : "查看反馈，继续改进",
+      tone: (teacher ? reviews.length : low.length) > 0 ? "warning" : "neutral",
       icon: "alert" as const,
       destination: "submissions" as const,
     },
@@ -172,19 +152,18 @@ export default function Home({
       </section>
 
       <section className="metric-strip" aria-label="课程数据概览">
-        {metrics.map((m, i) => (
+        {metrics.map((m) => (
           <button
-            className="metric"
+            className={`metric metric--${m.tone}`}
             onClick={() => go(m.destination)}
             key={m.label}
-            style={{ "--item-index": i } as CSSProperties}
           >
             <span className="metric-label">
               {m.label}
               <Icon name={m.icon} />
             </span>
             <span className="metric-value">
-              <Count value={m.value} />
+              <span>{m.value}</span>
               <small>{m.unit}</small>
             </span>
             <span className="metric-note">
@@ -234,7 +213,6 @@ export default function Home({
                   className="activity-row"
                   onClick={() => pick(s)}
                   key={s.id}
-                  style={{ "--item-index": i } as CSSProperties}
                 >
                   <span className={`submission-avatar avatar-${i % 3}`}>
                     {teacher ? s.studentName.slice(0, 1) : <Icon name="code" />}
@@ -374,7 +352,6 @@ export default function Home({
                       style={
                         {
                           "--bar-height": `${(d.count / activityMax) * 100}%`,
-                          "--item-index": i,
                         } as CSSProperties
                       }
                     />

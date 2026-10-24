@@ -1,18 +1,21 @@
-.similarity-page {
-  --sim-syntax-keyword: #c3d896;
-  --sim-syntax-string: #b8d6b0;
-  --sim-syntax-type: #b1d0bd;
-  --sim-syntax-definition: #e5d3a5;
-  --sim-code-bg: #26372d;
-  --sim-code-ink: #e1e9dc;
-  --sim-code-muted: #b2c2aa;
-  --sim-code-line: #425441;
-  --sim-code-hit: #414b30;
-  --sim-code-accent: #e3c897;
+.similarity-page,
+.similarity-evidence-dialog {
+  --sim-syntax-keyword: var(--code-keyword);
+  --sim-syntax-string: var(--code-string);
+  --sim-syntax-type: var(--code-type);
+  --sim-syntax-definition: var(--code-function);
+  --sim-code-bg: var(--code-bg);
+  --sim-code-ink: var(--code-fg);
+  --sim-code-muted: var(--code-muted);
+  --sim-code-line: var(--code-border);
+  --sim-code-hit: #3b3320;
+  --sim-code-accent: #e3ba6f;
   --sim-small: 12px;
   --sim-body: 14px;
   --sim-title: 28px;
   --sim-number: 32px;
+}
+.similarity-page {
   display: grid;
   gap: var(--space-8);
   min-width: 0;
@@ -548,26 +551,6 @@
   gap: var(--space-4);
   font-size: var(--sim-small);
 }
-.similarity-evidence {
-  animation: sim-reveal var(--motion-base) var(--ease-standard);
-}
-.similarity-evidence-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-3);
-}
-.similarity-evidence-heading label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--sim-small);
-  color: var(--color-text-secondary);
-}
-.similarity-evidence > p {
-  font-size: var(--sim-small);
-}
 .similarity-match-list {
   display: flex;
   gap: var(--space-2);
@@ -954,13 +937,14 @@
 .similarity-code .tok-string {
   color: var(--sim-syntax-string);
 }
-.similarity-code .tok-number,
+.similarity-code .tok-number {
+  color: var(--code-number);
+}
 .similarity-code .tok-bool {
-  color: var(--sim-code-accent);
+  color: var(--code-keyword);
 }
 .similarity-code .tok-comment {
-  color: var(--sim-code-muted);
-  font-style: italic;
+  color: var(--code-comment);
 }
 .similarity-code .tok-typeName,
 .similarity-code .tok-className {
@@ -1040,8 +1024,8 @@
   vertical-align: middle;
 }
 .similarity-risk.risk-low {
-  color: #52695c;
-  background: #edf2ee;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
 }
 .similarity-risk.risk-moderate {
   color: #6b6027;
@@ -1068,5 +1052,139 @@
 @media (max-width: 420px) {
   .similarity-band-guide {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.similarity-code .tok-control {
+  color: var(--code-control);
+}
+.similarity-code .tok-function {
+  color: var(--code-function);
+}
+.similarity-code .tok-variable {
+  color: var(--code-variable);
+}
+
+.submission-dialog.similarity-evidence-dialog {
+  width: min(1160px, calc(100vw - 40px));
+  border-color: rgb(255 255 255 / 85%);
+  border-radius: 20px;
+}
+.similarity-evidence-dialog .submission-dialog-header {
+  background: linear-gradient(112deg, #f4f7ff, #fcfaff 55%, #f5fbfc);
+  padding-bottom: 24px;
+}
+.similarity-evidence-dialog .dialog-close {
+  background: rgb(255 255 255 / 75%);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+}
+.similarity-evidence-dialog .submission-dialog-body {
+  padding-top: 0;
+}
+.similarity-evidence-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 22px 0;
+}
+.similarity-evidence-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.similarity-evidence-summary > strong {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+.similarity-evidence-summary > strong small {
+  margin-left: 5px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
+}
+.similarity-evidence-summary > span:last-child,
+.similarity-evidence-toolbar > label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.similarity-evidence-toolbar > label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.similarity-evidence-dialog .similarity-match-list {
+  margin: 0 0 20px;
+}
+.similarity-evidence-dialog .similarity-match-list button {
+  cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast);
+}
+.similarity-evidence-dialog .similarity-match-list button:hover {
+  border-color: var(--color-brand);
+}
+.similarity-evidence-dialog .similarity-match-list button:focus-visible,
+.similarity-evidence-toolbar input:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+.similarity-evidence-dialog .similarity-code {
+  font-size: 13px;
+  max-height: min(480px, 54dvh);
+}
+.similarity-evidence-dialog .similarity-source header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.similarity-evidence-empty {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 600px) {
+  .submission-dialog.similarity-evidence-dialog {
+    width: calc(100vw - 24px);
+    border-radius: 14px;
+  }
+  .similarity-evidence-dialog .submission-dialog-header {
+    padding: 20px 18px;
+    gap: 12px;
+  }
+  .similarity-evidence-dialog .submission-dialog-header h2 {
+    font-size: 20px;
+  }
+  .similarity-evidence-dialog .submission-dialog-header p {
+    line-height: 1.7;
+  }
+  .similarity-evidence-dialog .submission-dialog-body {
+    padding: 0 14px 18px;
+  }
+  .similarity-evidence-toolbar {
+    gap: 10px;
+    padding: 18px 0 14px;
+  }
+  .similarity-evidence-toolbar > label {
+    min-height: 40px;
+  }
+  .similarity-evidence-dialog .similarity-source header {
+    flex-wrap: wrap;
+    padding: 12px;
+  }
+  .similarity-evidence-dialog .similarity-source header button {
+    margin-left: auto;
+  }
+  .similarity-evidence-dialog .similarity-match-list button {
+    font-size: 12px;
   }
 }

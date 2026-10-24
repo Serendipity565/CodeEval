@@ -11,6 +11,7 @@ export default function Dialog({
   wide = false,
   flush = false,
   dismissible = true,
+  className = "",
 }: {
   title: string;
   note?: string;
@@ -19,6 +20,7 @@ export default function Dialog({
   wide?: boolean;
   flush?: boolean;
   dismissible?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -38,7 +40,7 @@ export default function Dialog({
   return createPortal(
     <dialog
       ref={ref}
-      className={`submission-dialog${wide ? " submission-dialog-wide" : ""}${flush ? " submission-dialog-flush" : ""}`}
+      className={`submission-dialog${wide ? " submission-dialog-wide" : ""}${flush ? " submission-dialog-flush" : ""}${className ? ` ${className}` : ""}`}
       aria-labelledby={titleId}
       aria-describedby={note ? noteId : undefined}
       onCancel={(event) => {

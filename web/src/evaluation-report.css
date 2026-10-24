@@ -3,17 +3,17 @@
   --report-inset: 32px;
   padding: 0;
   border-radius: 14px;
-  color: #283b31;
+  color: var(--color-text);
   overflow-wrap: anywhere;
 }
 .evaluation-report .feedback-head {
   padding: 28px var(--report-inset);
   gap: 24px;
-  border-bottom: 1px solid #e5eae4;
-  background: #fbfcf9;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 .evaluation-report .feedback-head > span > small {
-  color: #6b7c70;
+  color: var(--color-text-secondary);
   font-size: 11px !important;
   letter-spacing: 0.08em;
 }
@@ -30,13 +30,13 @@
   padding: 4px 0 4px 28px;
   place-content: center start;
   border: 0;
-  border-left: 1px solid #d9e2d7;
+  border-left: 1px solid var(--color-border);
   border-radius: 0;
   box-shadow: none;
   background: transparent;
 }
 .evaluation-report .score-orb .score-placeholder {
-  color: #627065;
+  color: var(--color-text-secondary);
   font-size: 18px;
   font-weight: 500;
 }
@@ -81,14 +81,14 @@
 }
 .report-section-heading h4 {
   margin: 0;
-  color: #293c31;
+  color: var(--color-text);
   font-size: 14px;
   font-weight: 600;
 }
 .report-section-heading > span {
   flex-shrink: 0;
   font-size: 12px;
-  color: #708075;
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 .evaluation-report .feedback-summary {
@@ -96,7 +96,7 @@
   background: none;
   font-size: 16px !important;
   line-height: 1.9;
-  color: #45574a !important;
+  color: var(--color-text-secondary) !important;
 }
 .report-provenance {
   margin-top: 10px;
@@ -111,7 +111,7 @@
   font-size: 12px !important;
   padding: 0;
   background: none;
-  color: #7a887b;
+  color: var(--color-text-secondary);
   border: 0;
 }
 .evaluation-report .report-provenance .evaluation-context {
@@ -125,7 +125,7 @@
   gap: 0;
   margin: 20px var(--report-inset) 28px;
   padding: 20px 0;
-  border-block: 1px solid #e5eae4;
+  border-block: 1px solid var(--color-border);
 }
 .evaluation-report .feedback-overview:empty {
   display: none;
@@ -135,7 +135,7 @@
   padding: 0 24px;
   background: transparent;
   border: 0;
-  border-left: 1px solid #e5eae4;
+  border-left: 1px solid var(--color-border);
   border-radius: 0;
 }
 .evaluation-report .feedback-group:first-child {
@@ -155,14 +155,14 @@
 .evaluation-report .feedback-group h4 .icon {
   width: 17px;
   height: 17px;
-  color: #47775c;
+  color: var(--color-brand);
 }
 .evaluation-report .feedback-group.issue h4 .icon {
   color: #a36b43;
 }
 .evaluation-report .feedback-group ul {
   padding-left: 18px;
-  color: #657368;
+  color: var(--color-text-secondary);
   font-size: 13px !important;
   line-height: 1.9;
 }
@@ -178,7 +178,7 @@
 .evaluation-report .dimension-list .dimension {
   margin: 0;
   padding: 24px 0;
-  border-top: 1px solid #e5eae4;
+  border-top: 1px solid var(--color-border);
 }
 .evaluation-report .dimension-list .dimension:nth-child(2) {
   border-top: 0;
@@ -201,41 +201,41 @@
   font-family: "DM Mono", monospace;
   font-size: 12px;
   font-weight: 400;
-  color: #8a978b;
+  color: var(--color-text-tertiary);
 }
 .dimension-heading > strong {
   flex-shrink: 0;
   font-family: "DM Mono", monospace;
   font-size: 21px;
   font-weight: 500;
-  color: #36644a;
+  color: var(--color-brand);
 }
 .evaluation-report .dimension-heading > strong > small {
   font-size: 12px;
   font-weight: 400;
-  color: #788579;
+  color: var(--color-text-secondary);
 }
 .evaluation-report .dimension-unscored {
   padding: 4px 8px;
-  background: #f2f3ef;
-  border: 1px solid #e6e8e1;
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   font-family: inherit;
   line-height: 1.5;
   font-size: 12px;
-  color: #7a7d6c;
+  color: var(--color-text-secondary);
 }
 .dimension-meter {
   height: 3px;
   margin-top: 12px;
-  background: #edf1e9;
+  background: var(--color-surface-subtle);
   border-radius: 3px;
   overflow: hidden;
 }
 .dimension-meter > span {
   display: block;
   height: 100%;
-  background: #7e9e70;
+  background: var(--gradient-brand);
 }
 .dimension-content {
   display: grid;
@@ -247,7 +247,7 @@
   margin: 0;
   padding: 0;
   background: transparent;
-  color: #526457;
+  color: var(--color-text-secondary);
   font-size: 14px !important;
   line-height: 1.8;
 }
@@ -257,21 +257,21 @@
   font-size: 11px !important;
   letter-spacing: 0.02em;
   font-weight: 500;
-  color: #7a887b;
+  color: var(--color-text-secondary);
 }
 .evaluation-report .dimension-content .dimension-suggestion {
   grid-column: 1 / -1;
   margin: 0;
   padding: 11px 14px;
   border-radius: 5px;
-  background: #f6f8f3;
+  background: var(--color-surface);
   font-size: 13px;
   line-height: 1.8;
-  color: #61715f;
+  color: var(--color-text-secondary);
 }
 .dimension-content .dimension-suggestion b {
   margin-right: 12px;
-  color: #566d50;
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 500;
 }
@@ -279,7 +279,7 @@
   margin: 12px 0 0;
   padding: 0;
   background: none;
-  color: #7a877b;
+  color: var(--color-text-secondary);
   font-size: 11px !important;
   line-height: 1.8;
 }

@@ -10,7 +10,7 @@
 
 .limit-editor input {
   width: 48px;
-  border: 1px solid #d7dfda;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 5px;
 }
@@ -18,8 +18,8 @@
 .limit-editor button {
   border: 0;
   border-radius: 6px;
-  background: #e8f1ec;
-  color: #32694f;
+  background: var(--color-surface-subtle);
+  color: var(--color-brand);
   padding: 6px;
   font-size: 9px;
   cursor: pointer;
