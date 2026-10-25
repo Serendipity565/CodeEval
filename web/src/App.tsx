@@ -34,7 +34,11 @@ const CodeSimilarity = lazy(
 );
 import SubmissionScore from "./components/assessment/SubmissionScore";
 import EvaluationEvidence from "./components/assessment/EvaluationEvidence";
-import { latestSubmissions } from "./submissions";
+import {
+  latestSubmissions,
+  submissionAttempts,
+  visibleSubmissions,
+} from "./submissions";
 import { useDeadlineClock } from "./hooks/useDeadlineClock";
 import {
   dimensionUnscored,
@@ -44,6 +48,7 @@ import {
 import {
   coursePath,
   assignmentPath,
+  assignmentHistoryPath,
   similarityPath,
   editPath,
   readWorkspaceRoute,
@@ -273,7 +278,9 @@ function Workspace({
               />
               <span>{n}</span>
               {v === "submissions" && (
-                <em>{hasLoaded ? latestSubmissions(ss).length : "—"}</em>
+                <em>
+                  {hasLoaded ? visibleSubmissions(ss, teacher).length : "—"}
+                </em>
               )}
             </button>
           ))}
@@ -376,6 +383,11 @@ function Workspace({
               key={selected.id}
               auth={auth}
               onUpdated={upsertSubmission}
+              openHistory={
+                !teacher
+                  ? () => navigate(assignmentHistoryPath(selected.assignmentId))
+                  : undefined
+              }
             />
           ) : view === "similarity" ? (
             teacher &&
@@ -460,6 +472,7 @@ function Workspace({
                       as={courseAssignments}
                       ss={ss}
                       open={(id) => navigate(assignmentPath(id))}
+                      openHistory={(id) => navigate(assignmentHistoryPath(id))}
                       back={() => setView("courses")}
                       onSubmissionChange={upsertSubmission}
                       onCreated={(submission) =>
@@ -527,6 +540,7 @@ function Workspace({
                 ss={ss}
                 assignmentId={route.assignmentId}
                 open={(id) => navigate(assignmentPath(id))}
+                openHistory={(id) => navigate(assignmentHistoryPath(id))}
                 back={() => backTo(viewPath("assignments"))}
                 onSubmissionChange={upsertSubmission}
                 onCreated={(submission) =>
@@ -535,7 +549,13 @@ function Workspace({
               />
             )
           ) : view === "submissions" ? (
-            <Submissions teacher={teacher} as={as} ss={ss} pick={setSelected} />
+            <Submissions
+              teacher={teacher}
+              as={as}
+              ss={ss}
+              pick={setSelected}
+              assignmentId={route.assignmentId}
+            />
           ) : view === "publish" ? (
             teacher &&
             (!route.courseId || course?.teacherId === String(auth.user.id)) ? (
@@ -751,6 +771,7 @@ function StudentAssignments({
   ss,
   assignmentId,
   open,
+  openHistory,
   back,
   onSubmissionChange,
   onCreated,
@@ -759,6 +780,7 @@ function StudentAssignments({
   ss: Submission[];
   assignmentId?: string;
   open: (id: string) => void;
+  openHistory: (id: string) => void;
   back: () => void;
   onSubmissionChange: (submission: Submission) => void;
   onCreated: (submission: Submission) => void;
@@ -803,6 +825,7 @@ function StudentAssignments({
         />
         <StudentSubmit
           assignments={[selected]}
+          openHistory={() => openHistory(selected.id)}
           onSubmissionChange={onSubmissionChange}
           onCreated={onCreated}
         />
@@ -896,6 +919,11 @@ function StudentAssignments({
                       最高 <Score n={highest} />
                     </span>
                   )}
+                  {submissions.length > 0 && (
+                    <button type="button" onClick={() => openHistory(a.id)}>
+                      历史提交
+                    </button>
+                  )}
                   <button disabled={!canSubmit} onClick={() => open(a.id)}>
                     {expired
                       ? "已截止"
@@ -919,19 +947,26 @@ function Submissions({
   as,
   ss,
   pick,
+  assignmentId,
 }: {
   teacher: boolean;
   as: Assignment[];
   ss: Submission[];
   pick: (s: Submission) => void;
+  assignmentId?: string;
 }) {
   const [q, setQ] = useState(""),
-    [aid, setAid] = useState("all"),
+    [aid, setAid] = useState(assignmentId ?? "all"),
     [scoreFilter, setScoreFilter] = useState("all"),
     [sort, setSort] = useState("newest");
+  const attempts = useMemo(() => submissionAttempts(ss), [ss]);
+  const latestIds = useMemo(
+    () => new Set(latestSubmissions(ss).map((s) => s.id)),
+    [ss],
+  );
   const list = useMemo(
     () =>
-      latestSubmissions(ss)
+      visibleSubmissions(ss, teacher)
         .filter(
           (s) =>
             (aid === "all" || s.assignmentId === aid) &&
@@ -958,7 +993,7 @@ function Submissions({
           if (b === undefined) return -1;
           return sort === "score-desc" ? b - a : a - b;
         }),
-    [q, aid, ss, as, scoreFilter, sort],
+    [q, aid, ss, as, scoreFilter, sort, teacher],
   );
   return (
     <section className="panel list-page">
@@ -967,7 +1002,7 @@ function Submissions({
         note={
           teacher
             ? "每项作业仅显示每位学生的最新一次提交"
-            : "每项作业仅显示最新一次提交的代码和评价"
+            : "查看全部历史提交，点击任一记录查看当次代码、测试结果和评分反馈"
         }
       />
       <div className="filters">
@@ -1041,7 +1076,11 @@ function Submissions({
               {teacher
                 ? as.find((a) => a.id === s.assignmentId)?.title
                 : fmt(s.submittedAt)}
-              <small>{teacher && fmt(s.submittedAt)}</small>
+              <small>
+                {teacher
+                  ? fmt(s.submittedAt)
+                  : `第 ${attempts.get(s.id)} 次提交${latestIds.has(s.id) ? " · 最新" : ""}`}
+              </small>
             </span>
             <SubmissionStatus status={s.status} />
             <SubmissionScore submission={s} />
@@ -1057,10 +1096,12 @@ function Submissions({
 }
 function StudentSubmit({
   assignments,
+  openHistory,
   onSubmissionChange,
   onCreated,
 }: {
   assignments: Assignment[];
+  openHistory: () => void;
   onSubmissionChange: (submission: Submission) => void;
   onCreated: (submission: Submission) => void;
 }) {
@@ -1190,14 +1231,24 @@ function StudentSubmit({
       </aside>
       <section className="panel submitbox">
         <Title title="编写解答" note="完成代码后提交，查看测试结果与评估反馈。">
-          <span className="studio-availability">
-            <i className={`availability ${canSubmit ? "open" : "closed"}`} />
-            {assignment?.status === "closed"
-              ? "提交已关闭"
-              : expired
-                ? "已截止"
-                : `还可提交 ${Math.max(0, (assignment?.maxSubmissions ?? 0) - used)} 次`}
-          </span>
+          <div className="submission-detail-actions">
+            <button
+              type="button"
+              className="submission-action"
+              onClick={openHistory}
+            >
+              <Icon name="clock" />
+              历史提交
+            </button>
+            <span className="studio-availability">
+              <i className={`availability ${canSubmit ? "open" : "closed"}`} />
+              {assignment?.status === "closed"
+                ? "提交已关闭"
+                : expired
+                  ? "已截止"
+                  : `还可提交 ${Math.max(0, (assignment?.maxSubmissions ?? 0) - used)} 次`}
+            </span>
+          </div>
         </Title>
         <form onSubmit={send}>
           <Suspense
@@ -1248,12 +1299,14 @@ function Detail({
   back,
   auth,
   onUpdated,
+  openHistory,
 }: {
   sub: Submission;
   assignment?: Assignment;
   back: () => void;
   auth: Auth;
   onUpdated: (submission: Submission) => void;
+  openHistory?: () => void;
 }) {
   const [codeOpen, setCodeOpen] = useState(false);
   return (
@@ -1268,6 +1321,16 @@ function Detail({
       >
         <div className="submission-detail-actions">
           <SubmissionStatus status={sub.status} />
+          {openHistory && (
+            <button
+              type="button"
+              className="submission-action"
+              onClick={openHistory}
+            >
+              <Icon name="clock" />
+              历史提交
+            </button>
+          )}
           <button
             type="button"
             className="submission-action"

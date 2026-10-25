@@ -15,7 +15,8 @@ const compiled = ts.transpileModule(
 ).outputText;
 const exportsObject = {};
 vm.runInNewContext(compiled, { exports: exportsObject });
-const { latestSubmissions } = exportsObject;
+const { latestSubmissions, visibleSubmissions, submissionAttempts } =
+  exportsObject;
 
 function submission(id, values = {}) {
   return {
@@ -81,4 +82,60 @@ test("preserves original history for attempt limits and direct detail access", (
   assert.deepEqual(ids(latestSubmissions(history)), ["2"]);
   assert.deepEqual(ids(history), ["1", "2"]);
   assert.deepEqual(ids(latestSubmissions([])), []);
+});
+
+test("students see all attempts, including failures and pending grades, while teachers see latest only", () => {
+  const history = Object.freeze([
+    Object.freeze(submission("1", { status: "failed" })),
+    Object.freeze(submission("2", { status: "graded" })),
+    Object.freeze(submission("3", { status: "evaluating" })),
+  ]);
+  assert.deepEqual(ids(visibleSubmissions(history, false)), ["3", "2", "1"]);
+  assert.deepEqual(ids(visibleSubmissions(history, true)), ["3"]);
+  assert.deepEqual(ids(history), ["1", "2", "3"]);
+  // Filtering student history can still find the earlier failed attempt.
+  assert.deepEqual(
+    ids(
+      visibleSubmissions(history, false).filter((s) => s.status === "failed"),
+    ),
+    ["1"],
+  );
+});
+
+test("attempt numbers follow chronology within each student and assignment, independently of filters", () => {
+  const history = [
+    submission("10"),
+    submission("2", { assignmentId: "3" }),
+    submission("3", { studentId: "4" }),
+    submission("9"),
+    submission("8", { submittedAt: "2026-10-22T00:00:00Z" }),
+  ];
+  const attempts = submissionAttempts(history);
+  assert.equal(attempts.get("8"), 1);
+  assert.equal(attempts.get("9"), 2);
+  assert.equal(attempts.get("10"), 3);
+  assert.equal(attempts.get("2"), 1);
+  assert.equal(attempts.get("3"), 1);
+  assert.equal(submissionAttempts([]).size, 0);
+});
+
+test("assignment history URLs preserve the assignment filter on reload", () => {
+  const navigationExports = {};
+  const navigationCode = ts.transpileModule(
+    fs.readFileSync(path.join(__dirname, "../src/navigation.ts"), "utf8"),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+  ).outputText;
+  vm.runInNewContext(navigationCode, { exports: navigationExports });
+  const url = navigationExports.assignmentHistoryPath("作业 1");
+  const route = navigationExports.readWorkspaceRoute(url);
+  assert.equal(route.view, "submissions");
+  assert.equal(route.assignmentId, "作业 1");
+  assert.equal(
+    navigationExports.readWorkspaceRoute("/assignments/1").view,
+    "assignments",
+  );
+  assert.equal(
+    navigationExports.readWorkspaceRoute("/submissions/9").submissionId,
+    "9",
+  );
 });

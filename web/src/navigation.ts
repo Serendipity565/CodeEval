@@ -25,6 +25,8 @@ export function readWorkspaceRoute(pathname: string): WorkspaceRoute {
     };
   }
   if (parts[0] === "assignments" && parts[1]) {
+    if (parts[2] === "submissions")
+      return { view: "submissions", assignmentId: decodedId };
     if (parts[2] === "similarity")
       return { view: "similarity", assignmentId: decodedId };
     return parts[2] === "edit"
@@ -53,6 +55,9 @@ export const viewPath = (view: View) =>
 
 export const assignmentPath = (id: string) =>
   `/assignments/${encodeURIComponent(id)}`;
+
+export const assignmentHistoryPath = (id: string) =>
+  `${assignmentPath(id)}/submissions`;
 
 export const editPath = (id: string) => `${assignmentPath(id)}/edit`;
 

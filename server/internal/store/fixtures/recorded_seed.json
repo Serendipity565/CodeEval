@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "capturedAt": "2026-10-18T04:38:02.097167Z",
+  "capturedAt": "2026-10-24T10:11:54.792002Z",
   "source": "CodeEval browser submissions + sandbox execution + model evaluation",
   "users": [
     {
@@ -131,13 +131,13 @@
   },
   "submissions": [
     {
-      "sourceId": 3,
+      "sourceId": 8,
       "student": "student01",
       "code": "#include \u003ciostream\u003e\n#include \u003cunordered_map\u003e\nusing namespace std;\n\nint main() {\n    int n, target;\n    if (!(cin \u003e\u003e n \u003e\u003e target)) return 0;\n    unordered_map\u003cint, int\u003e seen;\n    for (int i = 0; i \u003c n; ++i) {\n        int value;\n        cin \u003e\u003e value;\n        auto match = seen.find(target - value);\n        if (match != seen.end()) {\n            cout \u003c\u003c match-\u003esecond \u003c\u003c ' ' \u003c\u003c i \u003c\u003c '\\n';\n            return 0;\n        }\n        seen[value] = i;\n    }\n    cout \u003c\u003c -1 \u003c\u003c ' ' \u003c\u003c -1 \u003c\u003c '\\n';\n}\n",
-      "submittedAt": "2026-10-18T12:02:52.551Z",
+      "submittedAt": "2026-10-24T10:05:28.831Z",
       "evaluation": {
         "model": "deepseek-v4-flash",
-        "total": 97,
+        "total": 96,
         "issues": [
           "代码缺少注释，未说明“先查后存”和“覆盖保存最近下标”的关键设计意图，可读性略受影响",
           "循环内 cin \u003e\u003e value 未检查读入失败，输入不足时 value 可能保持未初始化或旧值（题目保证合法输入，影响有限）",
@@ -148,45 +148,38 @@
         "analysis": [
           {
             "category": "functionality",
-            "evidence": "auto match = seen.find(target - value); if (match != seen.end()) { cout \u003c\u003c match-\u003esecond \u003c\u003c ' ' \u003c\u003c i; return 0; } ... seen[value] = i;",
-            "location": "main 循环内 seen.find 与 seen[value] = i",
+            "evidence": "auto match = seen.find(target - value); ... seen[value] = i;",
+            "location": "main 循环内 find 与 seen[value]=i",
             "severity": "info",
-            "explanation": "先查补数后存当前值，保证两个下标不同；覆盖写入使重复值保留最近下标，与题目“同一右下标选最近左下标”一致。"
-          },
-          {
-            "category": "functionality",
-            "evidence": "cout \u003c\u003c -1 \u003c\u003c ' ' \u003c\u003c -1 \u003c\u003c '\\n';",
-            "location": "main 末尾",
-            "severity": "info",
-            "explanation": "无解分支输出格式与题目要求一致。"
+            "explanation": "先查后存保证不会用当前下标与自身配对，重复值覆盖为最近下标，符合题目下标选择规则"
           },
           {
             "category": "robustness",
-            "evidence": "if (!(cin \u003e\u003e n \u003e\u003e target)) return 0;",
-            "location": "main 开头",
-            "severity": "low",
-            "explanation": "仅处理了 n 和 target 读取失败，循环内 cin \u003e\u003e value 未检查，输入不足时 value 可能保持未初始化或旧值，但题目保证输入合法，影响有限。"
+            "evidence": "if (!(cin \u003e\u003e n \u003e\u003e target)) return 0; ... cout \u003c\u003c -1 \u003c\u003c ' ' \u003c\u003c -1 \u003c\u003c '\\n';",
+            "location": "main 输入与无解分支",
+            "severity": "info",
+            "explanation": "对输入失败和无解情况均有处理，负数与零由哈希表键值自然支持"
           },
           {
             "category": "efficiency",
-            "evidence": "unordered_map\u003cint, int\u003e seen; ... seen.find(target - value)",
-            "location": "main",
+            "evidence": "for (int i = 0; i \u003c n; ++i) { ... seen.find(...) ... }",
+            "location": "main 循环",
             "severity": "info",
-            "explanation": "哈希表平均 O(n)，符合题目“尽量 O(n)”的要求；最坏情况受哈希冲突影响，但常规数据下表现良好。"
+            "explanation": "单次遍历配合 unordered_map 平均 O(1) 查找，达到题目期望的平均 O(n)"
           },
           {
             "category": "maintainability",
-            "evidence": "变量名 n、target、seen、value、match、i 语义清晰；仅 19 行非空代码，结构为读入—循环查找—输出。",
-            "location": "整体",
-            "severity": "info",
-            "explanation": "命名与结构简洁易读，但缺少注释说明“先查后存”和“覆盖保存最近下标”的关键设计意图。"
+            "evidence": "变量名 n、target、seen、value、match、i 语义清晰，但无注释说明先查后存的意图",
+            "location": "main",
+            "severity": "low",
+            "explanation": "命名可读，缺少注释使下标选择策略需读者自行推断，影响可维护性评分"
           },
           {
             "category": "syntax",
             "evidence": "static_evidence 中 syntaxValid=false 且 syntaxErrors 为空",
-            "location": "整体",
+            "location": "文件整体",
             "severity": "info",
-            "explanation": "静态分析未实际编译，语法有效性无法确认；从代码形态看包含标准头文件与 main 函数，但不应据此断言可编译。"
+            "explanation": "静态分析未完成语法校验，不能据此判定存在语法错误，也不能证明可编译"
           }
         ],
         "maxTotal": 100,
@@ -214,7 +207,7 @@
               "passed": true,
               "exitCode": 0,
               "expected": "0 1\n",
-              "durationMs": 1
+              "durationMs": 21
             },
             {
               "name": "负数与零",
@@ -251,14 +244,13 @@
           "passedWeight": 14
         },
         "strengths": [
-          "使用 unordered_map 存储已见值到下标映射，平均时间复杂度 O(n)，满足题目效率要求",
-          "先 seen.find(target - value) 再 seen[value] = i，保证两个下标不同，不复用同一元素",
-          "seen[value] = i 覆盖旧下标，使重复值保存最近左下标，符合“同一右下标选最近左下标”的要求",
-          "找到匹配立即输出并 return，保证按右下标递增顺序返回首个解",
-          "无解时输出 -1 -1，全程无提示语，仅输出答案",
-          "沙箱编译通过，6/6 用例全部通过，包括重复元素、负数与零、无解、禁止复用、最近左下标等隐藏用例"
+          "使用 unordered_map 存储已见值到下标，循环内先 find(target-value) 再 seen[value]=i，避免复用同一下标",
+          "找到匹配立即输出 match-\u003esecond 与 i 并 return，满足按右下标递增、同右下标取最近左下标的要求",
+          "无解时输出 -1 -1，且输入读取失败时提前返回，不产生多余提示输出",
+          "单层循环加哈希查找，平均时间复杂度 O(n)，空间 O(n)",
+          "沙箱编译通过，6/6 用例全部通过，含重复元素、负数与零、无解、禁止复用、最近左下标等隐藏用例"
         ],
-        "confidence": 0.9325,
+        "confidence": 0.9375,
         "dimensions": [
           {
             "key": "correctness",
@@ -270,53 +262,53 @@
             "verified": true,
             "criterion": "通过公开与隐藏用例，遵循输出下标顺序与无解格式",
             "confidence": 1,
-            "suggestion": "保持现有逻辑；如需进一步验证可补充极端 n=10000 与大量重复值的压力测试",
+            "suggestion": "保持当前实现，无需修改功能逻辑",
             "evidenceType": "execution"
           },
           {
             "key": "quality",
             "name": "鲁棒性",
             "score": 20,
-            "evidence": "先查补数后存当前值避免复用同一下标；seen[value]=i 覆盖写入保留最近左下标；重复元素、负数与零、无解、禁止复用、最近左下标等隐藏用例均通过；仅循环内 value 读入未检查，但题目保证合法输入",
+            "evidence": "先查补数再存当前值避免复用同一下标；seen[value]=i 覆盖写入保留最近左下标；负数与零由哈希键自然支持；无解分支完整；隐藏用例“禁止复用同一位置”“选择最近左下标”均通过",
             "maxScore": 20,
             "unscored": false,
             "verified": true,
             "criterion": "正确处理重复值、负数、零和最小输入，不复用同一下标",
-            "confidence": 0.93,
-            "suggestion": "可在循环内增加读入失败检查以增强鲁棒性，但当前已满足题目边界要求",
+            "confidence": 0.95,
+            "suggestion": "可增加循环内读入失败检查以进一步提升鲁棒性，但题目保证合法输入，非必需",
             "evidenceType": "execution"
           },
           {
             "key": "criterion_1792252114691",
             "name": "代码质量",
-            "score": 17,
-            "evidence": "变量名 n、target、seen、value、match、i 语义清晰，结构为读入—循环查找—输出，仅 19 行非空代码，无多余输出；但仅有 2 行注释，未说明先查后存与覆盖保存最近下标的关键设计意图",
+            "score": 16,
+            "evidence": "变量名 n、target、seen、value、match、i 语义清晰，结构简洁，无多余输出；但仅 2 行注释，未说明先查后存与覆盖保留最近下标的关键设计意图",
             "maxScore": 20,
             "unscored": false,
             "verified": false,
             "criterion": "命名清晰、结构合理、注释准确、无多余输出",
             "confidence": 0.85,
-            "suggestion": "在关键行添加简短注释说明设计意图，提升可读性与可维护性",
+            "suggestion": "在 find 与 seen[value]=i 处添加简短注释，说明下标选择策略，提升可维护性",
             "evidenceType": "static"
           },
           {
             "key": "criterion_1792252114957",
             "name": "算法效率",
             "score": 15,
-            "evidence": "使用 unordered_map 边读入边查找补数，平均 O(n)，符合题目“尽量 O(n)”要求；最坏情况受哈希冲突影响但常规数据表现良好",
+            "evidence": "单层循环配合 unordered_map 平均 O(1) 查找，整体平均 O(n)，空间 O(n)，达到题目期望的最优效率",
             "maxScore": 15,
             "unscored": false,
             "verified": true,
             "criterion": "平均 O(n) 为优；O(n log n) 次之；O(n²) 酌情扣分",
             "confidence": 0.95,
-            "suggestion": "保持哈希表方案；若需防御哈希冲突可考虑自定义哈希，但通常无必要",
+            "suggestion": "保持当前哈希表方案，无需改为排序或双重循环",
             "evidenceType": "execution"
           }
         ],
-        "durationMs": 9579,
+        "durationMs": 8980,
         "incomplete": false,
         "modelCalls": 2,
-        "reviewedAt": "2026-10-18T12:03:02.971795+08:00",
+        "reviewedAt": "2026-10-24T18:05:38.632198+08:00",
         "evidenceType": "execution_static_and_llm",
         "improvements": [
           "在 seen.find 与 seen[value] = i 处添加简短注释，说明先查补数后存当前值以避免复用同一下标，以及覆盖写入保留最近下标的原因",
@@ -334,56 +326,56 @@
       }
     },
     {
-      "sourceId": 4,
+      "sourceId": 9,
       "student": "student02",
       "code": "#include \u003ciostream\u003e\n#include \u003cvector\u003e\n\nint main() {\n    int count, sum;\n    std::cin \u003e\u003e count \u003e\u003e sum;\n    std::vector\u003cint\u003e numbers(count);\n    for (int \u0026number : numbers) std::cin \u003e\u003e number;\n\n    // 先固定右端点，再从近到远查找左端点。\n    for (int right = 1; right \u003c count; ++right) {\n        for (int left = right - 1; left \u003e= 0; --left) {\n            if (numbers[left] + numbers[right] != sum) continue;\n            std::cout \u003c\u003c left \u003c\u003c \" \" \u003c\u003c right \u003c\u003c std::endl;\n            return 0;\n        }\n    }\n    std::cout \u003c\u003c \"-1 -1\" \u003c\u003c std::endl;\n}\n",
-      "submittedAt": "2026-10-18T12:03:06.46Z",
+      "submittedAt": "2026-10-24T10:06:09.192Z",
       "evaluation": {
         "model": "deepseek-v4-flash",
-        "total": 86,
+        "total": 84,
         "issues": [
-          "双重 for 循环最坏约 n(n-1)/2 次比较，时间复杂度 O(n²)，未达到题目“尽量 O(n)”的要求",
-          "未检查 cin 输入是否成功，也未校验 count 的合法性，缺少输入失败防护",
-          "变量名 sum 实际表示目标和 target，语义略有歧义",
-          "使用 std::endl 而非 '\\n'，属于风格层面的小问题"
+          "双重 for 循环平均与最坏复杂度均为 O(n²)，n=10000 时约 5×10^7 次比较，未达到题目“尽量 O(n)”的要求",
+          "未检查 cin 输入是否成功，也未校验 count 范围，缺少输入失败防护",
+          "变量名 sum 实际表示目标和 target，count 与 std::count 同名，语义与可读性略有偏差",
+          "使用 std::endl 而非 '\\n'，存在不必要的缓冲区刷新"
         ],
         "status": "graded",
-        "summary": "学生代码逻辑正确，沙箱 6/6 用例全部通过，输出顺序与无解格式符合要求，且不会复用同一下标；但采用双重循环，时间复杂度为 O(n²)，未达到题目建议的 O(n)，在 n=10000 的最坏情况下效率偏低。代码结构清晰、命名基本合理，但缺少输入失败防护，变量名 sum 与“目标和”语义略有歧义。",
+        "summary": "学生代码通过全部 6 个沙箱用例（含隐藏用例），输出顺序、无解格式、重复值、负数、零及禁止复用同一下标等要求均满足；主要不足是采用双重循环，平均与最坏复杂度为 O(n²)，未达到题目建议的 O(n)，另有输入失败防护缺失、变量命名语义偏差等小问题。",
         "analysis": [
           {
             "category": "efficiency",
-            "evidence": "for (int right = 1; right \u003c count; ++right) { for (int left = right - 1; left \u003e= 0; --left) { ... } }",
+            "evidence": "for (int right = 1; right \u003c count; ++right) { for (int left = right - 1; left \u003e= 0; --left) {",
             "location": "main 中双重 for 循环",
             "severity": "high",
-            "explanation": "最坏情况下比较次数约为 n(n-1)/2，时间复杂度 O(n²)；n 最大 10000 时约 5×10⁷ 次比较，未达到题目“尽量 O(n)”的要求，也未使用 unordered_map 等平均 O(n) 方案"
-          },
-          {
-            "category": "robustness",
-            "evidence": "std::cin \u003e\u003e count \u003e\u003e sum; 后直接 std::vector\u003cint\u003e numbers(count);",
-            "location": "main 开头",
-            "severity": "low",
-            "explanation": "未检查输入是否成功；若输入失败或 count 非法（如负数），vector 构造行为不可预期，缺少对输入失败的防护"
+            "explanation": "最坏与平均均为 O(n²)，n 可达 10000 时约 5×10^7 次比较，未达到题目“尽量 O(n)”及评分量规中 O(n) 为优的要求"
           },
           {
             "category": "functionality",
             "evidence": "if (numbers[left] + numbers[right] != sum) continue;",
-            "location": "main 中比较逻辑",
+            "location": "main 查找逻辑",
             "severity": "info",
-            "explanation": "直接比较两数之和与 target，对负数、零和重复值没有特殊假设，逻辑上可覆盖这些情况；但未编译验证，不能据此证明全部用例正确"
+            "explanation": "通过下标不同（left \u003c right）保证不复用同一下标，重复值、负数、零在逻辑上均可处理，但未编译验证"
           },
           {
-            "category": "maintainability",
-            "evidence": "int count, sum; ... int right ... int left",
-            "location": "变量命名",
-            "severity": "info",
-            "explanation": "变量名基本能表达含义，但 sum 实际表示目标和 target，与“求和”语义略有歧义；注释简短说明了查找顺序，整体可读性尚可"
-          },
-          {
-            "category": "maintainability",
-            "evidence": "std::cout \u003c\u003c left \u003c\u003c \" \" \u003c\u003c right \u003c\u003c std::endl;",
-            "location": "输出语句",
+            "category": "robustness",
+            "evidence": "std::cin \u003e\u003e count \u003e\u003e sum; std::vector\u003cint\u003e numbers(count);",
+            "location": "main 输入读取",
             "severity": "low",
-            "explanation": "使用 std::endl 每次刷新缓冲区，在仅输出一行时影响很小，但不如 '\\n' 高效；属于风格层面的小问题"
+            "explanation": "未检查输入是否成功，也未校验 count 范围；若输入失败或 count 为负，vector 构造行为不确定"
+          },
+          {
+            "category": "maintainability",
+            "evidence": "int count, sum;",
+            "location": "变量命名",
+            "severity": "low",
+            "explanation": "count 与 std::count 同名易混淆，sum 实际表示 target，命名与题目语义不完全一致，影响可读性"
+          },
+          {
+            "category": "maintainability",
+            "evidence": "// 先固定右端点，再从近到远查找左端点。",
+            "location": "注释",
+            "severity": "info",
+            "explanation": "注释准确描述了查找策略，但未说明复杂度或为何选择该策略"
           }
         ],
         "maxTotal": 100,
@@ -448,10 +440,10 @@
           "passedWeight": 14
         },
         "strengths": [
-          "按右下标递增、同一右下标下左下标由近到远查找，完全符合题目规定的查找顺序",
-          "使用 left \u003c right 的循环边界，保证两个下标不同，不会复用同一下标",
-          "无解时输出 \"-1 -1\"，格式正确",
-          "沙箱执行 6/6 用例全部通过，包括重复元素、负数与零、无解、禁止复用同一位置、选择最近左下标等隐藏用例"
+          "沙箱编译通过且 6/6 用例全部通过，功能正确性得到执行验证",
+          "外层右下标递增、内层左下标从近到远递减，严格符合“右下标递增、同一右下标选最近左下标”的查找顺序",
+          "找到即输出并 return 0，无解输出 -1 -1，无多余提示语，输出格式规范",
+          "通过 left \u003c right 保证不复用同一下标，重复值、负数、零场景均通过测试"
         ],
         "confidence": 0.925,
         "dimensions": [
@@ -465,59 +457,59 @@
             "verified": true,
             "criterion": "通过公开与隐藏用例，遵循输出下标顺序与无解格式",
             "confidence": 1,
-            "suggestion": "保持现有正确性；若改为哈希表方案，注意先查补数再存当前值，以维持正确性",
+            "suggestion": "保持现有正确逻辑；若改用哈希表，注意先查补数再存当前值以维持正确性",
             "evidenceType": "execution"
           },
           {
             "key": "quality",
             "name": "鲁棒性",
             "score": 18,
-            "evidence": "left \u003c right 保证不复用同一下标；对重复值、负数、零均能正确处理并通过隐藏用例；但未检查输入失败，也未校验 count 合法性",
+            "evidence": "重复值、负数、零、最小输入及禁止复用同一下标均通过隐藏用例；但未检查输入读取是否成功，也未校验 count 合法性",
             "maxScore": 20,
             "unscored": false,
             "verified": true,
             "criterion": "正确处理重复值、负数、零和最小输入，不复用同一下标",
             "confidence": 0.9,
-            "suggestion": "增加输入失败处理与 count 合法性校验，提升对异常输入的鲁棒性",
+            "suggestion": "增加输入失败处理与参数范围校验，提升异常输入下的鲁棒性",
             "evidenceType": "execution"
           },
           {
             "key": "criterion_1792252114691",
             "name": "代码质量",
-            "score": 16,
-            "evidence": "结构简单清晰，注释准确说明查找顺序，无多余输出；但变量名 sum 语义有歧义，使用 std::endl 而非 '\\n'，且缺少输入失败处理",
+            "score": 15,
+            "evidence": "结构清晰、注释准确说明查找策略、无多余输出；但变量名 sum 表示目标和、count 与标准库同名，语义不够直观，且使用 std::endl",
             "maxScore": 20,
             "unscored": false,
             "verified": false,
             "criterion": "命名清晰、结构合理、注释准确、无多余输出",
             "confidence": 0.85,
-            "suggestion": "将 sum 重命名为 target，换行改用 '\\n'，并补充输入失败处理，使代码更规范",
+            "suggestion": "将 sum 改为 target、count 改为 n，换行改用 '\\n'，并补充复杂度说明注释",
             "evidenceType": "static"
           },
           {
             "key": "criterion_1792252114957",
             "name": "算法效率",
-            "score": 7,
-            "evidence": "采用双重循环，最坏约 n(n-1)/2 次比较，时间复杂度 O(n²)，未使用 unordered_map 等平均 O(n) 方案，未达到题目“尽量 O(n)”的要求",
+            "score": 6,
+            "evidence": "采用双重 for 循环，平均与最坏复杂度均为 O(n²)，未达到题目“尽量 O(n)”及量规中 O(n) 为优的要求",
             "maxScore": 15,
             "unscored": false,
             "verified": false,
             "criterion": "平均 O(n) 为优；O(n log n) 次之；O(n²) 酌情扣分",
             "confidence": 0.95,
-            "suggestion": "改用 unordered_map 记录值到最近下标的映射，先查补数再存当前值，将平均复杂度降为 O(n)",
+            "suggestion": "改用 unordered_map 一次遍历：先查 target - value 是否存在，再记录当前值下标，实现平均 O(n)",
             "evidenceType": "static"
           }
         ],
-        "durationMs": 8782,
+        "durationMs": 8879,
         "incomplete": false,
         "modelCalls": 2,
-        "reviewedAt": "2026-10-18T12:03:16.002705+08:00",
+        "reviewedAt": "2026-10-24T18:06:18.982361+08:00",
         "evidenceType": "execution_static_and_llm",
         "improvements": [
-          "改用 unordered_map 记录已访问值及其最近下标：先查找 target - value 是否存在，再保存当前值，可将平均复杂度降为 O(n)",
-          "在读取 n 和 target 后增加 if (!(cin \u003e\u003e count \u003e\u003e sum)) return 0; 之类的输入失败处理，并校验 count 范围",
-          "将 sum 重命名为 target，使变量语义与题目一致",
-          "输出换行使用 '\\n' 替代 std::endl，避免不必要的缓冲区刷新"
+          "改用 unordered_map 记录已访问值及其最近下标：先查找 target - value，再保存当前值，将平均复杂度降为 O(n)",
+          "读取 n 和 target 后增加 if (!(std::cin \u003e\u003e count \u003e\u003e sum)) return 0; 并校验 count 范围",
+          "将 sum 重命名为 target、count 重命名为 n，使变量语义与题目一致",
+          "输出换行使用 '\\n' 替代 std::endl"
         ],
         "promptVersion": "teacher-context-v2",
         "contextSources": [
@@ -530,13 +522,13 @@
       }
     },
     {
-      "sourceId": 5,
+      "sourceId": 10,
       "student": "student03",
       "code": "#include \u003ciostream\u003e\n#include \u003cmap\u003e\n#include \u003cutility\u003e\n#include \u003cvector\u003e\n\nstd::pair\u003cint, int\u003e locatePair(const std::vector\u003cint\u003e\u0026 data, int goal) {\n    std::map\u003cint, int\u003e positions;\n    for (int end = 0; end \u003c static_cast\u003cint\u003e(data.size()); ++end) {\n        const int missing = goal - data[end];\n        if (positions.count(missing) != 0) {\n            return {positions.at(missing), end};\n        }\n        positions[data[end]] = end;\n    }\n    return {-1, -1};\n}\n\nint main() {\n    int length, goal;\n    std::cin \u003e\u003e length \u003e\u003e goal;\n    std::vector\u003cint\u003e data(length);\n    for (auto\u0026 item : data) std::cin \u003e\u003e item;\n    const auto answer = locatePair(data, goal);\n    std::cout \u003c\u003c answer.first \u003c\u003c ' ' \u003c\u003c answer.second \u003c\u003c '\\n';\n}\n",
-      "submittedAt": "2026-10-18T12:03:08.542Z",
+      "submittedAt": "2026-10-24T10:06:45.142Z",
       "evaluation": {
         "model": "deepseek-v4-flash",
-        "total": 93,
+        "total": 92,
         "issues": [
           "使用 std::map 使整体复杂度为 O(n log n)，未达到题目“尽量 O(n)”的优选目标",
           "main 中未检查 cin \u003e\u003e length \u003e\u003e goal 是否成功，输入失败时 length 可能未初始化",
@@ -547,38 +539,38 @@
         "analysis": [
           {
             "category": "efficiency",
-            "evidence": "std::map\u003cint, int\u003e positions;",
-            "location": "locatePair",
+            "evidence": "std::map\u003cint, int\u003e positions; 以及 positions.count(missing)、positions.at(missing)",
+            "location": "locatePair 中 std::map\u003cint,int\u003e positions",
             "severity": "low",
-            "explanation": "使用有序 map 查找与插入为 O(log n)，整体 O(n log n)，未达到题目“尽量 O(n)”的优选目标，但优于 O(n²)"
+            "explanation": "std::map 基于红黑树，单次查找/插入为 O(log n)，整体 O(n log n)，未达到题目“尽量 O(n)”的优选目标；参考实现使用 unordered_map 达到平均 O(n)"
           },
           {
             "category": "robustness",
-            "evidence": "std::cin \u003e\u003e length \u003e\u003e goal; 后直接 std::vector\u003cint\u003e data(length);",
-            "location": "main",
+            "evidence": "int length, goal; std::cin \u003e\u003e length \u003e\u003e goal; 未检查输入是否成功",
+            "location": "main 中 std::cin \u003e\u003e length \u003e\u003e goal",
             "severity": "low",
-            "explanation": "未检查输入是否成功，若输入失败 length 可能未初始化，存在未定义行为风险；参考实现有 if (!(cin \u003e\u003e n \u003e\u003e target)) 保护"
+            "explanation": "若输入缺失或格式错误，length 可能未初始化即用于构造 vector，存在未定义行为风险；参考实现用 if (!(cin \u003e\u003e n \u003e\u003e target)) return 0 做了防护"
           },
           {
             "category": "robustness",
-            "evidence": "std::vector\u003cint\u003e data(length);",
-            "location": "main",
-            "severity": "info",
-            "explanation": "未校验 length 范围（1≤n≤10000），若输入异常大或为负值可能导致分配问题，但题目保证范围，影响有限"
+            "evidence": "std::vector\u003cint\u003e data(length); 未校验 length 范围",
+            "location": "main 中 std::vector\u003cint\u003e data(length)",
+            "severity": "low",
+            "explanation": "题目保证 1 ≤ n ≤ 10000，但代码未对非法 length（如负数）做防御，构造 vector 时可能抛出异常或产生异常行为"
           },
           {
             "category": "maintainability",
-            "evidence": "if (positions.count(missing) != 0) { return {positions.at(missing), end}; }",
-            "location": "locatePair",
+            "evidence": "包含 \u003cutility\u003e、\u003cvector\u003e、\u003cmap\u003e、\u003ciostream\u003e，共 4 行注释（静态计数）",
+            "location": "文件头部",
             "severity": "info",
-            "explanation": "count 后再 at 进行两次查找，可改用 find 一次查找提升可读性与常数效率"
+            "explanation": "头文件齐全且无冗余；注释行存在但静态证据无法确认注释内容是否准确对应算法要点"
           },
           {
             "category": "functionality",
-            "evidence": "return {positions.at(missing), end};",
-            "location": "locatePair",
+            "evidence": "return {positions.at(missing), end}; 与 return {-1, -1};",
+            "location": "locatePair 返回值",
             "severity": "info",
-            "explanation": "返回首个满足条件的右下标，逻辑上符合题目顺序要求，但未编译验证"
+            "explanation": "返回下标对与无解标记的语义清晰，但未编译验证，无法确认在重复值、负数、零等边界下实际输出正确"
           }
         ],
         "maxTotal": 100,
@@ -613,7 +605,7 @@
               "hidden": true,
               "passed": true,
               "exitCode": 0,
-              "durationMs": 3
+              "durationMs": 1
             },
             {
               "name": "无解场景",
@@ -643,11 +635,12 @@
           "passedWeight": 14
         },
         "strengths": [
-          "先查补数再写入当前值，避免复用同一下标，符合课程约定",
-          "用 positions[data[end]] = end 覆盖写入，保证重复值保存最近下标",
-          "按右下标递增遍历并返回首个匹配，满足查找顺序要求",
-          "无解返回 {-1,-1} 并输出，格式正确且无多余提示语",
-          "拆分为 locatePair 函数，命名清晰、结构合理"
+          "locatePair 先查找补数再写入当前值，保证不会复用同一下标",
+          "使用 positions[data[end]] = end 覆盖写入，重复值保存最近下标，符合“同一右下标选择最近左下标”的要求",
+          "按 end 从 0 递增遍历，命中即返回，满足按右下标递增顺序查找",
+          "无解时返回 {-1, -1} 并由 main 输出 '-1 -1'，格式与题目要求一致",
+          "main 中仅输出答案，没有额外提示语",
+          "函数命名 locatePair、变量 missing、positions 语义清晰，逻辑集中在独立函数中"
         ],
         "confidence": 0.925,
         "dimensions": [
@@ -661,53 +654,53 @@
             "verified": true,
             "criterion": "通过公开与隐藏用例，遵循输出下标顺序与无解格式",
             "confidence": 1,
-            "suggestion": "保持现有逻辑；可增加更多随机对拍验证",
+            "suggestion": "保持现有逻辑；可补充输入失败保护以增强健壮性",
             "evidenceType": "execution"
           },
           {
             "key": "quality",
             "name": "鲁棒性",
-            "score": 19,
-            "evidence": "重复值覆盖写入保存最近下标，先查后存避免复用同一下标，负数与零用例通过；但 main 未检查输入读取成功，存在未初始化风险",
+            "score": 18,
+            "evidence": "先查补数再写入当前值，避免复用同一下标；重复值覆盖保存最近下标；正确处理负数、零与无解；但未检查输入读取是否成功，非法 length 未防御",
             "maxScore": 20,
             "unscored": false,
-            "verified": true,
+            "verified": false,
             "criterion": "正确处理重复值、负数、零和最小输入，不复用同一下标",
             "confidence": 0.9,
-            "suggestion": "加入输入读取失败保护，如 if (!(std::cin \u003e\u003e length \u003e\u003e goal)) return 0;",
-            "evidenceType": "execution"
+            "suggestion": "加入 if (!(std::cin \u003e\u003e length \u003e\u003e goal)) return 0; 并对 length 做基本校验",
+            "evidenceType": "llm_inference"
           },
           {
             "key": "criterion_1792252114691",
             "name": "代码质量",
             "score": 18,
-            "evidence": "函数拆分合理，命名清晰（locatePair、positions、missing、goal），无多余输出；count 后 at 两次查找略冗余，注释较少",
+            "evidence": "函数命名 locatePair、变量 missing、positions 语义清晰，逻辑集中在独立函数中；main 仅输出答案无多余提示；头文件齐全；但 count 后再 at 存在重复查找，注释较少",
             "maxScore": 20,
             "unscored": false,
             "verified": false,
             "criterion": "命名清晰、结构合理、注释准确、无多余输出",
             "confidence": 0.85,
-            "suggestion": "改用 find 一次查找，并补充关键设计注释",
+            "suggestion": "用 find 合并查找，补充简短注释说明算法要点",
             "evidenceType": "static"
           },
           {
             "key": "criterion_1792252114957",
             "name": "算法效率",
             "score": 11,
-            "evidence": "使用 std::map，查找与插入为 O(log n)，整体 O(n log n)，优于 O(n²) 但未达 O(n) 优选",
+            "evidence": "使用 std::map 基于红黑树，单次查找/插入 O(log n)，整体 O(n log n)，未达到题目“尽量 O(n)”的优选目标",
             "maxScore": 15,
             "unscored": false,
             "verified": false,
             "criterion": "平均 O(n) 为优；O(n log n) 次之；O(n²) 酌情扣分",
             "confidence": 0.95,
-            "suggestion": "替换为 std::unordered_map 实现平均 O(n)",
-            "evidenceType": "static"
+            "suggestion": "将 std::map 替换为 std::unordered_map 以获得平均 O(n) 复杂度",
+            "evidenceType": "reference_comparison"
           }
         ],
-        "durationMs": 8021,
+        "durationMs": 9390,
         "incomplete": false,
         "modelCalls": 2,
-        "reviewedAt": "2026-10-18T12:03:24.82124+08:00",
+        "reviewedAt": "2026-10-24T18:06:55.362341+08:00",
         "evidenceType": "execution_static_and_llm",
         "improvements": [
           "将 std::map 替换为 std::unordered_map 以获得平均 O(n) 复杂度",
@@ -726,50 +719,50 @@
       }
     },
     {
-      "sourceId": 6,
+      "sourceId": 11,
       "student": "student04",
       "code": "#include \u003ciostream\u003e\n#include \u003cunordered_map\u003e\n\nint main() {\n    int size, goal;\n    std::cin \u003e\u003e size \u003e\u003e goal;\n    std::unordered_map\u003cint, int\u003e index;\n    for (int position = 0; position \u003c size; ++position) {\n        int current;\n        std::cin \u003e\u003e current;\n        index[current] = position;\n        const auto found = index.find(goal - current);\n        if (found != index.end()) {\n            std::cout \u003c\u003c found-\u003esecond \u003c\u003c ' ' \u003c\u003c position \u003c\u003c '\\n';\n            return 0;\n        }\n    }\n    std::cout \u003c\u003c \"-1 -1\\n\";\n}\n",
-      "submittedAt": "2026-10-18T12:03:16.633Z",
+      "submittedAt": "2026-10-24T10:07:42.952Z",
       "evaluation": {
         "model": "deepseek-v4-flash",
-        "total": 87,
+        "total": 73,
         "issues": [
-          "先执行 index[current] = position 再查找补数，当 target 为当前值两倍时会命中刚插入的当前下标，输出相同下标，违反“两个不同元素”要求",
+          "先执行 index[current] = position 再查找补数，当 target - current == current 时会命中刚插入的自身下标，输出两个相同下标，违反“两个不同元素”要求",
           "重复元素用例（3 6 / 3 3 8）实际输出 \"0 0\"，期望 \"0 1\"，输出不匹配",
           "隐藏用例“禁止复用同一位置”失败，说明同一元素被复用为两个下标",
-          "未检查输入流状态，输入缺失或异常时行为不可预期",
-          "缺少注释说明查找与插入顺序的关键意图，掩盖了正确性风险"
+          "未检查输入流状态，输入缺失或异常时 size 未初始化，循环边界不确定",
+          "缺少注释说明“先查补数再保存当前值”的关键顺序意图"
         ],
         "status": "graded",
-        "summary": "学生代码采用 unordered_map 单遍扫描，整体思路接近参考实现，但先插入当前下标再查找补数，导致 target 为当前值两倍时复用同一下标，重复元素用例与禁止复用用例均失败（4/6 通过）。算法效率达到平均 O(n)，输出格式与无解处理正确，命名清晰但缺少关键注释与输入流检查。",
+        "summary": "学生代码采用 unordered_map 单遍扫描，平均时间复杂度 O(n)，输出格式与无解处理正确；但循环内先执行 index[current]=position 再查找补数，导致 target 为当前值两倍时命中自身下标，重复元素与禁止复用用例失败（沙箱 4/6 通过，权重 10/14）。此外缺少输入流检查与关键注释。",
         "analysis": [
           {
             "category": "functionality",
-            "evidence": "index[current] = position; 之后才 const auto found = index.find(goal - current);",
-            "location": "for 循环内 index[current] = position; 与 index.find(goal - current)",
+            "evidence": "index[current] = position; 在 const auto found = index.find(goal - current); 之前执行",
+            "location": "main 循环内 index[current] = position; 与 index.find(goal - current)",
             "severity": "high",
-            "explanation": "先插入当前下标再查找补数，当 goal - current == current（即 target 为当前值两倍）时，find 会命中刚插入的当前下标，导致输出 position position，复用了同一下标，违反“两个不同元素”的要求；参考实现是先查找再保存以避免此问题。"
+            "explanation": "先插入当前值再查找补数，当 target - current == current（如 target 为偶数且当前值等于 target/2）时会查到刚插入的自身下标，导致输出两个相同下标，违反“两个不同元素”和“不复用同一下标”的要求；参考实现是先查找后保存以避免此问题"
           },
           {
             "category": "functionality",
             "evidence": "index[current] = position; 无条件覆盖已有键",
-            "location": "index[current] = position;",
+            "location": "main 循环内 index[current] = position;",
             "severity": "medium",
-            "explanation": "重复值会覆盖为最新下标，这与“同一右下标选择最近左下标”的方向一致，但由于查找发生在插入之后，覆盖逻辑与查找顺序耦合，可能改变某些用例下应输出的左下标选择。"
+            "explanation": "重复值会覆盖为最新下标，虽然符合“重复值保存最近下标”的知识库建议，但由于查找发生在插入之后，覆盖行为与查找顺序耦合，可能改变重复值场景下的输出下标选择，需结合用例验证是否符合“右下标递增、同右下标选最近左下标”的规则"
           },
           {
             "category": "robustness",
             "evidence": "未检查输入流状态，直接读取 size 和 goal",
             "location": "main 开头 std::cin \u003e\u003e size \u003e\u003e goal;",
             "severity": "low",
-            "explanation": "若输入缺失或格式异常，size 可能为未初始化/异常值，循环行为不可预期；参考实现用 if (!(cin \u003e\u003e n \u003e\u003e target)) return 0; 做了防护。"
+            "explanation": "输入缺失或格式异常时 size 可能未初始化，循环边界不确定；参考实现用 if (!(cin \u003e\u003e n \u003e\u003e target)) return 0; 做了防护"
           },
           {
             "category": "maintainability",
-            "evidence": "无注释说明查找与插入顺序的意图",
+            "evidence": "无注释，仅 18 行非空代码",
             "location": "文件头部",
             "severity": "info",
-            "explanation": "缺少注释使“先插入后查找”这一关键顺序决策不易被察觉，也掩盖了其正确性风险。"
+            "explanation": "代码简短可读，但缺少对“先查找后插入”关键顺序的说明；当前顺序本身存在缺陷，注释缺失使意图不易察觉"
           }
         ],
         "maxTotal": 100,
@@ -836,12 +829,12 @@
           "passedWeight": 10
         },
         "strengths": [
-          "使用 std::unordered_map 存储值与下标，平均时间复杂度为 O(n)",
-          "变量命名清晰（size、goal、position、current、index），结构简洁易读",
-          "无解时输出 \"-1 -1\"，且只输出答案，无多余提示语",
-          "基础用例、负数与零、无解场景、选择最近左下标等用例均通过"
+          "使用 std::unordered_map 存储值与下标，平均时间复杂度 O(n)，满足效率要求",
+          "变量命名清晰（size、goal、index、position、current），结构简洁，无多余输出",
+          "无解时输出 \"-1 -1\"，格式符合要求",
+          "基础用例、负数与零、无解场景、选择最近左下标用例均通过"
         ],
-        "confidence": 0.9125,
+        "confidence": 0.925,
         "dimensions": [
           {
             "key": "correctness",
@@ -853,53 +846,53 @@
             "verified": true,
             "criterion": "通过公开与隐藏用例，遵循输出下标顺序与无解格式",
             "confidence": 1,
-            "suggestion": "调整循环顺序为先查找补数、命中即输出返回，未命中再保存当前下标，确保两个下标不同",
+            "suggestion": "将 index[current] = position 移到查找补数之后，确保先查补数再保存当前值，避免复用同一下标",
             "evidenceType": "execution"
           },
           {
             "key": "quality",
             "name": "鲁棒性",
-            "score": 20,
-            "evidence": "负数与零、无解场景用例通过，但重复值与禁止复用同一下标用例失败；未检查输入流状态，输入异常时 size 可能异常",
+            "score": 12,
+            "evidence": "重复值与零场景因先插入后查找而失败，同一元素被复用为两个下标；未检查输入流状态，输入缺失时 size 未初始化",
             "maxScore": 20,
             "unscored": false,
             "verified": true,
             "criterion": "正确处理重复值、负数、零和最小输入，不复用同一下标",
             "confidence": 0.9,
-            "suggestion": "先查后存修复下标复用问题，并增加输入流状态检查以提升鲁棒性",
+            "suggestion": "调整查找与插入顺序，并在读取 n 和 target 时检查 cin 状态，补充 n=1、全相同元素等边界自测",
             "evidenceType": "execution"
           },
           {
             "key": "criterion_1792252114691",
             "name": "代码质量",
-            "score": 20,
-            "evidence": "命名清晰、结构简洁、无多余输出，但缺少注释说明查找与插入顺序的关键决策，且该顺序正是缺陷来源",
+            "score": 14,
+            "evidence": "命名清晰、结构简洁、无多余输出；但缺少注释说明关键顺序意图，且未做输入流检查，关键逻辑顺序存在缺陷",
             "maxScore": 20,
             "unscored": false,
             "verified": false,
             "criterion": "命名清晰、结构合理、注释准确、无多余输出",
             "confidence": 0.85,
-            "suggestion": "在循环内添加注释说明先查补数再保存当前值的意图，并保持现有清晰命名",
+            "suggestion": "在循环内添加注释说明“先查补数再保存当前值”，并在 main 开头加入输入流检查",
             "evidenceType": "static"
           },
           {
             "key": "criterion_1792252114957",
             "name": "算法效率",
             "score": 15,
-            "evidence": "使用 unordered_map 单遍扫描，平均 O(n)，与参考实现效率同级；仅因插入顺序导致逻辑缺陷，不影响复杂度",
+            "evidence": "使用 unordered_map 单遍扫描，平均时间复杂度 O(n)，符合最优效率要求",
             "maxScore": 15,
             "unscored": false,
             "verified": false,
             "criterion": "平均 O(n) 为优；O(n log n) 次之；O(n²) 酌情扣分",
-            "confidence": 0.9,
-            "suggestion": "保持 unordered_map 方案，修正插入顺序即可维持平均 O(n) 效率",
-            "evidenceType": "reference_comparison"
+            "confidence": 0.95,
+            "suggestion": "保持当前哈希表方案，修正插入顺序后效率不变",
+            "evidenceType": "static"
           }
         ],
-        "durationMs": 8701,
+        "durationMs": 8832,
         "incomplete": false,
         "modelCalls": 2,
-        "reviewedAt": "2026-10-18T12:03:34.342124+08:00",
+        "reviewedAt": "2026-10-24T18:07:52.644434+08:00",
         "evidenceType": "execution_static_and_llm",
         "improvements": [
           "将查找补数移到插入当前值之前：先 auto found = index.find(goal - current)，命中则输出并返回，未命中再 index[current] = position",
@@ -919,13 +912,13 @@
       }
     },
     {
-      "sourceId": 8,
+      "sourceId": 7,
       "student": "student05",
-      "code": "#include \u003ciostream\u003e\n#include \u003cvector\u003e\n\nint main() {\n    int n, target;\n    std::cin \u003e\u003e n \u003e\u003e target;\n    std::vector\u003cint\u003e values(n);\n    for (int i = 0; i \u003c n; ++i) std::cin \u003e\u003e values[i];\n    for (int j = 1; j \u003c n; ++j) {\n        int i = j - 1;\n        while (i \u003e= 0) {\n            if (values[i] + values[j] == target) {\n                std::cout \u003c\u003c i \u003c\u003c \" \" \u003c\u003c j \u003c\u003c \"\\n\";\n                return 0;\n            }\n            --i;\n        }\n    }\n    // 尚未补充无解时的输出。\n    return 0;\n}\n",
-      "submittedAt": "2026-10-18T12:37:26.846Z",
+      "code": "#include \u003ciostream\u003e\n#include \u003cvector\u003e\n\nint main() {\n    int n, target;\n    std::cin \u003e\u003e n \u003e\u003e target;\n    std::vector\u003cint\u003e values(n);\n    for (int i = 0; i \u003c n; ++i) std::cin \u003e\u003e values[i];\n    for (int j = 1; j \u003c n; ++j) {\n        int i = j - 1;\n        while (i \u003e= 0) {\n            if (values[i] + values[j] == target) {\n                std::cout \u003c\u003c i \u003c\u003c \" \" \u003c\u003c j \u003c\u003c \"\\n\";\n                return 0;\n            }\n            --i;\n        }\n    }\n    return 0;\n}\n",
+      "submittedAt": "2026-10-24T10:00:58.200Z",
       "evaluation": {
         "model": "deepseek-v4-flash",
-        "total": 87,
+        "total": 64,
         "issues": [
           "无解时未输出 -1 -1，直接 return 0，导致无解用例输出不匹配",
           "隐藏用例“禁止复用同一位置”失败，说明存在未覆盖的下标复用或边界问题",
@@ -938,31 +931,38 @@
         "analysis": [
           {
             "category": "functionality",
-            "evidence": "// 尚未补充无解时的输出。\n    return 0;",
-            "location": "main 末尾",
+            "evidence": "循环结束后直接 `return 0;`，没有输出 `-1 -1`",
+            "location": "main 末尾（双重循环之后）",
             "severity": "high",
-            "explanation": "无解时程序不输出任何内容，而题目要求输出 -1 -1，无解用例会失败"
+            "explanation": "题目要求无解时输出 -1 -1，缺失该输出会导致无解用例答案错误"
           },
           {
             "category": "efficiency",
-            "evidence": "for (int j = 1; j \u003c n; ++j) { int i = j - 1; while (i \u003e= 0) { ... --i; } }",
-            "location": "双重 for/while 循环",
+            "evidence": "`for (int j = 1; j \u003c n; ++j)` 内嵌 `while (i \u003e= 0)` 线性回扫",
+            "location": "main 双重循环",
             "severity": "medium",
-            "explanation": "最坏情况为 O(n²)，n 可达 10000，与题目建议的 O(n) 有差距，效率评分项会受影响"
+            "explanation": "最坏情况约 n²/2 次比较，n=10000 时约 5×10⁷ 次，未达到题目期望的 O(n)，与知识库推荐的 unordered_map 方案有差距"
           },
           {
             "category": "robustness",
-            "evidence": "std::cin \u003e\u003e n \u003e\u003e target;",
-            "location": "main 开头",
+            "evidence": "`std::cin \u003e\u003e n \u003e\u003e target;` 后未检查输入是否成功",
+            "location": "main 输入部分",
             "severity": "low",
-            "explanation": "未检查输入是否成功，输入缺失时 n、target 为未初始化值，后续行为不确定"
+            "explanation": "输入失败时 n 未初始化，vector 构造行为不确定；参考实现做了 `if (!(cin \u003e\u003e n \u003e\u003e target)) return 0;` 防护"
           },
           {
             "category": "maintainability",
-            "evidence": "// 尚未补充无解时的输出。",
-            "location": "main 末尾",
+            "evidence": "变量名为 `values`、`i`、`j`、`target`，无注释",
+            "location": "main",
             "severity": "info",
-            "explanation": "注释准确指出了未完成部分，但也表明实现不完整"
+            "explanation": "命名基本可读，但缺少对查找顺序策略的注释，读者需自行推断为何内层倒序扫描"
+          },
+          {
+            "category": "syntax",
+            "evidence": "静态分析给出 syntaxValid=false 但 syntaxErrors 为空",
+            "location": "文件整体",
+            "severity": "info",
+            "explanation": "该标记来自词法扫描而非编译，不能据此判定语法错误；代码结构上未见明显语法问题，但未经编译验证"
           }
         ],
         "maxTotal": 100,
@@ -980,7 +980,7 @@
               "passed": true,
               "exitCode": 0,
               "expected": "0 1\n",
-              "durationMs": 1
+              "durationMs": 10
             },
             {
               "name": "重复元素",
@@ -997,7 +997,7 @@
               "hidden": true,
               "passed": true,
               "exitCode": 0,
-              "durationMs": 29
+              "durationMs": 1
             },
             {
               "name": "无解场景",
@@ -1029,9 +1029,9 @@
           "passedWeight": 10
         },
         "strengths": [
-          "查找顺序符合题目要求：外层 j 递增、内层 i 从 j-1 递减，右下标递增且同右下标优先最近左下标",
-          "内层从 j-1 开始，逻辑上避免复用同一下标",
-          "使用 vector 存储输入，能处理重复值、负数和零"
+          "查找顺序符合题意：外层 j 从 1 递增，内层 i 从 j-1 递减，先命中的即为右下标最小且左下标最近的组合",
+          "内层 i 从 j-1 开始，保证 i \u003c j，不会复用同一下标",
+          "使用 std::vector 存储输入，读入逻辑清晰，无多余提示输出"
         ],
         "confidence": 0.8875000000000001,
         "dimensions": [
@@ -1045,53 +1045,53 @@
             "verified": true,
             "criterion": "通过公开与隐藏用例，遵循输出下标顺序与无解格式",
             "confidence": 1,
-            "suggestion": "补充无解输出 -1 -1，并排查禁止复用同一位置用例失败原因",
+            "suggestion": "在双重循环结束后补充 std::cout \u003c\u003c -1 \u003c\u003c \" \" \u003c\u003c -1 \u003c\u003c \"\\n\"; 并针对无解与下标复用用例自测。",
             "evidenceType": "execution"
           },
           {
             "key": "quality",
             "name": "鲁棒性",
-            "score": 20,
-            "evidence": "重复元素、负数与零用例通过，但禁止复用同一位置隐藏用例失败，且未检查输入成功",
+            "score": 12,
+            "evidence": "内层 i 从 j-1 递减保证 i\u003cj，重复元素与负数零用例通过；但“禁止复用同一位置”隐藏用例失败，且未检查 cin 输入成功，输入缺失时 n 未初始化。",
             "maxScore": 20,
             "unscored": false,
             "verified": true,
             "criterion": "正确处理重复值、负数、零和最小输入，不复用同一下标",
             "confidence": 0.85,
-            "suggestion": "改用先查补数再保存当前值的写法，并增加输入检查",
+            "suggestion": "改用 unordered_map 先查补数再保存当前值，天然避免复用同一下标；读取 n、target 后判断输入是否成功。",
             "evidenceType": "execution"
           },
           {
             "key": "criterion_1792252114691",
             "name": "代码质量",
-            "score": 20,
-            "evidence": "命名清晰、结构简单，但存在未完成注释，无解分支缺失导致代码不完整",
+            "score": 14,
+            "evidence": "变量命名 values、i、j、target 基本可读，无多余提示输出；但缺少对查找顺序策略的注释，且无解分支缺失使代码不完整。",
             "maxScore": 20,
             "unscored": false,
             "verified": false,
             "criterion": "命名清晰、结构合理、注释准确、无多余输出",
             "confidence": 0.8,
-            "suggestion": "删除未完成注释并补全无解输出，保持结构完整",
+            "suggestion": "补充说明内层倒序扫描保证最近左下标的注释，并补全无解输出分支，确保代码完整可交付。",
             "evidenceType": "static"
           },
           {
             "key": "criterion_1792252114957",
             "name": "算法效率",
-            "score": 15,
-            "evidence": "双重循环最坏 O(n²)，n 可达 10000，未达到建议的 O(n)",
+            "score": 6,
+            "evidence": "采用双重循环，最坏约 n²/2 次比较，n=10000 时约 5×10⁷ 次，为 O(n²)，未达到题目期望的平均 O(n)。",
             "maxScore": 15,
             "unscored": false,
             "verified": false,
             "criterion": "平均 O(n) 为优；O(n log n) 次之；O(n²) 酌情扣分",
             "confidence": 0.9,
-            "suggestion": "使用 unordered_map 先查补数再保存当前值，实现平均 O(n)",
-            "evidenceType": "static"
+            "suggestion": "使用 unordered_map 边读边查补数，实现平均 O(n) 时间复杂度。",
+            "evidenceType": "llm_inference"
           }
         ],
-        "durationMs": 6900,
+        "durationMs": 9329,
         "incomplete": false,
         "modelCalls": 2,
-        "reviewedAt": "2026-10-18T12:37:34.567823+08:00",
+        "reviewedAt": "2026-10-24T18:01:08.350912+08:00",
         "evidenceType": "execution_static_and_llm",
         "improvements": [
           "在循环结束后补充 std::cout \u003c\u003c -1 \u003c\u003c \" \" \u003c\u003c -1 \u003c\u003c \"\\n\";",
@@ -1111,13 +1111,13 @@
       }
     },
     {
-      "sourceId": 2,
+      "sourceId": 12,
       "student": "student06",
       "code": "#include \u003ciostream\u003e\n#include \u003cunordered_map\u003e\nusing namespace std;\n\nint main() {\n    int n, goal;\n    if (!(cin \u003e\u003e n \u003e\u003e goal)) return 0;\n    unordered_map\u003cint, int\u003e lookup;\n    for (int i = 0; i \u003c n; ++i) {\n        int number;\n        cin \u003e\u003e number;\n        auto found = lookup.find(goal - number);\n        if (found != lookup.end()) {\n            cout \u003c\u003c found-\u003esecond \u003c\u003c ' ' \u003c\u003c i \u003c\u003c '\\n';\n            return 0;\n        }\n        lookup[number] = i;\n    }\n    cout \u003c\u003c -1 \u003c\u003c ' ' \u003c\u003c -1 \u003c\u003c '\\n';\n}\n",
-      "submittedAt": "2026-10-18T12:02:07.102Z",
+      "submittedAt": "2026-10-24T10:08:17.452Z",
       "evaluation": {
         "model": "deepseek-v4-flash",
-        "total": 98,
+        "total": 96,
         "issues": [
           "循环内 cin \u003e\u003e number 未检查读入是否成功，输入不足时会使用未初始化值（题目保证输入完整，影响有限）",
           "未校验 n 范围（题目已保证 1 ≤ n ≤ 10000，影响很小）",
@@ -1132,42 +1132,35 @@
             "evidence": "auto found = lookup.find(goal - number); if (found != lookup.end()) { cout \u003c\u003c found-\u003esecond \u003c\u003c ' ' \u003c\u003c i; return 0; }",
             "location": "main 循环内",
             "severity": "info",
-            "explanation": "先查补数后存当前值，保证两个下标不同，且因按 i 递增扫描、map 保存最近下标，满足题目下标选择规则"
+            "explanation": "先查补数后存当前下标，保证两个下标不同，且按右下标递增顺序首次命中即为题目要求的答案"
           },
           {
             "category": "robustness",
-            "evidence": "if (!(cin \u003e\u003e n \u003e\u003e goal)) return 0;",
-            "location": "main 开头",
+            "evidence": "lookup[number] = i;",
+            "location": "lookup[number] = i;",
             "severity": "info",
-            "explanation": "对输入失败做了保护，避免未初始化读取；但未校验 n 范围，题目已保证 1 ≤ n ≤ 10000"
+            "explanation": "重复值会覆盖为最近下标，满足同一右下标选择最近左下标的要求；负数与零作为键在 unordered_map 中可正常处理"
+          },
+          {
+            "category": "efficiency",
+            "evidence": "unordered_map\u003cint, int\u003e lookup; 单层 for 循环",
+            "location": "main",
+            "severity": "info",
+            "explanation": "平均 O(n) 时间、O(n) 空间，符合题目尽量 O(n) 的要求"
           },
           {
             "category": "robustness",
             "evidence": "int number; cin \u003e\u003e number;",
-            "location": "main 循环内",
+            "location": "cin \u003e\u003e number;",
             "severity": "low",
-            "explanation": "循环内未检查每次读入是否成功，若输入不足会使用未初始化值；题目保证输入完整，影响有限"
-          },
-          {
-            "category": "efficiency",
-            "evidence": "unordered_map\u003cint, int\u003e lookup; lookup.find(...); lookup[number] = i;",
-            "location": "main",
-            "severity": "info",
-            "explanation": "平均 O(n) 时间、O(n) 空间，符合知识库推荐做法；最坏情况哈希退化未处理，但属常见可接受范围"
+            "explanation": "未检查读入是否成功，若输入不足 n 个整数，number 可能保持未初始化或旧值参与查找；题目保证输入合法，影响有限"
           },
           {
             "category": "maintainability",
             "evidence": "#include \u003ciostream\u003e #include \u003cunordered_map\u003e using namespace std;",
             "location": "文件头",
             "severity": "info",
-            "explanation": "包含必要头文件，结构简洁；使用 using namespace std 在小型作业中可接受，但大型项目不推荐"
-          },
-          {
-            "category": "syntax",
-            "evidence": "static_evidence 中 syntaxValid=false 且 syntaxErrors 为空",
-            "location": "整体",
-            "severity": "info",
-            "explanation": "静态扫描未完成语法校验，无法据此确认语法正确性，需人工或编译确认"
+            "explanation": "仅包含必要头文件，结构简洁；但无注释说明先查后存的意图，可读性依赖读者自行推断"
           }
         ],
         "maxTotal": 100,
@@ -1185,7 +1178,7 @@
               "passed": true,
               "exitCode": 0,
               "expected": "0 1\n",
-              "durationMs": 11
+              "durationMs": 1
             },
             {
               "name": "重复元素",
@@ -1223,7 +1216,7 @@
               "hidden": true,
               "passed": true,
               "exitCode": 0,
-              "durationMs": 1
+              "durationMs": 26
             }
           ],
           "language": "C++",
@@ -1232,13 +1225,13 @@
           "passedWeight": 14
         },
         "strengths": [
-          "使用 unordered_map 实现平均 O(n) 查找，符合效率要求",
-          "先 find 补数再保存当前值，避免复用同一下标",
-          "按 i 递增扫描并保存最近下标，满足右下标递增与最近左下标规则",
-          "无解输出 -1 -1，无多余提示输出",
-          "沙箱编译通过且 6/6 用例全部通过，含全部隐藏用例"
+          "使用 unordered_map 先查找 goal - number 再保存当前值，避免复用同一下标，符合知识库建议",
+          "找到匹配后立即输出 found-\u003esecond 与 i 并 return，保证右下标递增且同一右下标取最近左下标",
+          "无解时输出 -1 -1，格式与题目要求一致",
+          "变量命名 goal、lookup、found 语义清晰，无多余提示输出",
+          "沙箱编译通过，6/6 用例全部通过，含重复元素、负数与零、无解、禁止复用同一下标、选择最近左下标等隐藏用例"
         ],
-        "confidence": 0.9375,
+        "confidence": 0.9125,
         "dimensions": [
           {
             "key": "correctness",
@@ -1250,53 +1243,53 @@
             "verified": true,
             "criterion": "通过公开与隐藏用例，遵循输出下标顺序与无解格式",
             "confidence": 1,
-            "suggestion": "保持现有逻辑；可补充更多随机对拍验证",
+            "suggestion": "保持先查后存逻辑；可补充对输入读取失败的防御以应对异常输入",
             "evidenceType": "execution"
           },
           {
             "key": "quality",
             "name": "鲁棒性",
-            "score": 20,
-            "evidence": "先查补数后存当前值避免复用同一下标；重复值覆盖保存最近下标；正确处理负数、零、无解；隐藏用例全部通过",
+            "score": 19,
+            "evidence": "先查补数后存当前值，重复值覆盖为最近下标，负数与零作为键正常处理；仅循环内 cin \u003e\u003e number 未检查读入成功，题目保证输入完整影响有限",
             "maxScore": 20,
             "unscored": false,
             "verified": true,
             "criterion": "正确处理重复值、负数、零和最小输入，不复用同一下标",
-            "confidence": 0.95,
-            "suggestion": "循环内增加读入成功检查以进一步提升鲁棒性",
+            "confidence": 0.9,
+            "suggestion": "在循环内加入 if (!(cin \u003e\u003e number)) break; 增强对不完整输入的鲁棒性",
             "evidenceType": "execution"
           },
           {
             "key": "criterion_1792252114691",
             "name": "代码质量",
-            "score": 18,
-            "evidence": "命名 goal、lookup、number、found 语义清晰，结构简洁，无多余输出；但注释很少，且使用 using namespace std",
+            "score": 17,
+            "evidence": "命名 goal、lookup、found 语义清晰，结构简洁，仅包含必要头文件，无多余输出；但几乎无注释说明先查后存意图，且使用 using namespace std",
             "maxScore": 20,
             "unscored": false,
             "verified": false,
             "criterion": "命名清晰、结构合理、注释准确、无多余输出",
             "confidence": 0.85,
-            "suggestion": "为关键逻辑添加简短注释，考虑显式 std:: 前缀",
+            "suggestion": "为关键逻辑添加简短注释，并考虑显式 std:: 前缀避免命名空间污染",
             "evidenceType": "static"
           },
           {
             "key": "criterion_1792252114957",
             "name": "算法效率",
             "score": 15,
-            "evidence": "unordered_map 边读边查，平均 O(n) 时间、O(n) 空间，符合知识库推荐的最优做法",
+            "evidence": "使用 unordered_map 单层循环，平均 O(n) 时间、O(n) 空间，符合题目尽量 O(n) 的要求",
             "maxScore": 15,
             "unscored": false,
             "verified": true,
             "criterion": "平均 O(n) 为优；O(n log n) 次之；O(n²) 酌情扣分",
-            "confidence": 0.95,
-            "suggestion": "如需进一步稳健可 reserve 预分配桶数，避免极端哈希退化",
+            "confidence": 0.9,
+            "suggestion": "如需处理极端哈希退化，可考虑 reserve 预分配桶数",
             "evidenceType": "execution"
           }
         ],
-        "durationMs": 9332,
+        "durationMs": 8772,
         "incomplete": false,
         "modelCalls": 2,
-        "reviewedAt": "2026-10-18T12:02:17.192943+08:00",
+        "reviewedAt": "2026-10-24T18:08:27.044374+08:00",
         "evidenceType": "execution_static_and_llm",
         "improvements": [
           "可在循环内加入 if (!(cin \u003e\u003e number)) break; 以增强对不完整输入的鲁棒性",

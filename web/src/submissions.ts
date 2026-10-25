@@ -1,5 +1,29 @@
 import type { Submission } from "./types";
 
+export function visibleSubmissions(
+  submissions: Submission[],
+  teacher: boolean,
+) {
+  return teacher
+    ? latestSubmissions(submissions)
+    : [...submissions].sort(compareSubmissionRecency);
+}
+
+// Number attempts within each student's assignment before any list filters.
+export function submissionAttempts(submissions: Submission[]) {
+  const counts = new Map<string, number>();
+  const attempts = new Map<string, number>();
+  for (const submission of [...submissions]
+    .sort(compareSubmissionRecency)
+    .reverse()) {
+    const key = JSON.stringify([submission.assignmentId, submission.studentId]);
+    const attempt = (counts.get(key) ?? 0) + 1;
+    counts.set(key, attempt);
+    attempts.set(submission.id, attempt);
+  }
+  return attempts;
+}
+
 // Select before applying filters so an older attempt never replaces the latest.
 export function latestSubmissions(submissions: Submission[]): Submission[] {
   const latest = new Map<string, Submission>();
