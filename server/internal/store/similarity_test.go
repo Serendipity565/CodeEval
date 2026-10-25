@@ -21,15 +21,18 @@ func TestSimilarityOwnershipIsCheckedBeforeSourceRead(t *testing.T) {
 	}
 }
 func TestSimilaritySelectsLatestOrExplicitSubmissions(t *testing.T) {
-	for _, batch := range []bool{true, false} {
-		t.Run(map[bool]string{true: "latest", false: "pair"}[batch], func(t *testing.T) {
+	for _, selection := range []string{"latest", "pair", "single_ai_detection"} {
+		t.Run(selection, func(t *testing.T) {
 			contains := []string{"FROM `submission_records`", "assignment_id = ?", "LIMIT ?"}
 			var ids []string
-			if batch {
+			if selection == "latest" {
 				contains = append(contains, "NOT EXISTS", "newer.student_id = submission_records.student_id", "newer.submitted_at > submission_records.submitted_at", "newer.id > submission_records.id")
-			} else {
+			} else if selection == "pair" {
 				contains = append(contains, "id IN (?,?)")
 				ids = []string{"7", "8"}
+			} else {
+				contains = append(contains, "id IN (?)")
+				ids = []string{"7"}
 			}
 			store := assessmentTestStore(t, []assessmentStep{
 				{kind: "query", contains: []string{"id = ? AND teacher_id = ?"}, columns: []string{"id"}, rows: [][]driver.Value{{int64(2)}}},

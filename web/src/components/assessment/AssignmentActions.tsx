@@ -26,10 +26,10 @@ export default function AssignmentActions({
           <button
             type="button"
             onClick={similarity}
-            title="比对提交中的相似代码片段"
+            title="比对代码相似片段，识别 AI 生成倾向"
           >
             <Icon name="code" />
-            <span>代码查重</span>
+            <span>代码检测</span>
           </button>
         </>
       )}

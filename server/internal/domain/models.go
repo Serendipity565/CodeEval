@@ -54,10 +54,12 @@ type CourseStudent struct {
 	EnrolledAt time.Time `json:"enrolledAt"`
 }
 type AssignmentStudent struct {
-	ID           string     `json:"id"`
-	Name         string     `json:"name"`
-	SubmissionID string     `json:"submissionId,omitempty"`
-	SubmittedAt  *time.Time `json:"submittedAt,omitempty"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Username        string     `json:"username"`
+	SubmissionCount int64      `json:"submissionCount"`
+	SubmissionID    string     `json:"submissionId,omitempty"`
+	SubmittedAt     *time.Time `json:"submittedAt,omitempty"`
 }
 type Assignment struct {
 	CourseID          string   `json:"courseId"`

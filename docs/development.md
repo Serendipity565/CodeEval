@@ -28,7 +28,7 @@ Vite 默认地址为 `http://localhost:5173`，并把 `/api` 代理到 `http://l
 | `sandbox.enabled`、`runner_url`、`runner_token` | 沙箱开关、Runner 地址及内部鉴权 |
 | `sandbox.supported_languages` | 教师可选的作业语言 |
 | `sandbox.max_concurrent_sandboxes` | API Worker 并发数，目前允许 1 或 2 |
-| `deepseek.*` | AI 用例生成及启用大模型评估的作业所用配置 |
+| `deepseek.*` | AI 用例生成、代码 AI 生成识别及启用大模型评估的作业所用配置 |
 
 不启用 AI 评分的作业使用本地规则评估；教师使用“AI 生成用例”或为作业启用大模型评估时，需要可用的 DeepSeek API Key。AI 生成的用例是可编辑草稿，教师保存后才用于提交测试。
 

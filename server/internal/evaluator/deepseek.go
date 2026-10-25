@@ -53,6 +53,12 @@ type chatResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// ModelOutputError distinguishes an invalid model response from service errors.
+type ModelOutputError struct{ Err error }
+
+func (e *ModelOutputError) Error() string { return e.Err.Error() }
+func (e *ModelOutputError) Unwrap() error { return e.Err }
+
 type codeAnalysis struct {
 	Summary     string                   `json:"summary"`
 	Strengths   []string                 `json:"strengths"`
@@ -209,6 +215,7 @@ func (c *DeepSeekClient) completeValidated(ctx context.Context, system, input st
 			if err == nil {
 				return attempt, nil
 			}
+			err = &ModelOutputError{Err: err}
 			retry = true
 		}
 		lastErr = err

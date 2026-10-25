@@ -22,6 +22,51 @@
   color: var(--color-text);
   font-size: var(--sim-body);
 }
+.code-detection-tools {
+  display: flex;
+  justify-self: start;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+.code-detection-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: 500 var(--sim-body) var(--font-sans);
+  cursor: pointer;
+}
+.code-detection-tools button[aria-pressed="true"] {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-brand);
+}
+@media (max-width: 767px) {
+  .similarity-heading {
+    flex-wrap: wrap;
+  }
+  .similarity-heading > .submission-action {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .code-detection-tools button {
+    flex: 1;
+    padding-inline: var(--space-2);
+  }
+  .code-detection-tools {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
 .similarity-page > .back {
   justify-self: start;
   margin-bottom: calc(-1 * var(--space-4));

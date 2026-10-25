@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test:similarity": "node --test scripts/similarity-report.test.cjs",
+    "test:ai-detection": "node --test scripts/ai-detection-report.test.cjs",
     "test:submissions": "node --test scripts/submissions.test.cjs"
   },
   "dependencies": {

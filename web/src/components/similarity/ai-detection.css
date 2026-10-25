@@ -1,0 +1,562 @@
+.ai-detection-workspace {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.similarity-page .ai-detection-settings.is-collapsed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-sm);
+}
+.ai-detection-settings.is-collapsed .similarity-settings-toggle {
+  padding: 0;
+  margin: 0;
+  min-height: var(--control-height-touch);
+  font-family: var(--font-sans);
+  gap: var(--space-4);
+}
+.ai-detection-settings .similarity-run-note {
+  margin: var(--space-3) 0 0;
+}
+.ai-detection-actions,
+.ai-detection-export,
+.ai-overview-heading,
+.ai-results-heading,
+.ai-results-toolbar,
+.ai-results-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.ai-detection-actions {
+  justify-content: flex-start;
+}
+.ai-overview-heading,
+.ai-results-heading,
+.ai-results-toolbar {
+  justify-content: space-between;
+}
+.ai-detection-export button,
+.ai-detection-actions button {
+  min-height: var(--control-height-touch);
+}
+.ai-detection-export button:disabled,
+.ai-category:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ai-detection-export .ai-export-main {
+  color: var(--color-text-inverse);
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+}
+.ai-detection-export .ai-export-main:hover:not(:disabled) {
+  background: var(--color-brand-hover);
+}
+.ai-overview-title {
+  display: grid;
+  gap: var(--space-2);
+}
+.ai-overview-title time,
+.ai-results-heading > span,
+.ai-results-heading h3 small,
+.ai-detection-filter-count {
+  font: var(--font-size-small)/1.5 var(--font-sans);
+  color: var(--color-text-secondary);
+}
+.ai-report-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-subheading);
+  font-weight: 600;
+}
+.ai-report-status > svg {
+  padding: var(--space-1);
+  border-radius: 50%;
+  box-sizing: content-box;
+  width: 16px;
+  height: 16px;
+}
+.ai-report-status.is-complete > svg {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+.ai-report-status.is-partial > svg {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
+.ai-report-status.is-running > svg {
+  color: var(--color-brand);
+  background: var(--color-brand-subtle);
+}
+.ai-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: var(--space-6) 0 var(--space-4);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+.ai-overview-stats > div {
+  padding: 0 var(--space-6);
+  border-left: 1px solid var(--color-border);
+}
+.ai-overview-stats > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.ai-overview-stats dt {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+.ai-overview-stats dd {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text);
+  font-size: var(--font-size-page);
+  line-height: 1.3;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ai-overview-stats dd small {
+  font-size: var(--font-size-small);
+  font-weight: 400;
+  margin-left: var(--space-2);
+  color: var(--color-text-secondary);
+}
+.ai-reading-note summary,
+.ai-reading-note-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+.ai-reading-note summary {
+  cursor: pointer;
+  list-style: none;
+  width: fit-content;
+  min-height: var(--control-height-touch);
+}
+.ai-reading-note summary::-webkit-details-marker,
+.ai-classification-help summary::-webkit-details-marker {
+  display: none;
+}
+.ai-reading-note summary > svg {
+  width: 16px;
+  height: 16px;
+}
+.ai-reading-note[open] summary > svg:last-child {
+  transform: rotate(90deg);
+}
+.ai-reading-note p {
+  max-width: 80ch;
+  padding: var(--space-3) 0;
+  font-size: var(--font-size-body);
+}
+.ai-overview-progress {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-small);
+}
+.ai-results-heading {
+  margin-bottom: var(--space-4);
+}
+.ai-results-heading h3 small {
+  font-weight: 400;
+}
+.ai-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.ai-category {
+  --ai-category-color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height-touch);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: 500 var(--font-size-small) var(--font-sans);
+  cursor: pointer;
+}
+.ai-category-all {
+  --ai-category-color: var(--color-brand);
+}
+.ai-category-moderate,
+.ai-category-suspected {
+  --ai-category-color: var(--color-warning);
+}
+.ai-category-high {
+  --ai-category-color: var(--color-danger);
+}
+.ai-category-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ai-category-color);
+}
+.ai-category b {
+  padding-left: var(--space-1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ai-category[aria-pressed="true"] {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: var(--color-brand-subtle);
+}
+.ai-category:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+.ai-results-toolbar {
+  margin: var(--space-3) 0 var(--space-4);
+  align-items: flex-start;
+}
+.ai-results-toolbar:has(.ai-classification-help[open]) .ai-results-tools {
+  flex-basis: 100%;
+}
+.ai-detection-filter-count {
+  padding-top: var(--space-3);
+}
+.ai-results-tools {
+  flex: 1;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+.ai-results-tools label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+.ai-results-tools select {
+  min-height: var(--control-height-touch);
+}
+.ai-classification-help summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-height-touch);
+  font-size: var(--font-size-small);
+  list-style: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+.ai-classification-help summary > svg {
+  width: 16px;
+  height: 16px;
+}
+.ai-classification-help[open] {
+  flex-basis: 100%;
+  order: 1;
+}
+.ai-classification-help[open] summary {
+  justify-content: flex-end;
+}
+.ai-classification-help[open] summary > svg {
+  transform: rotate(90deg);
+}
+.ai-classification-help > div {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  font-size: var(--font-size-small);
+}
+.ai-classification-help > div > p {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.similarity-page .ai-detection-table {
+  table-layout: fixed;
+}
+.similarity-page .ai-detection-table th:nth-child(1) {
+  width: 22%;
+}
+.similarity-page .ai-detection-table th:nth-child(2) {
+  width: 25%;
+}
+.similarity-page .ai-detection-table th:last-child {
+  width: 112px;
+}
+.similarity-page .ai-detection-table :is(th, td) {
+  padding: var(--space-4);
+}
+.similarity-page .ai-detection-table th {
+  font-family: var(--font-sans);
+  background: var(--color-surface-subtle);
+}
+.similarity-page
+  .assessment-table.ai-detection-table
+  :is(th, td):nth-child(3):not(:last-child) {
+  text-align: left;
+}
+.ai-student {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.ai-student-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--space-10);
+  height: var(--space-10);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-subtle);
+  color: var(--color-brand);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+.ai-student > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.ai-student b {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ai-student small {
+  font: var(--font-size-small) var(--font-sans);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.ai-detection-rate {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ai-detection-rate .similarity-percentage {
+  font: 600 var(--font-size-heading)/1.2 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.ai-rate-meter {
+  display: block;
+  width: 128px;
+  max-width: 100%;
+  height: 3px;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-sm);
+  margin: var(--space-2) 0;
+  overflow: hidden;
+}
+.ai-rate-meter i {
+  display: block;
+  height: 100%;
+  background: var(--color-text-tertiary);
+  border-radius: inherit;
+}
+.ai-rate-meter.tone-moderate i,
+.ai-rate-meter.tone-suspected i {
+  background: var(--color-warning);
+}
+.ai-rate-meter.tone-high i {
+  background: var(--color-danger);
+}
+.similarity-page .ai-detection-table td:nth-child(2) > small {
+  display: block;
+  color: var(--color-text-secondary);
+  font: var(--font-size-small) var(--font-sans);
+  margin-top: var(--space-2);
+}
+.similarity-page .ai-detection-table td.ai-detection-summary {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ai-detection-summary > p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ai-detection-summary > small {
+  display: block;
+  font: var(--font-size-small) var(--font-sans);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+}
+.similarity-page .ai-result-row.state-error td.ai-detection-summary p {
+  color: var(--color-danger);
+}
+.similarity-page .ai-detection-table .text-action {
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+.ai-detection-detail {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  line-height: 1.7;
+}
+.ai-detection-detail :is(p, h3, ul) {
+  margin: 0;
+}
+.ai-detection-detail h3 {
+  font-size: var(--font-size-subheading);
+}
+.ai-detection-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+.ai-detection-score strong {
+  font: 600 var(--font-size-page) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.ai-detection-score > span:not(.similarity-risk) {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+.ai-detection-evidence {
+  min-width: 0;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-5);
+}
+.ai-detection-evidence pre {
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--code-bg);
+  color: var(--code-fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: var(--font-size-body)/1.7 var(--font-mono);
+}
+.ai-detection-evidence code {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+@media (max-width: 767px) {
+  .similarity-page .ai-detection-settings.is-collapsed {
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
+    gap: var(--space-2);
+  }
+  .ai-detection-settings.is-collapsed .ai-detection-actions {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-3);
+  }
+  .ai-detection-actions {
+    width: 100%;
+  }
+  .ai-detection-actions > button {
+    flex: 1;
+  }
+  .ai-overview-heading {
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+  .ai-overview-heading .ai-detection-export {
+    width: 100%;
+  }
+  .ai-overview-heading .ai-detection-export button {
+    flex: 1;
+    padding-inline: var(--space-2);
+    font-size: var(--font-size-small);
+    white-space: nowrap;
+  }
+  .ai-overview-stats > div {
+    padding: 0 var(--space-3);
+  }
+  .ai-overview-stats dd {
+    font-size: var(--font-size-metric);
+  }
+  .ai-reading-note summary > span {
+    flex: 1;
+  }
+  .ai-category-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ai-category {
+    min-width: 0;
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+  .ai-category b {
+    margin-left: auto;
+  }
+  .ai-results-heading {
+    align-items: baseline;
+  }
+  .ai-results-heading > span {
+    width: 100%;
+  }
+  .ai-results-toolbar {
+    gap: var(--space-2);
+  }
+  .ai-results-tools {
+    gap: var(--space-2);
+  }
+  .ai-results-tools label {
+    font-size: 0;
+  }
+  .ai-results-tools select {
+    max-width: 140px;
+    font-size: var(--font-size-small);
+  }
+  .similarity-page .ai-detection-table tr {
+    padding: var(--space-4) 0;
+    gap: var(--space-3);
+  }
+  .similarity-page .ai-detection-table td {
+    padding: 0;
+    min-width: 0;
+  }
+  .ai-detection-table td:nth-child(1)::before,
+  .ai-detection-table td:nth-child(2)::before {
+    display: none !important;
+  }
+  .ai-student {
+    gap: var(--space-2);
+    align-items: flex-start;
+  }
+  .ai-student-avatar {
+    width: var(--space-8);
+    height: var(--space-8);
+  }
+  .ai-detection-rate .similarity-percentage {
+    font-size: var(--font-size-subheading);
+  }
+  .ai-detection-rate {
+    gap: var(--space-2);
+  }
+  .ai-detection-table :is(td.ai-detection-summary, td:last-child) {
+    grid-column: 1/-1;
+  }
+  .similarity-page .ai-detection-table td.ai-detection-summary::before {
+    display: none;
+  }
+  .similarity-page .ai-detection-table td:last-child {
+    justify-self: end;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-detection-workspace * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

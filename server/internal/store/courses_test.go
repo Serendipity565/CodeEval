@@ -87,7 +87,23 @@ func TestRosterUsesLatestSubmissionAndIncludesNonSubmitters(t *testing.T) {
 	now := time.Now().Truncate(time.Second)
 	s := assessmentTestStore(t, []assessmentStep{
 		{kind: "query", contains: []string{"FROM `assignment_records`", "id = ? AND teacher_id = ?"}, columns: []string{"id", "course_id"}, rows: [][]driver.Value{{int64(8), int64(9)}}},
-		{kind: "query", contains: []string{"LEFT JOIN submission_records", "latest.assignment_id=? AND latest.student_id=e.student_id", "ORDER BY latest.submitted_at DESC, latest.id DESC LIMIT 1", "e.course_id = ?"}, columns: []string{"id", "name", "submission_id", "submitted_at"}, rows: [][]driver.Value{{int64(3), "学生甲", "12", now}, {int64(4), "学生乙", "", nil}}},
+		{
+			kind: "query",
+			contains: []string{
+				"u.username", "COALESCE(totals.submission_count, 0)",
+				"LEFT JOIN submission_records", "latest.assignment_id=? AND latest.student_id=e.student_id",
+				"ORDER BY latest.submitted_at DESC, latest.id DESC LIMIT 1",
+				"COUNT(*) AS submission_count FROM submission_records WHERE assignment_id=? GROUP BY student_id",
+				"totals.student_id=e.student_id", "e.course_id = ?",
+			},
+			columns: []string{"id", "name", "username", "submission_count", "submission_id", "submitted_at"},
+			rows:    [][]driver.Value{{int64(3), "学生甲", "student_a", int64(3), "12", now}, {int64(4), "学生乙", "student_b", int64(0), "", nil}},
+			check: func(args []driver.NamedValue) {
+				if len(args) != 3 || args[0].Value != int64(8) || args[1].Value != int64(8) || args[2].Value != int64(9) {
+					t.Fatalf("roster must scope latest submission and counts to the assignment and students to the course: %+v", args)
+				}
+			},
+		},
 	})
 	rows, err := s.AssignmentStudents(8, 7)
 	if err != nil {
@@ -95,6 +111,9 @@ func TestRosterUsesLatestSubmissionAndIncludesNonSubmitters(t *testing.T) {
 	}
 	if len(rows) != 2 || rows[0].SubmissionID != "12" || rows[0].SubmittedAt == nil || rows[1].SubmissionID != "" || rows[1].SubmittedAt != nil {
 		t.Fatalf("incorrect roster: %+v", rows)
+	}
+	if rows[0].Username != "student_a" || rows[0].SubmissionCount != 3 || rows[1].Username != "student_b" || rows[1].SubmissionCount != 0 {
+		t.Fatalf("incorrect student identity or submission counts: %+v", rows)
 	}
 }
 func TestLegacyMigrationPreservesAssignmentsAndEnrollsSubmitters(t *testing.T) {

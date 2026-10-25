@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Assignment, AssignmentStudent } from "../../types";
 import { apiRequest } from "../../api/client";
-import { Empty, Title } from "../ui";
+import { Empty, Icon, Title } from "../ui";
 
 export function SubmissionMetrics({
   assignment: a,
@@ -103,7 +103,7 @@ export default function AssignmentProgress({
       <p className="course-note">
         按当前选课学生统计；每名学生提交多次只计一人。选课后可提交课程已有作业。
       </p>
-      <section className="panel">
+      <section className="panel list-page">
         <Title title="学生提交情况" note="查看所有选课学生及其最近一次提交" />
         <label className="course-filter">
           提交状态
@@ -121,14 +121,51 @@ export default function AssignmentProgress({
             <button onClick={() => setRetry((v) => v + 1)}>重新加载</button>
           </div>
         ) : (
-          <div className="course-roster">
+          <div className="stable course-roster">
+            {shown.length > 0 && (
+              <div className="srow th course-student">
+                <span>学生</span>
+                <span>提交状态</span>
+                <span>最近提交</span>
+                <span>操作</span>
+              </div>
+            )}
             {shown.map((s) => (
-              <div className="course-student" key={s.id}>
-                <b>{s.name}</b>
-                <span>{s.submissionId ? "已提交" : "未提交"}</span>
-                {s.submittedAt && (
-                  <time>{new Date(s.submittedAt).toLocaleString("zh-CN")}</time>
-                )}
+              <div className="srow course-student" key={s.id}>
+                <span className="student course-enrollment-person">
+                  <span className="course-student-avatar" aria-hidden="true">
+                    {s.name.slice(0, 1)}
+                  </span>
+                  <span className="course-student-identity">
+                    <strong title={s.name}>{s.name}</strong>
+                    {s.username && (
+                      <span title={`账号：${s.username}`}>
+                        账号：{s.username}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <div className="course-student-submission">
+                  <span
+                    className={`submission-state submission-state--${s.submissionId ? "submitted" : "pending"}`}
+                  >
+                    <Icon name={s.submissionId ? "check" : "clock"} />
+                    <span>{s.submissionId ? "已提交" : "未提交"}</span>
+                  </span>
+                  <span className="course-student-attempts">
+                    提交 {s.submissionCount ?? "—"} /{" "}
+                    {assignment.maxSubmissions} 次
+                  </span>
+                </div>
+                <div className="course-student-latest">
+                  {s.submittedAt ? (
+                    <time dateTime={s.submittedAt}>
+                      {new Date(s.submittedAt).toLocaleString("zh-CN")}
+                    </time>
+                  ) : (
+                    <span>暂无提交记录</span>
+                  )}
+                </div>
                 {s.submissionId && (
                   <button
                     className="text-action"

@@ -152,7 +152,13 @@ func (s *MySQLStore) AssignmentStudents(assignmentID, teacherID uint) ([]domain.
 		return nil, err
 	}
 	out := make([]domain.AssignmentStudent, 0)
-	err := s.db.Table("enrollment_records e").Select(`u.id, u.display_name AS name, COALESCE(CAST(s.id AS CHAR), '') AS submission_id, s.submitted_at`).Joins("JOIN users u ON u.id=e.student_id").Joins(`LEFT JOIN submission_records s ON s.id=(SELECT latest.id FROM submission_records latest WHERE latest.assignment_id=? AND latest.student_id=e.student_id ORDER BY latest.submitted_at DESC, latest.id DESC LIMIT 1)`, assignmentID).Where("e.course_id = ?", a.CourseID).Order("u.display_name, u.id").Scan(&out).Error
+	err := s.db.Table("enrollment_records e").
+		Select(`u.id, u.display_name AS name, u.username, COALESCE(totals.submission_count, 0) AS submission_count, COALESCE(CAST(s.id AS CHAR), '') AS submission_id, s.submitted_at`).
+		Joins("JOIN users u ON u.id=e.student_id").
+		Joins(`LEFT JOIN submission_records s ON s.id=(SELECT latest.id FROM submission_records latest WHERE latest.assignment_id=? AND latest.student_id=e.student_id ORDER BY latest.submitted_at DESC, latest.id DESC LIMIT 1)`, assignmentID).
+		Joins(`LEFT JOIN (SELECT student_id, COUNT(*) AS submission_count FROM submission_records WHERE assignment_id=? GROUP BY student_id) totals ON totals.student_id=e.student_id`, assignmentID).
+		Where("e.course_id = ?", a.CourseID).
+		Order("u.display_name, u.id").Scan(&out).Error
 	return out, err
 }
 

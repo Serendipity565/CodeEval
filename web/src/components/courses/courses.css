@@ -389,30 +389,41 @@
 .course-filter select {
   width: auto;
 }
-.course-student {
+.course-roster .course-student {
+  grid-template-columns:
+    minmax(0, 1fr) minmax(90px, 0.65fr)
+    minmax(0, 1.35fr) minmax(88px, 0.55fr);
+  padding-inline: var(--space-4);
+}
+.course-student .course-student-identity > span,
+.course-student .course-student-identity > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.course-student-submission {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5em 13em 6em;
-  grid-template-rows: minmax(var(--space-10), auto);
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--color-border);
+  justify-items: start;
+  gap: var(--space-1);
 }
-.course-student b {
-  grid-column: 1;
-  overflow-wrap: anywhere;
-}
-.course-student > span {
-  grid-column: 2;
-}
-.course-student time {
-  grid-column: 3;
+.course-student-attempts {
   color: var(--color-text-secondary);
   font-size: var(--font-size-small);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.course-student-latest {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.course-student-latest time {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 .course-student > .text-action {
   grid-column: 4;
-  justify-self: end;
+  justify-self: start;
   padding-inline: 0;
   white-space: nowrap;
 }
@@ -623,22 +634,31 @@
   font-variant-numeric: tabular-nums;
 }
 @media (max-width: 767px) {
-  .course-student {
-    grid-template-columns: minmax(0, 1fr) 6em;
-    grid-template-rows: auto minmax(var(--control-height-touch), auto);
-    gap: var(--space-2) var(--space-4);
+  .course-student > .course-enrollment-person {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    width: 100%;
   }
-  .course-student > span {
+  .course-student-submission {
+    grid-column: 2;
+    grid-row: 1;
     justify-self: end;
+    justify-items: end;
   }
-  .course-student time {
+  .course-student-latest {
     grid-column: 1;
     grid-row: 2;
+    justify-self: start;
+    font-size: var(--font-size-small);
+    text-align: left;
   }
   .course-student > .text-action {
     grid-column: 2;
     grid-row: 2;
+    justify-self: end;
     min-height: var(--control-height-touch);
+    padding-inline: 0;
   }
   .course-list,
   .course-enrollment-list {

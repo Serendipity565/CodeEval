@@ -31,6 +31,8 @@ export type CourseStudent = {
 export type AssignmentStudent = {
   id: string;
   name: string;
+  username: string;
+  submissionCount: number;
   submissionId?: string;
   submittedAt?: string;
 };
@@ -160,6 +162,23 @@ export type View =
   | "similarity";
 
 export type SimilarityRange = { startLine: number; endLine: number };
+export type AIDetection = {
+  submissionId: string;
+  status: "estimated" | "insufficient_evidence";
+  aiRate: number | null;
+  confidence: number;
+  summary: string;
+  evidence: {
+    startLine: number;
+    endLine: number;
+    quote: string;
+    explanation: string;
+  }[];
+  limitations: string[];
+  model: string;
+  modelCalls: number;
+  generatedAt: string;
+};
 export type SimilarityMatch = {
   a: SimilarityRange;
   b: SimilarityRange;

@@ -77,12 +77,14 @@
   animation: submission-state-turn 2.5s linear infinite;
 }
 
-.submission-state--graded {
+.submission-state--graded,
+.submission-state--submitted {
   color: var(--color-success);
   background: var(--color-success-bg);
 }
 
-.submission-state--needs_review {
+.submission-state--needs_review,
+.submission-state--pending {
   color: var(--color-warning);
   background: var(--color-warning-bg);
 }

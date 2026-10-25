@@ -313,7 +313,7 @@ function Workspace({
                     submissions: "提交记录",
                     publish: "发布作业",
                     edit: "修改作业",
-                    similarity: "代码查重",
+                    similarity: "代码检测",
                   }[view]}
             </h1>
           </span>
@@ -399,11 +399,12 @@ function Workspace({
               <Suspense
                 fallback={
                   <section className="panel" role="status">
-                    正在加载代码查重工作台…
+                    正在加载代码检测工作台…
                   </section>
                 }
               >
                 <CodeSimilarity
+                  key={route.assignmentId}
                   assignment={as.find(
                     (item) => item.id === route.assignmentId,
                   )!}
@@ -414,7 +415,7 @@ function Workspace({
               </Suspense>
             ) : (
               <section className="panel">
-                <Empty text="这项作业不存在或无权查看代码查重。" />
+                <Empty text="这项作业不存在或无权查看代码检测。" />
               </section>
             )
           ) : view === "courses" ? (
