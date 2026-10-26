@@ -13,6 +13,37 @@ import (
 
 const validAIResult = `{"status":"estimated","aiRate":72.5,"confidence":0.6,"summary":"结构有生成倾向，但人工编写同样可能","evidence":[{"startLine":2,"endLine":2,"quote":"print(value)","explanation":"统一的输出路径，也可能是人工实现"}],"limitations":["无法获取实际编写过程"]}`
 
+func TestAIDetectionRepeatedRequestsCallModelIndependently(t *testing.T) {
+	client := NewDeepSeekClient("https://example.invalid/v1", "key", "model", 2, 256)
+	calls := 0
+	var firstMessages []chatMessage
+	client.httpClient.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		var input chatRequest
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			t.Fatal(err)
+		}
+		if len(input.Messages) != 2 || input.Temperature != 0 || input.Thinking["type"] != "disabled" || input.ResponseFormat["type"] != "json_object" {
+			t.Fatalf("unexpected detection request: %+v", input)
+		}
+		if calls == 1 {
+			firstMessages = input.Messages
+			return jsonResponse(validAIResult), nil
+		}
+		if input.Messages[0] != firstMessages[0] || input.Messages[1] != firstMessages[1] {
+			t.Fatal("identical input changed the detection prompt or included a prior result")
+		}
+		return jsonResponse(strings.Replace(validAIResult, "72.5", "35", 1)), nil
+	})
+	service := &Service{deepseek: client, maxCodeBytes: 1000}
+	for i, want := range []float64{72.5, 35} {
+		result, err := service.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
+		if err != nil || result.AIRate == nil || *result.AIRate != want || calls != i+1 || result.ModelCalls != 1 {
+			t.Fatalf("request reused an earlier result: %+v calls=%d err=%v", result, calls, err)
+		}
+	}
+}
+
 func TestAIDetectionReusesConfiguredClientAndAssignmentContext(t *testing.T) {
 	client := NewDeepSeekClient("https://example.invalid/v1", "existing-key", "existing-model", 2, 256)
 	client.httpClient.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -23,7 +54,7 @@ func TestAIDetectionReusesConfiguredClientAndAssignmentContext(t *testing.T) {
 		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
 			t.Fatal(err)
 		}
-		if input.Model != "existing-model" || input.ResponseFormat["type"] != "json_object" {
+		if input.Model != "existing-model" || input.ResponseFormat["type"] != "json_object" || input.Temperature != 0 || input.Thinking["type"] != "disabled" {
 			t.Fatalf("wrong model or format: %+v", input)
 		}
 		var material struct {
