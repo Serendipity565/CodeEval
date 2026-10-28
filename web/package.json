@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:similarity": "node --test scripts/similarity-report.test.cjs",
     "test:ai-detection": "node --test scripts/ai-detection-report.test.cjs",
-    "test:submissions": "node --test scripts/submissions.test.cjs"
+    "test:submissions": "node --test scripts/submissions.test.cjs",
+    "test:calendar": "node --test scripts/calendar.test.cjs"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",

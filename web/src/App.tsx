@@ -26,6 +26,8 @@ import {
   SubmissionStatus,
 } from "./components/ui";
 import Home from "./components/Home";
+import AssignmentCalendar from "./components/AssignmentCalendar";
+import { calendarDateKey } from "./calendar";
 import Dialog from "./components/ui/Dialog";
 import TeacherAssessment, {
   FinalReview,
@@ -148,6 +150,10 @@ function Workspace({
   navigate: (path: string, replace?: boolean) => void;
 }) {
   const route = readWorkspaceRoute(path);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const nextDay = new Date();
+  nextDay.setHours(24, 0, 0, 0);
+  const calendarNow = useDeadlineClock([nextDay.getTime()]);
   const teacher = auth.user.role === "teacher",
     view = route.view,
     [as, setAs] = useState<Assignment[]>([]),
@@ -321,16 +327,24 @@ function Workspace({
                   }[view]}
             </h1>
           </span>
-          <div className="workspace-date">
+          <button
+            type="button"
+            className="workspace-date calendar-trigger"
+            aria-label="查看作业日历"
+            aria-haspopup="dialog"
+            aria-expanded={calendarOpen}
+            title="查看作业日历"
+            onClick={() => setCalendarOpen(true)}
+          >
             <Icon name="calendar" />
-            <time dateTime={new Date().toISOString()}>
-              {new Date().toLocaleDateString("zh-CN", {
+            <time dateTime={calendarDateKey(new Date(calendarNow))}>
+              {new Date(calendarNow).toLocaleDateString("zh-CN", {
                 month: "long",
                 day: "numeric",
                 weekday: "long",
               })}
             </time>
-          </div>
+          </button>
           <div className="header-account">
             <ThemeToggle />
             <span>{auth.user.displayName[0]}</span>
@@ -341,6 +355,22 @@ function Workspace({
             </button>
           </div>
         </header>
+        {calendarOpen && (
+          <AssignmentCalendar
+            assignments={as}
+            submissions={ss}
+            teacher={teacher}
+            studentId={String(auth.user.id)}
+            loading={initialLoading}
+            error={!hasLoaded ? err : undefined}
+            onRetry={() => void load()}
+            onClose={() => setCalendarOpen(false)}
+            openAssignment={(id) => {
+              setCalendarOpen(false);
+              navigate(assignmentPath(id));
+            }}
+          />
+        )}
         {err && (
           <div className="alert workspace-error" role="alert">
             <Icon name="alert" />
