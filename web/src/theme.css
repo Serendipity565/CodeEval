@@ -1,0 +1,332 @@
+/* Appearance lives with global account controls; palettes remain unchanged. */
+:root .theme-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+:root .theme-menu .theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+:root .theme-menu .theme-toggle:hover,
+:root .theme-menu .theme-toggle[aria-expanded="true"] {
+  color: var(--color-brand);
+  background: var(--color-brand-subtle);
+}
+:root .theme-menu button:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+:root .theme-options {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 4px;
+  width: 180px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-popover);
+}
+:root .theme-options > button {
+  display: grid;
+  grid-template-columns: 18px 1fr 14px;
+  align-items: center;
+  justify-items: start;
+  gap: 10px;
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: 400 13px/1.5 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+:root
+  .theme-options
+  > button:is(:hover, :focus-visible, [aria-checked="true"]) {
+  color: var(--color-brand);
+  background: var(--color-brand-subtle);
+}
+:root .theme-check {
+  justify-self: end;
+}
+:root .theme-options > button > span {
+  display: block;
+}
+:root .workspace-utilities {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+:root .workspace-utilities > footer {
+  margin: 0;
+}
+:root .ce-auth-header > .theme-menu {
+  margin-left: auto;
+}
+@media (min-width: 768px) and (max-width: 1100px) {
+  :root .side nav {
+    margin-left: 24px;
+    gap: 4px;
+  }
+  :root .side nav button {
+    padding-inline: 12px;
+    white-space: nowrap;
+  }
+  :root .workspace-utilities {
+    gap: 8px;
+  }
+}
+@media (min-width: 768px) and (max-width: 950px) {
+  :root .workspace-utilities > footer {
+    grid-template-columns: 32px 32px;
+  }
+  :root .workspace-utilities > footer > span {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  :root .workspace-utilities {
+    display: none;
+  }
+  :root .work > header .header-account {
+    grid-template-columns: 44px 27px 27px;
+    gap: 8px;
+  }
+  :root .ce-auth-header {
+    gap: 12px;
+  }
+}
+
+/* Deep blue, violet and teal reproduce the light theme's prism atmosphere. */
+:root[data-theme="dark"] :is(.shell, .ce-auth) {
+  background: var(--color-canvas);
+}
+:root[data-theme="dark"] :is(.shell, .ce-auth)::before {
+  background: var(--gradient-atmosphere);
+}
+:root[data-theme="dark"] .ce-auth-sample::before {
+  background: linear-gradient(115deg, #304b8280, #61467c70 50%, #2a665f70);
+}
+:root[data-theme="dark"]
+  :is(
+    .side,
+    .panel,
+    .recent-section,
+    .metric-strip,
+    .schedule-list,
+    .weekly-activity,
+    .ce-auth-form-wrap
+  ) {
+  background: var(--color-glass);
+  border-color: var(--color-glass-border);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(185 199 236 / 4%);
+}
+:root[data-theme="dark"] .ce-auth-form-wrap {
+  box-shadow: var(--shadow-glass);
+}
+:root[data-theme="dark"] :is(.side footer > i, .header-account > span) {
+  color: var(--color-brand);
+  background: linear-gradient(135deg, #2d3c60, #44345a);
+  border-color: var(--color-border);
+}
+:root[data-theme="dark"] .side nav button.on {
+  color: var(--color-brand);
+}
+:root[data-theme="dark"] :is(.primary, .ce-auth-submit) {
+  border-color: #6976b4;
+}
+:root[data-theme="dark"] .metric {
+  --metric-tint: #2b3653;
+}
+:root[data-theme="dark"] .metric--success {
+  --metric-tint: var(--color-success-bg);
+}
+:root[data-theme="dark"] .metric--warning {
+  --metric-tint: var(--color-warning-bg);
+}
+:root[data-theme="dark"] .metric--neutral {
+  --metric-tint: var(--color-surface-subtle);
+}
+:root[data-theme="dark"] :is(.activity-row, .schedule-item):hover {
+  background: var(--color-surface-subtle);
+}
+:root[data-theme="dark"]
+  :is(
+    .recent-footnote,
+    .table-head,
+    .atable > .table-head,
+    .stable > .table-head,
+    .segmented,
+    .activity-bar-track,
+    .test-results-filters,
+    .test-case-hidden
+  ) {
+  background: var(--color-surface-subtle);
+}
+:root[data-theme="dark"] .activity-bar-track > i {
+  background: linear-gradient(0deg, #405080, #6979af);
+}
+:root[data-theme="dark"] .today .activity-bar-track > i {
+  background: var(--gradient-brand);
+}
+:root[data-theme="dark"] .activity-bar-track:hover > i {
+  background: #8b9bd7;
+}
+:root[data-theme="dark"] .schedule-index {
+  color: var(--color-text-tertiary);
+}
+:root[data-theme="dark"] .deadline-card {
+  color: var(--color-text);
+  background: linear-gradient(125deg, #283654e6, #3b2f4ee6 62%, #44343dd9);
+  border-color: var(--color-border);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(185 199 236 / 4%);
+}
+:root[data-theme="dark"] .deadline-card :is(p, .deadline-date small) {
+  color: var(--color-text-secondary);
+}
+:root[data-theme="dark"] .deadline-card :is(button, .deadline-clear > .icon) {
+  color: #c4b7ec;
+  border-color: var(--color-border);
+}
+:root[data-theme="dark"]
+  :is(.deadline-card-top > span:last-child, .deadline-date em) {
+  color: #c4b7ec;
+  background: rgb(160 143 211 / 12%);
+  border-color: var(--color-border);
+}
+:root[data-theme="dark"]
+  :is(
+    .ce-auth-field > label,
+    .ce-auth-field-label > label,
+    .ce-auth-role-field > legend,
+    .ce-auth-review-note strong
+  ) {
+  color: var(--color-text);
+}
+:root[data-theme="dark"]
+  :is(
+    .ce-auth-capabilities,
+    .ce-auth-footer > span:first-child,
+    .studio-caption,
+    .studio-caption > span:last-child
+  ) {
+  color: var(--color-text-secondary);
+}
+:root[data-theme="dark"]
+  :is(.ce-auth-role-option, .ce-auth-demo-options > button) {
+  color: var(--color-text-secondary);
+  background: var(--color-glass);
+  border-color: var(--color-border);
+}
+:root[data-theme="dark"]
+  :is(
+    .ce-auth-role-option.is-selected,
+    .ce-auth-demo-options > button[aria-pressed="true"]
+  ) {
+  color: var(--color-brand);
+  background: var(--color-brand-subtle);
+  border-color: var(--color-border-strong);
+}
+:root[data-theme="dark"] .ce-auth-note-symbol {
+  background: var(--color-violet-bg);
+  border-color: var(--color-border);
+}
+:root[data-theme="dark"]
+  :is(
+    .assignment-builder .publish .builder-section,
+    .builder-case-card,
+    .builder-secondary,
+    .submission-dialog,
+    .test-case
+  ) {
+  background: var(--color-surface);
+}
+:root[data-theme="dark"]
+  :is(.test-results-filters button[aria-pressed="true"], .segmented button.on) {
+  background: var(--color-surface);
+}
+:root[data-theme="dark"]
+  :is(.test-results-dialog, .similarity-evidence-dialog)
+  .submission-dialog-header {
+  background: linear-gradient(112deg, #283654, #352d47 55%, #253e43);
+}
+:root[data-theme="dark"]
+  :is(
+    .dialog-close,
+    .test-results-dialog .dialog-close,
+    .similarity-evidence-dialog .dialog-close
+  ) {
+  background: var(--color-surface-subtle);
+}
+:root[data-theme="dark"]
+  :is(
+    .report-notice,
+    .builder-test-hint,
+    .builder-generation-error,
+    .review-notice
+  ) {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border-color: var(--color-border);
+}
+:root[data-theme="dark"]
+  :is(
+    .report-notice b,
+    .builder-generation-error a,
+    .review-notice .notice-action,
+    .review-notice .notice-mark
+  ) {
+  color: var(--color-warning);
+}
+:root[data-theme="dark"]
+  :is(.feedback-group.issue, .similarity-risk.risk-high) {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+:root[data-theme="dark"] .feedback-group.improve {
+  background: var(--color-info-bg);
+}
+:root[data-theme="dark"]
+  :is(.similarity-risk.risk-moderate, .similarity-risk.risk-suspected) {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
+:root[data-theme="dark"]
+  :is(.submission-action.review-action, .ai-detection-export .ai-export-main) {
+  color: var(--color-text-inverse);
+  background: var(--gradient-brand);
+  border-color: #6976b4;
+}
+:root[data-theme="dark"]
+  .ce-auth-role-option.is-selected
+  .ce-auth-radio-mark
+  .ce-auth-glyph {
+  color: var(--color-canvas);
+}
+:root[data-theme="dark"] .bar-tooltip {
+  color: var(--color-canvas);
+}

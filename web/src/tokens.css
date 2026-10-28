@@ -90,3 +90,57 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Fields alone use a quiet blue-violet surface; the original palette stays intact. */
+:root {
+  --color-field: #f7f8fc;
+  --color-field-hover: #f1f3fa;
+  --color-field-focus: #fafbff;
+  --color-focus-ring: rgb(79 96 220 / 55%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: #171c28;
+  --color-surface: #202737;
+  --color-surface-subtle: #252e40;
+  --color-text: #e3e7f2;
+  --color-text-secondary: #aab4c8;
+  --color-text-tertiary: #98a4ba;
+  --color-text-inverse: #ffffff;
+  --color-border: rgb(185 199 236 / 12%);
+  --color-border-strong: rgb(185 199 236 / 22%);
+  --color-brand: #a6b4ff;
+  --color-brand-hover: #bac5ff;
+  --color-brand-subtle: #2d3654;
+  --color-accent: #39456b;
+  --color-ink: #d4dcf5;
+  --color-success: #80c8ba;
+  --color-success-bg: #223d3b;
+  --color-warning: #dbba7a;
+  --color-warning-bg: #3d3528;
+  --color-danger: #e2a1ac;
+  --color-danger-bg: #402c38;
+  --color-info: #a1bcf2;
+  --color-info-bg: #293951;
+  --color-violet: #b9a5e6;
+  --color-violet-bg: #352f4b;
+  --color-teal: #80c8ba;
+  --color-teal-bg: #223d3b;
+  --color-peach: #ba8d86;
+  --color-glass: rgb(32 39 55 / 80%);
+  --color-glass-border: rgb(185 199 236 / 10%);
+  --gradient-brand: linear-gradient(115deg, #5369b5, #7961a7);
+  --gradient-atmosphere:
+    radial-gradient(ellipse at 0 8%, #28385fcc, transparent 46%),
+    radial-gradient(ellipse at 100% 18%, #49345899, transparent 46%),
+    radial-gradient(ellipse at 85% 96%, #21464799, transparent 44%);
+  --shadow-glass:
+    0 24px 70px -30px rgb(0 0 0 / 40%), inset 0 1px 0 rgb(185 199 236 / 5%);
+  --shadow-card: 0 8px 30px -16px rgb(0 0 0 / 24%);
+  --shadow-popover: 0 12px 34px rgb(0 0 0 / 30%);
+  --shadow-dialog: 0 20px 54px rgb(0 0 0 / 40%);
+  --color-field: #252e40;
+  --color-field-hover: #293448;
+  --color-field-focus: #2e3950;
+  --color-focus-ring: rgb(166 180 255 / 60%);
+}

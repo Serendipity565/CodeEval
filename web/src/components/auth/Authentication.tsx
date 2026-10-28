@@ -1,3 +1,4 @@
+import ThemeToggle from "../ui/ThemeToggle";
 import { useId, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { login, register } from "../../api/auth";
@@ -32,6 +33,7 @@ export function Authentication({
           <a href="#auth-preview">代码与反馈</a>
           <a href="#auth-access">课程工作台</a>
         </nav>
+        <ThemeToggle />
       </header>
       <div className="ce-auth-layout">
         <AuthStory />

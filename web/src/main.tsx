@@ -14,5 +14,7 @@ import './assessment.css'
 import './evaluation-report.css'
 import './assignment-builder.css'
 import './prism.css'
+import './theme.css'
+import './form-refinement.css'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

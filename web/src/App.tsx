@@ -1,3 +1,4 @@
+import ThemeToggle from "./components/ui/ThemeToggle";
 import TeacherCourse from "./components/courses/TeacherCourse";
 import Courses from "./components/courses/Courses";
 import AssignmentProgress from "./components/courses/AssignmentProgress";
@@ -285,16 +286,19 @@ function Workspace({
             </button>
           ))}
         </nav>
-        <footer>
-          <i>{auth.user.displayName[0]}</i>
-          <span>
-            <b>{auth.user.displayName}</b>
-            <small>{teacher ? "教师账号" : "学生账号"}</small>
-          </span>
-          <button aria-label="退出登录" title="退出登录" onClick={logout}>
-            <Icon name="logout" />
-          </button>
-        </footer>
+        <div className="workspace-utilities">
+          <ThemeToggle />
+          <footer>
+            <i>{auth.user.displayName[0]}</i>
+            <span>
+              <b>{auth.user.displayName}</b>
+              <small>{teacher ? "教师账号" : "学生账号"}</small>
+            </span>
+            <button aria-label="退出登录" title="退出登录" onClick={logout}>
+              <Icon name="logout" />
+            </button>
+          </footer>
+        </div>
       </aside>
       <main className="work">
         <header>
@@ -328,6 +332,7 @@ function Workspace({
             </time>
           </div>
           <div className="header-account">
+            <ThemeToggle />
             <span>{auth.user.displayName[0]}</span>
             <b>{auth.user.displayName}</b>
             <small>{teacher ? "教师" : "学生"}</small>

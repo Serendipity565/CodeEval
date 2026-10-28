@@ -1,0 +1,111 @@
+/* Only editable fields change. Original page colors, typography and motion stay in place. */
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(input, select, textarea):where(
+    :not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+        [type="file"]
+      )
+  ):not(.cm-textfield) {
+  min-height: var(--control-height-touch);
+  border: 0;
+  border-radius: 10px;
+  background-color: var(--color-field);
+  color: var(--color-text);
+  caret-color: var(--color-brand);
+  box-shadow: none;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(input, select, textarea):not(:disabled):not([readonly]):not(
+    .cm-textfield
+  ):hover {
+  background-color: var(--color-field-hover);
+  border-color: transparent;
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(input, select, textarea):not(.cm-textfield):focus {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  background-color: var(--color-field-focus);
+  box-shadow: none;
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(input, textarea)::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 1;
+  font-size: inherit;
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(input, textarea, select):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+:root :is(.shell, .ce-auth, .submission-dialog) :is(input, textarea)[readonly] {
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface-subtle);
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(input, textarea, select)[aria-invalid="true"] {
+  box-shadow: 0 0 0 2px var(--color-danger);
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(input, textarea, select)[aria-invalid="true"]:focus {
+  outline-color: var(--color-danger);
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(
+    input[type="number"],
+    input[inputmode="numeric"],
+    input[type="datetime-local"],
+    input[type="date"]
+  ) {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* Compound search fields keep the icon and editable area on one surface. */
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(.filters > label, .course-search-field) {
+  background: var(--color-field);
+  border: 0;
+  border-radius: 10px;
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(.filters > label, .course-search-field):focus-within {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(.filters > label, .course-search-field)
+  input,
+:root
+  :is(.shell, .ce-auth, .submission-dialog)
+  :is(.filters > label, .course-search-field)
+  input:is(:hover, :focus) {
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+@media (max-width: 767px) {
+  :root
+    :is(.shell, .ce-auth, .submission-dialog)
+    :is(input, select, textarea):not(.cm-textfield) {
+    font-size: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root :is(input, select, textarea):not(.cm-textfield) {
+    transition: none;
+  }
+}
