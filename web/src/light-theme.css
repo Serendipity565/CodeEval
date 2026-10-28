@@ -1,0 +1,157 @@
+/* Porcelain white, refracted blue-violet light. Every rule is light-only. */
+:root:not([data-theme="dark"]) {
+  --color-canvas: #f6f8fc;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f0f3fa;
+  --color-text: #28334c;
+  --color-text-secondary: #58677f;
+  --color-text-tertiary: #606e85;
+  --color-border: rgb(90 111 158 / 10%);
+  --color-border-strong: rgb(90 111 158 / 18%);
+  --color-brand: #5362bf;
+  --color-brand-hover: #4655ac;
+  --color-brand-subtle: #edf0fb;
+  --color-accent: #e4eaf9;
+  --color-ink: #334463;
+  --color-glass: rgb(255 255 255 / 68%);
+  --color-glass-border: rgb(255 255 255 / 86%);
+  --color-field: #f2f5fb;
+  --color-field-hover: #ebf0f9;
+  --color-field-focus: #fafcff;
+  --color-focus-ring: rgb(83 98 191 / 55%);
+  --gradient-brand: linear-gradient(115deg, #5264c6, #7b68b9);
+  --gradient-atmosphere:
+    radial-gradient(ellipse at 0 0, #dce7fae6 0, transparent 54%),
+    radial-gradient(ellipse at 100% 14%, #e7def5cc 0, transparent 52%),
+    radial-gradient(ellipse at 85% 100%, #daefecd9 0, transparent 52%);
+  --shadow-card: 0 12px 32px -24px rgb(64 85 135 / 22%);
+  --shadow-glass:
+    0 24px 64px -32px rgb(64 85 135 / 24%), 0 2px 8px -4px rgb(64 85 135 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 96%);
+  --shadow-popover: 0 16px 40px -12px rgb(49 67 111 / 20%);
+  --shadow-dialog: 0 28px 80px -20px rgb(49 67 111 / 24%);
+}
+:root:not([data-theme="dark"]) :is(.shell, .ce-auth) {
+  background: var(--color-canvas);
+}
+:root:not([data-theme="dark"]) :is(.shell, .ce-auth)::before {
+  background: var(--gradient-atmosphere);
+}
+:root:not([data-theme="dark"]) .side {
+  background: rgb(255 255 255 / 62%);
+  border-bottom-color: rgb(255 255 255 / 78%);
+  box-shadow: 0 8px 28px -24px rgb(64 85 135 / 28%);
+}
+:root:not([data-theme="dark"])
+  :is(
+    .panel,
+    .recent-section,
+    .metric-strip,
+    .schedule-list,
+    .weekly-activity
+  ) {
+  background: var(--color-glass);
+  border-color: var(--color-glass-border);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(255 255 255 / 94%);
+}
+:root:not([data-theme="dark"]) .ce-auth-form-wrap {
+  background: rgb(255 255 255 / 72%);
+  border-color: var(--color-glass-border);
+  box-shadow: var(--shadow-glass);
+}
+:root:not([data-theme="dark"]) .ce-auth-sample::before {
+  background: linear-gradient(115deg, #abc8ee70, #c5b5e870 52%, #b1dcd070);
+  filter: blur(36px);
+}
+:root:not([data-theme="dark"]) :is(.primary, .ce-auth-submit) {
+  background: var(--gradient-brand);
+  border-color: transparent;
+  box-shadow:
+    0 6px 16px -8px rgb(82 100 198 / 42%),
+    inset 0 1px 0 rgb(255 255 255 / 20%);
+}
+:root:not([data-theme="dark"])
+  :is(.primary, .ce-auth-submit):hover:not(:disabled) {
+  background: var(--gradient-brand);
+  box-shadow:
+    0 8px 20px -8px rgb(82 100 198 / 38%),
+    inset 0 1px 0 rgb(255 255 255 / 20%);
+}
+:root:not([data-theme="dark"])
+  :is(.primary, .ce-auth-submit):active:not(:disabled) {
+  box-shadow: 0 3px 10px -6px rgb(82 100 198 / 32%);
+}
+:root:not([data-theme="dark"]) :is(.side footer > i, .header-account > span) {
+  background: linear-gradient(135deg, #e3eafa, #eee6f7);
+  border-color: rgb(255 255 255 / 70%);
+}
+:root:not([data-theme="dark"]) .metric {
+  --metric-tint: var(--color-brand-subtle);
+}
+:root:not([data-theme="dark"]) .metric--success {
+  --metric-tint: var(--color-success-bg);
+}
+:root:not([data-theme="dark"]) .metric--warning {
+  --metric-tint: var(--color-warning-bg);
+}
+:root:not([data-theme="dark"]) .metric--neutral {
+  --metric-tint: var(--color-surface-subtle);
+}
+:root:not([data-theme="dark"]) :is(.activity-row, .schedule-item):hover {
+  background: rgb(235 240 250 / 65%);
+}
+:root:not([data-theme="dark"]) .recent-footnote {
+  background: rgb(238 243 250 / 64%);
+}
+:root:not([data-theme="dark"]) .deadline-card {
+  background: linear-gradient(125deg, #e8eefbe6, #eee8f7e6 56%, #e3f0eee6);
+  border-color: rgb(255 255 255 / 80%);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(255 255 255 / 80%);
+}
+:root:not([data-theme="dark"]) .deadline-date em {
+  background: rgb(255 255 255 / 48%);
+  color: #625b8f;
+}
+:root:not([data-theme="dark"]) .course-list > .course-card {
+  background: rgb(255 255 255 / 72%);
+  border-color: rgb(255 255 255 / 84%);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(255 255 255 / 94%);
+}
+:root:not([data-theme="dark"]) .assignment-builder .publish .builder-section {
+  background: rgb(255 255 255 / 76%);
+  border-color: rgb(255 255 255 / 88%);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(255 255 255 / 94%);
+}
+:root:not([data-theme="dark"]) .builder-case-card {
+  background: rgb(255 255 255 / 80%);
+}
+:root:not([data-theme="dark"])
+  :is(.atable > .table-head, .stable > .table-head, .table-head) {
+  background: rgb(239 243 251 / 76%);
+}
+:root:not([data-theme="dark"]) .theme-options {
+  background: #fcfdff;
+  border-color: rgb(255 255 255 / 90%);
+}
+:root:not([data-theme="dark"]) .submission-dialog {
+  border-color: rgb(255 255 255 / 88%);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  :root:not([data-theme="dark"])
+    :is(.side, .panel, .recent-section, .ce-auth-form-wrap) {
+    background: #fdfdff;
+  }
+}
+/* Detection reports use continuous sections rather than nested floating cards. */
+:root:not([data-theme="dark"]) .similarity-page .panel {
+  background: transparent;
+  box-shadow: none;
+}
