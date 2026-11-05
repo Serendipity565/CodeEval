@@ -31,6 +31,7 @@ type RecordedSeedAssignment struct {
 	Language             string            `json:"language"`
 	Description          string            `json:"description"`
 	ReferenceSolution    string            `json:"referenceSolution"`
+	StarterCode          string            `json:"starterCode,omitempty"`
 	KnowledgeBase        string            `json:"knowledgeBase"`
 	Status               string            `json:"status"`
 	MaxSubmissions       int               `json:"maxSubmissions"`
@@ -63,7 +64,7 @@ func ExportRecordedSeed(db *gorm.DB, assignmentID uint, usernames []string) (Rec
 			return err
 		}
 		snapshot.Users = append(snapshot.Users, RecordedSeedUser{teacher.Username, teacher.DisplayName, teacher.Role})
-		snapshot.Assignment = RecordedSeedAssignment{SourceID: a.ID, Teacher: teacher.Username, Title: a.Title, Language: a.Language, Description: a.Description, ReferenceSolution: a.ReferenceSolution, KnowledgeBase: a.KnowledgeBase, Status: a.Status, MaxSubmissions: a.MaxSubmissions, DueAt: a.DueAt, CreatedAt: a.CreatedAt, Rubric: json.RawMessage(a.RubricJSON), LLMEvaluationEnabled: a.LLMEvaluationEnabled}
+		snapshot.Assignment = RecordedSeedAssignment{SourceID: a.ID, Teacher: teacher.Username, Title: a.Title, Language: a.Language, Description: a.Description, StarterCode: a.StarterCode, ReferenceSolution: a.ReferenceSolution, KnowledgeBase: a.KnowledgeBase, Status: a.Status, MaxSubmissions: a.MaxSubmissions, DueAt: a.DueAt, CreatedAt: a.CreatedAt, Rubric: json.RawMessage(a.RubricJSON), LLMEvaluationEnabled: a.LLMEvaluationEnabled}
 		var tests []TestCaseRecord
 		if err := tx.Where("assignment_id = ?", a.ID).Order("id").Find(&tests).Error; err != nil {
 			return err
@@ -165,7 +166,7 @@ func SeedRecordedData(s *MySQLStore, snapshot RecordedSeed) error {
 			users[item.Username] = user
 		}
 		source := snapshot.Assignment
-		assignment := AssignmentRecord{TeacherID: users[source.Teacher].ID, Title: source.Title, Language: source.Language, Description: source.Description, ReferenceSolution: source.ReferenceSolution, KnowledgeBase: source.KnowledgeBase, Status: source.Status, MaxSubmissions: source.MaxSubmissions, DueAt: source.DueAt, CreatedAt: source.CreatedAt, RubricJSON: []byte(source.Rubric), LLMEvaluationEnabled: source.LLMEvaluationEnabled}
+		assignment := AssignmentRecord{TeacherID: users[source.Teacher].ID, Title: source.Title, Language: source.Language, Description: source.Description, StarterCode: source.StarterCode, ReferenceSolution: source.ReferenceSolution, KnowledgeBase: source.KnowledgeBase, Status: source.Status, MaxSubmissions: source.MaxSubmissions, DueAt: source.DueAt, CreatedAt: source.CreatedAt, RubricJSON: []byte(source.Rubric), LLMEvaluationEnabled: source.LLMEvaluationEnabled}
 		if err := tx.Where("teacher_id = ? AND title = ? AND language = ?", assignment.TeacherID, assignment.Title, assignment.Language).FirstOrCreate(&assignment).Error; err != nil {
 			return err
 		}

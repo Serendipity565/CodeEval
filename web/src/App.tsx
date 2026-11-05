@@ -860,6 +860,7 @@ function StudentAssignments({
           note={`${selected.teacherName || "未命名教师"} · ${selected.language} · 截止 ${fmt(selected.dueAt)}`}
         />
         <StudentSubmit
+          key={selected.id}
           assignments={[selected]}
           openHistory={() => openHistory(selected.id)}
           onSubmissionChange={onSubmissionChange}
@@ -1145,7 +1146,7 @@ function StudentSubmit({
     token = loadAuth()?.token || "",
     [history, setHistory] = useState<Submission[]>([]),
     [code, setCode] = useState(() =>
-      editorTemplate(assignment?.language ?? ""),
+      editorTemplate(assignment?.language ?? "", assignment?.starterCode),
     ),
     [briefOpen, setBriefOpen] = useState(false),
     [msg, setMsg] = useState(""),
@@ -1238,6 +1239,13 @@ function StudentSubmit({
               </div>
             ))}
           </div>
+          {assignment?.starterCode?.trim() && (
+            <details>
+              <summary>代码框架</summary>
+              <p>接口和输入输出框架已载入编辑器，请完成 TODO 中的核心逻辑。</p>
+              <pre>{assignment.starterCode}</pre>
+            </details>
+          )}
           {assignment?.testCases?.length ? (
             <>
               <h4>公开测试用例</h4>
@@ -1457,7 +1465,8 @@ function Detail({
                           {{
                             assignment_instructions: "作业说明",
                             grading_rubric: "评分量规",
-                            reference_solution: "参考实现",
+                            reference_solution: "参考代码",
+                            starter_code: "公开参考框架",
                             course_knowledge_base: "课程知识库",
                             knowledge_base: "课程知识库",
                             test_cases: "测试用例",
@@ -1723,7 +1732,7 @@ function Publish({
   backLabel?: string;
 }) {
   const [materialDialog, setMaterialDialog] = useState<
-    "reference" | "knowledge" | null
+    "starter" | "reference" | "knowledge" | null
   >(null);
   const [materialDraft, setMaterialDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1736,6 +1745,7 @@ function Publish({
     [lang, setLang] = useState("Python"),
     [languages, setLanguages] = useState<string[]>([]),
     [desc, setDesc] = useState(""),
+    [starterCode, setStarterCode] = useState(""),
     [referenceSolution, setReferenceSolution] = useState(""),
     [knowledgeBase, setKnowledgeBase] = useState(""),
     [due, setDue] = useState(""),
@@ -1783,6 +1793,7 @@ function Publish({
         setT(item.title);
         setLang(item.language);
         setDesc(item.description);
+        setStarterCode(item.starterCode || "");
         setReferenceSolution(item.referenceSolution || "");
         setKnowledgeBase(item.knowledgeBase || "");
         const date = new Date(item.dueAt);
@@ -1848,7 +1859,6 @@ function Publish({
             title: t.trim(),
             language: lang,
             description: desc.trim(),
-            referenceSolution,
           }),
         },
       );
@@ -1898,6 +1908,7 @@ function Publish({
             language: lang,
             description: desc.trim(),
             status,
+            starterCode,
             maxSubmissions: max,
             dueAt: new Date(due).toISOString(),
             llmEvaluationEnabled: llm,
@@ -2120,10 +2131,10 @@ function Publish({
                 />
               </label>
               <div className="builder-materials-heading">
-                <span>辅助资料</span>
+                <span>作业资料</span>
                 <small>
                   <Icon name="eyeOff" />
-                  仅教师与评估流程可见
+                  代码框架对学生公开；参考答案和知识库仅教师可见
                 </small>
               </div>
               <div className="builder-materials">
@@ -2131,15 +2142,22 @@ function Publish({
                   [
                     [
                       "reference",
-                      "参考实现",
-                      "提供参考代码，辅助核查解答。",
+                      "参考代码",
+                      "选填的本次作业参考答案，仅教师可见；当前仅保存，不参与自动评估。",
                       referenceSolution,
+                      "code",
+                    ],
+                    [
+                      "starter",
+                      "代码框架",
+                      "学生打开代码编辑器时的默认代码，仅保留接口、TODO 和输入输出入口。",
+                      starterCode,
                       "code",
                     ],
                     [
                       "knowledge",
                       "课程知识库",
-                      "补充知识点、评分边界与常见错误。",
+                      "补充知识点、评分边界与常见错误，仅教师与评估流程可见。",
                       knowledgeBase,
                       "courses",
                     ],
@@ -2151,11 +2169,10 @@ function Publish({
                     </span>
                     <div>
                       <b>{name}</b>
-                      <p>
-                        {value.trim()
-                          ? `已添加 · ${value.split("\n").length} 行`
-                          : note}
-                      </p>
+                      <p>{note}</p>
+                      {value.trim() && (
+                        <small>已添加 · {value.split("\n").length} 行</small>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -2599,22 +2616,35 @@ function Publish({
       </div>
       {materialDialog && (
         <Dialog
-          title={materialDialog === "reference" ? "参考实现" : "课程知识库"}
-          note="仅教师与评估流程可见，学生无法查看。"
-          wide={materialDialog === "reference"}
+          title={
+            materialDialog === "starter"
+              ? "代码框架"
+              : materialDialog === "reference"
+                ? "参考代码"
+                : "课程知识库"
+          }
+          note={
+            materialDialog === "starter"
+              ? "对学生公开；请仅提供接口、TODO 和输入输出入口，不填写关键实现。"
+              : materialDialog === "reference"
+                ? "选填，仅教师可见；当前仅保存，不参与评分、测试生成或 AI 识别。"
+                : "仅教师与评估流程可见，学生无法查看。"
+          }
+          wide={materialDialog !== "knowledge"}
           onClose={() => setMaterialDialog(null)}
         >
           <form
             className="builder-material-editor"
             onSubmit={(event) => {
               event.preventDefault();
-              if (materialDialog === "reference")
+              if (materialDialog === "starter") setStarterCode(materialDraft);
+              else if (materialDialog === "reference")
                 setReferenceSolution(materialDraft);
               else setKnowledgeBase(materialDraft.trim());
               setMaterialDialog(null);
             }}
           >
-            {materialDialog === "reference" ? (
+            {materialDialog !== "knowledge" ? (
               <Suspense
                 fallback={
                   <div className="editor-loading">正在加载代码编辑器…</div>
@@ -2624,7 +2654,11 @@ function Publish({
                   language={lang}
                   value={materialDraft}
                   onChange={setMaterialDraft}
-                  label="参考实现"
+                  label={
+                    materialDialog === "starter"
+                      ? "代码框架"
+                      : "参考代码"
+                  }
                   allowFullscreen={false}
                   height="420px"
                 />

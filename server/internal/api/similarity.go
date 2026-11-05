@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"codeeval/server/internal/domain"
@@ -74,7 +75,18 @@ func (h *Handler) assignmentSimilarity(c *gin.Context) {
 			submissions[0], submissions[1] = submissions[1], submissions[0]
 		}
 	}
-	report, err := domain.BuildSimilarity(ctx, strconv.FormatUint(id, 10), assignment.Language, selection, input.Template, submissions)
+	template := strings.TrimSpace(assignment.StarterCode)
+	if strings.TrimSpace(input.Template) != "" {
+		if template != "" {
+			template += "\n"
+		}
+		template += input.Template
+	}
+	if len(template) > 64000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参考框架与补充公共代码合计最多 64000 字节"})
+		return
+	}
+	report, err := domain.BuildSimilarity(ctx, strconv.FormatUint(id, 10), assignment.Language, selection, template, submissions)
 	if errors.Is(err, domain.ErrSimilarityLimit) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "本次检测超出处理限制，请选择两份提交进行比对"})
 		return

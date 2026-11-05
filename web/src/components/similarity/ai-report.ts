@@ -1,4 +1,4 @@
-import type { AIDetection, Submission } from "../../types";
+import type { AIDetection, AIDimension, Submission } from "../../types";
 
 export type AIDetectionRow = {
   source: Submission;
@@ -33,11 +33,161 @@ export type AIResultFilter =
   "all" | (typeof aiRateBands)[number]["tone"] | "insufficient" | "unfinished";
 export type AIResultSort = "rate_desc" | "rate_asc" | "student";
 export const aiDetectionCaution =
-  "AI 率是模型对代码生成倾向的估计，不是实际 AI 生成代码占比，也不是经过校准的概率。请结合代码、过程记录与学生说明复核，不宜单独用于判定违规或评分。";
+  "AI 率是来源倾向估计；多维度报告由固定规则综合评分，不是实际 AI 生成代码占比或经过校准的概率。权重为实验规则，用于教师复核，不单独判定违规或评分。";
 export const aiRateBandNote =
   "区间仅用于整理复核顺序，不是作者身份判定。低 AI 率不能证明人工编写；证据不足单独标记，不归入低 AI 率。";
 export const aiDetectionMethod =
-  "结合题目要求、参考实现与逐行源码分析 AI 生成倾向。代码引用须与原始源码对应；每份提交独立识别，不根据同学间的相似度推算 AI 率。判断置信度是本次判断的自评，不代表检测准确率。";
+  "分别分析五个维度，服务器校验引用后，将有分析值的维度按基础权重汇总。证据强弱、低分和跨维度引用重叠都不会排除维度；每个维度按其权重参与一次，不因引用条数增加权重。缺少材料或引用无法核验时标为无法判断，不记为零分。各维度使用 0–100% 的生成倾向值，基础权重各为 20%。证据强度单独展示，不改变得分。覆盖率仅表示参与权重比例，不是准确率。同题样本不作为标准答案；历史只使用此前最多三份同学生同作业版本。未被测试覆盖的缺陷仅为静态推测，测试成败不能直接证明来源。旧报告按其记录的规则解释。";
+export const aiLegacyScoringNote =
+  "旧版报告：总分为模型直接估计，未记录多维度评分；重新生成后使用新规则。";
+export function aiScoringVersionNote(result: AIDetection) {
+  if (result.scoringVersion === "dimensions-v7")
+    return (
+      "样本维度由 AI 结合三份样本源码与比对统计评分；没有连续匹配片段也正常评分。词元匹配率与生成倾向值分别展示，匹配率不直接充当维度分数。" +
+      (result.citationVersion === "source-blocks-v1"
+        ? "代码依据通过服务器片段编号定位，原文与行号由服务器提取。"
+        : result.dimensions?.some((d) =>
+              d.reason.includes("模型修正后引用仍未通过源码校验"),
+            )
+          ? "这份旧报告曾因引用定位失败丢失维度；需点击重新生成，使用已修复的片段编号定位。"
+          : "") +
+      (result.recalculatedFromVersion
+        ? "已使用保存的原始分析值重新汇总，未重新调用 AI，原始报告保留；缺失的样本分析值需重新生成。"
+        : "")
+    );
+  if (
+    ["dimensions-v6", "dimensions-v7"].includes(result.scoringVersion ?? "") &&
+    result.recalculatedFromVersion
+  )
+    return "已用保存的原始分析值重新汇总，各维度不再因引用重叠或证据强弱被排除；未重新调用 AI，原始报告保留。缺少样本分析值时需重新生成，由 AI 结合三份源码评分。";
+  if (result.scoringVersion === "dimensions-v1")
+    return "此报告使用三维度旧规则，并按证据强度限制计分；重新检测后使用五维度百分比新规则，强度仅作说明。";
+  if (result.scoringVersion === "dimensions-v2")
+    return "此报告使用旧评分规则，证据强度曾影响出分和分数上限；重新检测后使用 0–100% 百分比量表，强度仅作说明，低分正常参与综合计算。";
+  if (result.scoringVersion === "dimensions-v3")
+    return "此报告使用每维满分 4 分的旧量表；重新检测后使用 0–100% 百分比量表。原分数和综合结果保持不变。";
+  if (result.scoringVersion === "dimensions-v4")
+    return "此报告使用每维满分 10 分的旧量表；重新检测后使用 0–100% 百分比量表。原分数和综合结果保持不变。";
+  if (result.scoringVersion === "dimensions-v5")
+    return "此报告使用旧的跨维度去重规则；新规则保留每个已有分析值的维度，不再因引用重叠排除分数。";
+  if (result.scoringVersion === "dimensions-v6")
+    return "此报告使用旧的样本分析规则；重新生成后，即使没有连续匹配片段也由 AI 分析三份样本并评分。";
+  return "";
+}
+export function aiAnalysisLabel(result: AIDetection) {
+  if (
+    [
+      "dimensions-v3",
+      "dimensions-v4",
+      "dimensions-v5",
+      "dimensions-v6",
+      "dimensions-v7",
+    ].includes(result.scoringVersion ?? "")
+  ) {
+    const dimensions = result.dimensions ?? [];
+    const included = dimensions.filter(
+      (d) => d.included && d.effectiveScore !== null,
+    ).length;
+    return `可用维度 ${included}/${dimensions.length} · 权重覆盖 ${((result.coverage ?? 0) * 100).toFixed(0)}%`;
+  }
+  return result.scoringVersion
+    ? `维度覆盖率 ${((result.coverage ?? 0) * 100).toFixed(0)}%`
+    : `判断置信度 ${(result.confidence * 100).toFixed(0)}%`;
+}
+export function aiDimensionStrengthLabel(strength: AIDimension["strength"]) {
+  return {
+    none: "证据强度：无可用证据",
+    weak: "证据强度：弱",
+    moderate: "证据强度：中等",
+    strong: "证据强度：强",
+  }[strength];
+}
+export function aiSampleAnalysisLabel(result: AIDetection) {
+  const comparison = result.sampleComparison;
+  if (comparison?.status !== "compared") return "本报告未完成样本比对";
+  const count = comparison.samples.length;
+  const matches = comparison.samples.reduce(
+    (sum, sample) => sum + sample.pair.matchedTokens,
+    0,
+  );
+  const dimension = result.dimensions?.find((d) => d.key === "sample_match");
+  if (dimension?.evidenceBasis === "sample_comparison" && dimension.included)
+    return `已比对 ${count} 份样本；最高匹配率 ${Math.max(...comparison.samples.map((sample) => sample.pair.similarity)).toFixed(2)}%；生成倾向由 AI 分析评分，参与综合计算`;
+  if (
+    dimension?.included &&
+    ["dimensions-v6", "dimensions-v7"].includes(result.scoringVersion ?? "")
+  )
+    return `已比对 ${count} 份样本；本维度参与综合计算`;
+  if (matches > 0 && dimension?.status === "assessed" && !dimension.included) {
+    const reason = aiDimensionExclusionReason(dimension, result);
+    if (reason) return `已比对 ${count} 份样本；未计分：${reason}`;
+  }
+  return matches === 0
+    ? `已比对 ${count} 份样本，未找到符合条件的匹配片段`
+    : `已比对 ${count} 份样本，匹配是否计分见具体依据`;
+}
+export function aiDimensionExclusionReason(
+  dimension: AIDimension,
+  result: AIDetection,
+) {
+  if (dimension.included) return "";
+  const normalized = (quote: string) =>
+    quote
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .join("\n");
+  const overlaps = new Set<string>();
+  for (const evidence of dimension.evidence) {
+    if (evidence.counted) continue;
+    for (const owner of result.dimensions ?? []) {
+      if (owner.key === dimension.key || !owner.included) continue;
+      for (const used of owner.evidence) {
+        if (!used.counted) continue;
+        const sameQuote =
+          normalized(evidence.quote) !== "" &&
+          normalized(evidence.quote) === normalized(used.quote);
+        const sameRange =
+          evidence.startLine <= used.endLine &&
+          used.startLine <= evidence.endLine;
+        if (sameQuote || sameRange)
+          overlaps.add(
+            `与「${owner.label}」第 ${used.startLine}${used.endLine === used.startLine ? "" : `–${used.endLine}`} 行${sameQuote ? "引用重复" : "范围重叠"}`,
+          );
+      }
+    }
+  }
+  return overlaps.size
+    ? `${[...overlaps].join("；")}，不重复计入综合结果`
+    : (dimension.exclusionReason ?? "");
+}
+export function aiDimensionMaxScore(
+  result?: Pick<AIDetection, "scoringVersion">,
+) {
+  if (
+    ["dimensions-v5", "dimensions-v6", "dimensions-v7"].includes(
+      result?.scoringVersion ?? "",
+    )
+  )
+    return 100;
+  return result?.scoringVersion === "dimensions-v4" ? 10 : 4;
+}
+export function aiDimensionScoreLabel(
+  dimension: AIDimension,
+  result?: Pick<AIDetection, "scoringVersion">,
+) {
+  return dimension.included && dimension.effectiveScore !== null
+    ? ["dimensions-v5", "dimensions-v6", "dimensions-v7"].includes(
+        result?.scoringVersion ?? "",
+      )
+      ? `${dimension.effectiveScore}%`
+      : `${dimension.effectiveScore} / ${aiDimensionMaxScore(result)}`
+    : ["dimensions-v6", "dimensions-v7"].includes(result?.scoringVersion ?? "")
+      ? "无法判断"
+      : "不计分";
+}
+export const aiLegacyChecksNote =
+  "此报告未记录核验材料；如需纳入运行结果、历史版本与代码框架，请重新生成。";
 export function aiRateBand(result?: AIDetection) {
   if (
     result?.status !== "estimated" ||
@@ -128,6 +278,28 @@ const badgeHTML = (row: AIDetectionRow) => {
 const rateHTML = (row: AIDetectionRow) =>
   row.state === "done" ? formatAIRate(row.result) : "—";
 
+function executionHTML(result: AIDetection) {
+  const execution = result.execution;
+  if (!execution) return "";
+  return `<h3>测试结果快照</h3><p>编译${execution.compileOk ? "通过" : "失败"}；测试通过 ${execution.passed}/${execution.total}。仅包含本次提供给分析的用例详情，长输出可能已截断。</p>${execution.compileError ? `<pre>${escapeHTML(execution.compileError)}</pre>` : ""}${execution.results.map((item, index) => `<article class="evidence"><b>${index + 1}. ${escapeHTML(item.name)} · ${item.passed ? "通过" : "未通过"}</b><p>退出码 ${item.exitCode} · ${item.durationMs} ms</p>${item.hidden ? "<p>隐藏用例，输入与输出不公开。</p>" : `<p>输入</p><pre>${escapeHTML(item.input ?? "")}</pre><p>期望输出</p><pre>${escapeHTML(item.expected ?? "")}</pre><p>实际输出</p><pre>${escapeHTML(item.actual ?? "")}</pre>${item.error ? `<p>运行信息</p><pre>${escapeHTML(item.error)}</pre>` : ""}`}</article>`).join("")}`;
+}
+
+function dimensionsHTML(result: AIDetection) {
+  if (!result.scoringVersion)
+    return `<p class="note">${aiLegacyScoringNote}</p>`;
+  return `${aiScoringVersionNote(result) ? `<p class="note">${escapeHTML(aiScoringVersionNote(result))}</p>` : ""}<h3>多维度分析</h3><p>${aiAnalysisLabel(result)}；覆盖率不是检测准确率。${["dimensions-v5", "dimensions-v6", "dimensions-v7"].includes(result.scoringVersion ?? "") ? "各维度使用 0–100% 的生成倾向值；百分比越高生成倾向越高，0% 须有具体反向依据，无法判断不记为 0%。" : `每维满分 ${aiDimensionMaxScore(result)} 分，分数越高生成倾向越高；0 分须有具体反向依据，无法判断不记零分。`}${["dimensions-v3", "dimensions-v4", "dimensions-v5", "dimensions-v6", "dimensions-v7"].includes(result.scoringVersion ?? "") ? "证据强度由模型单独评估，仅供复核，不改变得分或决定是否出分。" : ""}</p>${(result.dimensions ?? []).map((d) => `<article class="evidence"><h4>${escapeHTML(d.label)} · ${aiDimensionScoreLabel(d, result)} · 基础权重 ${d.weight}%</h4><p>${aiDimensionStrengthLabel(d.strength)}${d.score !== null && d.score !== d.effectiveScore ? `；${["dimensions-v5", "dimensions-v6", "dimensions-v7"].includes(result.scoringVersion ?? "") ? `分析原始值 ${d.score}%` : `分析原始分 ${d.score}/${aiDimensionMaxScore(result)}`}` : ""}</p><p>${escapeHTML(d.reason)}</p>${d.key === "sample_match" ? `<p>${escapeHTML(aiSampleAnalysisLabel(result))}</p>` : ""}${d.alternative ? `<p>反向解释：${escapeHTML(d.alternative)}</p>` : ""}${d.exclusionReason ? `<p>${["dimensions-v6", "dimensions-v7"].includes(result.scoringVersion ?? "") ? "无法判断原因" : "未计分原因"}：${escapeHTML(d.exclusionReason)}</p>` : ""}${d.evidence.map((e) => `<b>第 ${e.startLine}${e.endLine !== e.startLine ? `–${e.endLine}` : ""} 行 · ${e.counted ? "参与计分" : ["dimensions-v6", "dimensions-v7"].includes(result.scoringVersion ?? "") ? "引用未用于计算，原因见维度说明" : "重复或公共框架引用，不计分"}</b><pre>${escapeHTML(e.quote)}</pre><p>${escapeHTML(e.explanation)}</p>${e.sourceQuote ? `<b>对照 ${escapeHTML(e.sourceId ?? "")} · 第 ${e.sourceStartLine}–${e.sourceEndLine} 行</b><pre>${escapeHTML(e.sourceQuote)}</pre>` : ""}`).join("")}</article>`).join("")}<h3>综合评分规则</h3><ul>${(
+    result.aggregationNotes ?? []
+  )
+    .map((note) => `<li>${escapeHTML(note)}</li>`)
+    .join("")}</ul>`;
+}
+
+function sampleComparisonHTML(result: AIDetection) {
+  const comparison = result.sampleComparison;
+  if (!comparison) return "";
+  return `<h3>同题 AI 样本比对记录</h3><p>${escapeHTML(comparison.note)}</p>${comparison.status === "compared" ? `<ul>${comparison.samples.map((sample) => `<li>${escapeHTML(sample.approach)}（${escapeHTML(sample.id)}）：相似度 ${sample.pair.similarity.toFixed(1)}%，匹配 ${sample.pair.matchedTokens} 个词元</li>`).join("")}</ul>` : ""}`;
+}
+
 export function buildAIDetectionHTML(title: string, report: AIDetectionReport) {
   const stats = aiReportStats(report.rows);
   const rows = filterAIRows(report.rows, "all", "rate_desc");
@@ -139,12 +311,12 @@ body{font:14px/1.7 system-ui,sans-serif;color:#182238;max-width:1100px;margin:36
 ${stats.unfinished ? '<p class="note">本报告包含未完成项；识别失败、已停止及等待中的提交不作为低 AI 率或已完成结果。</p>' : ""}
 <p class="note">${aiDetectionCaution}</p><p>${aiDetectionMethod}</p>
 <h2>AI 率区间分类</h2><p>${aiRateBands.map((band) => `<span class="risk risk-${band.tone}">${band.label}</span> ${escapeHTML(band.range)}`).join("； ")}；<span class="risk risk-low">证据不足</span> 不生成百分比</p><p>${aiRateBandNote}</p>
-<h2>识别结果汇总</h2><p>按 AI 率降序排列，包含本次全部提交，不受页面筛选和分页影响。</p><div class="table-scroll"><table><thead><tr><th>学生 / 提交</th><th>AI 率（估计）与分类</th><th>判断置信度</th><th>结论 / 状态</th></tr></thead><tbody>${rows.map((row, index) => `<tr><td><a href="#submission-${index + 1}">${escapeHTML(row.source.studentName)}（学生 ${escapeHTML(row.source.studentId)}，提交 #${escapeHTML(row.source.id)}）</a></td><td>${rateHTML(row)} ${badgeHTML(row)}</td><td>${row.state === "done" && row.result ? `${(row.result.confidence * 100).toFixed(0)}%` : "—"}</td><td>${escapeHTML(row.result?.summary ?? row.error ?? aiRowLabel(row))}</td></tr>`).join("")}</tbody></table></div>
+<h2>识别结果汇总</h2><p>按 AI 率降序排列，包含本次全部提交，不受页面筛选和分页影响。</p><div class="table-scroll"><table><thead><tr><th>学生 / 提交</th><th>AI 率（估计）与分类</th><th>分析覆盖 / 旧版自评</th><th>结论 / 状态</th></tr></thead><tbody>${rows.map((row, index) => `<tr><td><a href="#submission-${index + 1}">${escapeHTML(row.source.studentName)}（学生 ${escapeHTML(row.source.studentId)}，提交 #${escapeHTML(row.source.id)}）</a></td><td>${rateHTML(row)} ${badgeHTML(row)}</td><td>${row.state === "done" && row.result ? `${aiAnalysisLabel(row.result)}${!["dimensions-v6", "dimensions-v7"].includes(row.result.scoringVersion ?? "") && aiScoringVersionNote(row.result) ? "<br>旧规则报告 · 重新生成后更新" : ""}` : "—"}</td><td>${escapeHTML(row.result?.summary ?? row.error ?? aiRowLabel(row))}</td></tr>`).join("")}</tbody></table></div>
 <h2>逐份识别依据与提交快照</h2>${rows
     .map((row, index) => {
       const result = row.state === "done" ? row.result : undefined;
-      return `<section id="submission-${index + 1}"><h2>${index + 1}. ${escapeHTML(row.source.studentName)} · 提交 #${escapeHTML(row.source.id)}</h2><p>学生 ${escapeHTML(row.source.studentId)} · 提交时间：${date(row.source.submittedAt)}</p><p>AI 率（估计）：${rateHTML(row)} ${badgeHTML(row)}${result ? ` · 判断置信度 ${(result.confidence * 100).toFixed(0)}% · 识别时间：${date(result.generatedAt)}` : ""}</p><p>${escapeHTML(result?.summary ?? row.error ?? aiRowLabel(row))}</p>
-${result ? `<h3>代码依据</h3>${result.evidence.length ? result.evidence.map((item) => `<article class="evidence"><b>第 ${item.startLine}${item.endLine === item.startLine ? "" : `–${item.endLine}`} 行</b><pre>${escapeHTML(item.quote)}</pre><p>${escapeHTML(item.explanation)}</p></article>`).join("") : "<p>证据不足，未生成可靠的来源判断。</p>"}<h3>判断局限</h3><ul>${result.limitations.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>` : "<p>本份提交未完成识别，没有可供判读的 AI 率或代码依据。</p>"}
+      return `<section id="submission-${index + 1}"><h2>${index + 1}. ${escapeHTML(row.source.studentName)} · 提交 #${escapeHTML(row.source.id)}</h2><p>学生 ${escapeHTML(row.source.studentId)} · 提交时间：${date(row.source.submittedAt)}</p><p>AI 率（估计）：${rateHTML(row)} ${badgeHTML(row)}${result ? ` · ${aiAnalysisLabel(result)} · 识别时间：${date(result.generatedAt)}` : ""}</p>${result ? `<h3>识别结论：${aiRateBand(result)?.label ?? "证据不足"}</h3>` : ""}<p>${escapeHTML(result?.summary ?? row.error ?? aiRowLabel(row))}</p>
+${result ? `${dimensionsHTML(result)}${sampleComparisonHTML(result)}<h3>核验材料</h3>${result.checks?.length ? `<ul>${result.checks.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>` : `<p>${aiLegacyChecksNote}</p>`}${executionHTML(result)}${result.scoringVersion ? "" : `<h3>代码依据</h3>${result.evidence.length ? result.evidence.map((item) => `<article class="evidence"><b>第 ${item.startLine}${item.endLine === item.startLine ? "" : `–${item.endLine}`} 行</b><pre>${escapeHTML(item.quote)}</pre><p>${escapeHTML(item.explanation)}</p></article>`).join("") : "<p>证据不足，未生成可靠的来源判断。</p>"}`}${result.limitations.length ? `<h3>补充说明</h3><ul>${result.limitations.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>` : ""}` : "<p>本份提交未完成识别，没有可供判读的 AI 率或代码依据。</p>"}
 <h3>原始提交代码</h3><pre>${row.source.code
         .replace(/\r\n/g, "\n")
         .split("\n")
@@ -156,7 +328,7 @@ ${result ? `<h3>代码依据</h3>${result.evidence.length ? result.evidence.map(
     })
     .join(
       "",
-    )}<p class="note">${aiDetectionCaution}</p><small>报告为本次检测快照，分类不改变成绩。</small></body></html>`;
+    )}<small>报告为本次检测快照，分类不改变成绩。</small></body></html>`;
 }
 
 export function downloadAIDetectionHTML(

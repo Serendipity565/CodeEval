@@ -82,10 +82,12 @@ type Assignment struct {
 	PublicTestCases      []TestCase   `json:"testCases"`
 	HasHiddenTests       bool         `json:"hasHiddenTests"`
 	LLMEvaluationEnabled bool         `json:"llmEvaluationEnabled"`
+	StarterCode          string       `json:"starterCode,omitempty"`
 	ReferenceSolution    string       `json:"-"`
 	KnowledgeBase        string       `json:"-"`
 	HasReferenceMaterial bool         `json:"hasReferenceMaterial"`
 }
+
 type AnalysisFinding struct {
 	Category    string `json:"category"`
 	Severity    string `json:"severity"`

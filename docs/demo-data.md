@@ -111,6 +111,8 @@ SELECT DATABASE();
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+TRUNCATE TABLE ai_sample_banks;
+TRUNCATE TABLE ai_detection_records;
 TRUNCATE TABLE evaluation_job_records;
 TRUNCATE TABLE expert_rating_records;
 TRUNCATE TABLE review_records;
@@ -124,7 +126,7 @@ TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS = 1;
 ```
 
-共 9 张表，包含新增的 `enrollment_records`（选课关系）和 `course_records`（课程）。不要给 SQL 行加 `#` 注释符；若中途报错，处理后确认执行恢复外键检查的语句。
+共 11 张表，包含 `ai_sample_banks`（同题AI样本）、 `ai_detection_records`（AI识别报告）、`enrollment_records`（选课关系）和 `course_records`（课程）。不要给 SQL 行加 `#` 注释符；若中途报错，处理后确认执行恢复外键检查的语句。
 
 在 `server/config.yaml` 中保持 `seed.enabled: true`，再启动最新后端。Compose 部署执行：
 

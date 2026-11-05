@@ -23,6 +23,8 @@ func New(enabled bool, url, token string, timeout time.Duration) *Client {
 	return &Client{enabled: enabled, url: strings.TrimRight(url, "/"), token: token, http: &http.Client{Timeout: timeout}}
 }
 
+func (c *Client) Enabled() bool { return c != nil && c.enabled }
+
 func (c *Client) Run(ctx context.Context, language, code string, tests []domain.TestCase) (*domain.ExecutionEvidence, error) {
 	if !c.enabled || len(tests) == 0 {
 		return nil, nil

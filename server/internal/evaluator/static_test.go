@@ -98,13 +98,13 @@ func TestDeepSeekUsesTeacherContextInBothStages(t *testing.T) {
 		if len(requests) == 1 {
 			return jsonResponse(`{"summary":"完成事实分析","strengths":["结构清晰"],"findings":[],"limitations":["未经执行"]}`), nil
 		}
-		return jsonResponse(`{"summary":"符合要求","strengths":["结构清晰"],"issues":["缺少注释"],"improvements":["补充注释"],"confidence":0.7,"dimensions":[{"key":"quality","score":80,"evidence":"结构清晰","suggestion":"补充注释","confidence":0.7,"verified":false,"evidenceType":"reference_comparison"}]}`), nil
+		return jsonResponse(`{"summary":"符合要求","strengths":["结构清晰"],"issues":["缺少注释"],"improvements":["补充注释"],"confidence":0.7,"dimensions":[{"key":"quality","score":80,"evidence":"结构清晰","suggestion":"补充注释","confidence":0.7,"verified":false,"evidenceType":"static"}]}`), nil
 	})
 	client := NewDeepSeekClient("https://example.invalid", "test-key", "test-model", 2, 256)
 	client.httpClient.Transport = transport
 	assignment := domain.Assignment{
 		Title: "上下文测试", Language: "Go", Description: "必须处理空输入",
-		ReferenceSolution: "reference-marker", KnowledgeBase: "knowledge-marker",
+		StarterCode: "framework-marker TODO", ReferenceSolution: "reference-marker", KnowledgeBase: "knowledge-marker",
 		Rubric: []domain.RubricItem{{Key: "quality", Name: "质量", Description: "遵守课程约定", Weight: 100}},
 	}
 	result, err := client.Evaluate(context.Background(), assignment, "func main() {}", nil)
@@ -119,13 +119,16 @@ func TestDeepSeekUsesTeacherContextInBothStages(t *testing.T) {
 			t.Fatalf("stage %d has no user prompt", i+1)
 		}
 		prompt := request.Messages[1].Content
-		for _, marker := range []string{"必须处理空输入", "reference-marker", "knowledge-marker", "遵守课程约定"} {
+		if strings.Contains(prompt, "reference-marker") {
+			t.Fatal("archive-only answer leaked into grading input")
+		}
+		for _, marker := range []string{"必须处理空输入", "framework-marker TODO", "<starter_code>", "knowledge-marker", "遵守课程约定"} {
 			if !strings.Contains(prompt, marker) {
 				t.Errorf("stage %d is missing teacher context %q", i+1, marker)
 			}
 		}
 	}
-	wantSources := []string{"assignment_instructions", "grading_rubric", "reference_solution", "course_knowledge_base"}
+	wantSources := []string{"assignment_instructions", "grading_rubric", "starter_code", "course_knowledge_base"}
 	if !reflect.DeepEqual(result.ContextSources, wantSources) {
 		t.Fatalf("unexpected context sources: got %v want %v", result.ContextSources, wantSources)
 	}
@@ -154,14 +157,31 @@ func TestEvidencePolicyCapsUnverifiedSyntaxFailure(t *testing.T) {
 }
 
 func TestAssignmentReferenceMaterialIsPrivate(t *testing.T) {
-	assignment := domain.Assignment{ReferenceSolution: "secret solution", KnowledgeBase: "secret mistakes", HasReferenceMaterial: true}
+	assignment := domain.Assignment{StarterCode: "public framework TODO", ReferenceSolution: "secret solution", KnowledgeBase: "secret mistakes", HasReferenceMaterial: true}
 	data, err := json.Marshal(assignment)
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(data)
-	if strings.Contains(text, "secret solution") || strings.Contains(text, "secret mistakes") || !strings.Contains(text, "hasReferenceMaterial") {
+	if strings.Contains(text, "secret solution") || strings.Contains(text, "secret mistakes") || !strings.Contains(text, "hasReferenceMaterial") || !strings.Contains(text, "public framework TODO") {
 		t.Fatalf("reference material leaked in assignment JSON: %s", text)
+	}
+}
+
+func TestTestGenerationDoesNotUseOptionalReferenceAnswer(t *testing.T) {
+	client := NewDeepSeekClient("https://example.invalid", "key", "model", 2, 256)
+	client.httpClient.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var request chatRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(request.Messages[1].Content, "private-answer-marker") || strings.Contains(request.Messages[1].Content, "reference_solution") {
+			t.Fatal("reference answer reached test generation")
+		}
+		return jsonResponse(`{"tests":[{"name":"base","input":"1","expected":"1","hidden":false,"weight":1,"timeoutMs":2000}]}`), nil
+	})
+	if _, err := client.GenerateTestCases(context.Background(), "task", "Python", "echo input", "private-answer-marker"); err != nil {
+		t.Fatal(err)
 	}
 }
 

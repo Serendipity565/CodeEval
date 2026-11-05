@@ -11,7 +11,9 @@ import (
 	"codeeval/server/internal/domain"
 )
 
-const validAIResult = `{"status":"estimated","aiRate":72.5,"confidence":0.6,"summary":"结构有生成倾向，但人工编写同样可能","evidence":[{"startLine":2,"endLine":2,"quote":"print(value)","explanation":"统一的输出路径，也可能是人工实现"}],"limitations":["无法获取实际编写过程"]}`
+const validAIResult = `{"summary":"结构有生成倾向，但人工编写同样可能","dimensions":[{"key":"task_fit","status":"assessed","score":3,"strength":"strong","reason":"任务实现存在合成测试特征","alternative":"也可能是人工实现","evidence":[{"startLine":1,"endLine":1,"quote":"value = 1","explanation":"合成任务依据"}]},{"key":"structure","status":"assessed","score":3,"strength":"strong","reason":"结构存在合成测试特征","alternative":"也可能是人工实现","evidence":[{"startLine":2,"endLine":2,"quote":"print(value)","explanation":"统一的输出路径，也可能是人工实现"}]},{"key":"comments","status":"insufficient_evidence","score":null,"strength":"none","reason":"没有注释","alternative":"","evidence":[]},{"key":"sample_match","status":"insufficient_evidence","score":null,"strength":"none","reason":"无样本匹配","evidence":[]},{"key":"history","status":"insufficient_evidence","score":null,"strength":"none","reason":"无历史材料","evidence":[]}],"limitations":["无法获取实际编写过程"]}`
+
+const insufficientAIResult = `{"summary":"代码无法区分来源","dimensions":[{"key":"task_fit","status":"insufficient_evidence","score":null,"strength":"none","reason":"标准语句无法区分来源","evidence":[]},{"key":"structure","status":"insufficient_evidence","score":null,"strength":"none","reason":"标准语句无法区分来源","evidence":[]},{"key":"comments","status":"insufficient_evidence","score":null,"strength":"none","reason":"没有注释","evidence":[]},{"key":"sample_match","status":"insufficient_evidence","score":null,"strength":"none","reason":"无样本匹配","evidence":[]},{"key":"history","status":"insufficient_evidence","score":null,"strength":"none","reason":"无历史材料","evidence":[]}],"limitations":[]}`
 
 func TestAIDetectionRepeatedRequestsCallModelIndependently(t *testing.T) {
 	client := NewDeepSeekClient("https://example.invalid/v1", "key", "model", 2, 256)
@@ -33,10 +35,10 @@ func TestAIDetectionRepeatedRequestsCallModelIndependently(t *testing.T) {
 		if input.Messages[0] != firstMessages[0] || input.Messages[1] != firstMessages[1] {
 			t.Fatal("identical input changed the detection prompt or included a prior result")
 		}
-		return jsonResponse(strings.Replace(validAIResult, "72.5", "35", 1)), nil
+		return jsonResponse(strings.Replace(validAIResult, `"score":3`, `"score":1`, 1)), nil
 	})
 	service := &Service{deepseek: client, maxCodeBytes: 1000}
-	for i, want := range []float64{72.5, 35} {
+	for i, want := range []float64{3, 2} {
 		result, err := service.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
 		if err != nil || result.AIRate == nil || *result.AIRate != want || calls != i+1 || result.ModelCalls != 1 {
 			t.Fatalf("request reused an earlier result: %+v calls=%d err=%v", result, calls, err)
@@ -63,34 +65,41 @@ func TestAIDetectionReusesConfiguredClientAndAssignmentContext(t *testing.T) {
 				Code string `json:"code"`
 			} `json:"studentCode"`
 			ReferenceSolution string `json:"referenceSolution"`
+			StarterCode       string `json:"starterCode"`
 			Language          string `json:"language"`
 			Description       string `json:"description"`
 		}
 		if err := json.Unmarshal([]byte(input.Messages[1].Content), &material); err != nil {
 			t.Fatal(err)
 		}
-		if len(material.StudentCode) != 2 || material.StudentCode[0].Line != 1 || material.StudentCode[0].Code != "value = 1" || material.StudentCode[1].Line != 2 || material.StudentCode[1].Code != "print(value)" || material.ReferenceSolution != "print(1)" || material.Language != "Python" || material.Description != "输出一个整数" {
+		if len(material.StudentCode) != 2 || material.StudentCode[0].Line != 1 || material.StudentCode[0].Code != "value = 1" || material.StudentCode[1].Line != 2 || material.StudentCode[1].Code != "print(value)" || material.ReferenceSolution != "" || material.StarterCode != "pass # TODO" || material.Language != "Python" || material.Description != "输出一个整数" {
 			t.Fatalf("missing context: %v", material)
 		}
 		return jsonResponse(validAIResult), nil
 	})
 	service := &Service{deepseek: client, maxCodeBytes: 1000}
-	result, err := service.DetectAICode(context.Background(), domain.Assignment{Title: "输出", Language: "Python", Description: "输出一个整数", ReferenceSolution: "print(1)"}, "value = 1\r\nprint(value)")
-	if err != nil || result.AIRate == nil || *result.AIRate != 72.5 || result.Model != "existing-model" || result.ModelCalls != 1 || result.GeneratedAt.IsZero() {
+	result, err := service.DetectAICode(context.Background(), domain.Assignment{Title: "输出", Language: "Python", Description: "输出一个整数", StarterCode: "pass # TODO", ReferenceSolution: "private-answer-marker"}, "value = 1\r\nprint(value)")
+	if err != nil || result.AIRate == nil || *result.AIRate != 3 || result.Model != "existing-model" || result.ModelCalls != 1 || result.GeneratedAt.IsZero() {
 		t.Fatalf("unexpected result: %+v %v", result, err)
 	}
 }
 
 func TestAIDetectionRejectsUntrustedModelResults(t *testing.T) {
 	for name, output := range map[string]string{
-		"out of range rate":      strings.Replace(validAIResult, "72.5", "101", 1),
-		"negative rate":          strings.Replace(validAIResult, "72.5", "-1", 1),
-		"missing rate":           strings.Replace(validAIResult, `"aiRate":72.5,`, "", 1),
-		"missing confidence":     strings.Replace(validAIResult, `"confidence":0.6,`, "", 1),
-		"invalid confidence":     strings.Replace(validAIResult, `"confidence":0.6`, `"confidence":1.2`, 1),
-		"fabricated quote":       strings.Replace(validAIResult, `"quote":"print(value)"`, `"quote":"print(fake)"`, 1),
-		"insufficient with rate": strings.Replace(validAIResult, "estimated", "insufficient_evidence", 1),
-		"invalid JSON":           `{"status":`,
+		"out of range score":      strings.Replace(validAIResult, `"score":3`, `"score":101`, 1),
+		"negative score":          strings.Replace(validAIResult, `"score":3`, `"score":-1`, 1),
+		"missing score":           strings.Replace(validAIResult, `"score":3,`, "", 1),
+		"fractional score":        strings.Replace(validAIResult, `"score":3`, `"score":1.5`, 1),
+		"unknown dimension":       strings.Replace(validAIResult, `"task_fit"`, `"made_up"`, 1),
+		"duplicate dimension":     strings.Replace(validAIResult, `"structure"`, `"task_fit"`, 1),
+		"missing dimensions":      `{"summary":"test","limitations":[]}`,
+		"missing alternative":     strings.ReplaceAll(validAIResult, `"alternative":"也可能是人工实现",`, ""),
+		"unknown strength":        strings.Replace(validAIResult, `"strength":"strong"`, `"strength":"certain"`, 1),
+		"insufficient with score": strings.Replace(validAIResult, `"status":"assessed"`, `"status":"insufficient_evidence"`, 1),
+		"invalid JSON":            `{"dimensions":`,
+		"missing limitations":     strings.Replace(validAIResult, `,"limitations":["无法获取实际编写过程"]`, "", 1),
+		"too many limitations":    strings.Replace(validAIResult, `["无法获取实际编写过程"]`, `["限制一","限制二","限制三"]`, 1),
+		"blank limitation":        strings.Replace(validAIResult, `["无法获取实际编写过程"]`, `[" "]`, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
 			client := NewDeepSeekClient("https://example.invalid", "key", "model", 2, 256)
@@ -108,14 +117,31 @@ func TestAIDetectionRejectsUntrustedModelResults(t *testing.T) {
 
 func TestAIDetectionInsufficientEvidenceAndExplicitZero(t *testing.T) {
 	for _, output := range []string{
-		`{"status":"insufficient_evidence","aiRate":null,"confidence":0.2,"summary":"代码过短","limitations":["标准语句无法区分来源"]}`,
-		strings.Replace(strings.Replace(validAIResult, "72.5", "0", 1), `"confidence":0.6`, `"confidence":0`, 1),
+		insufficientAIResult,
+		strings.ReplaceAll(validAIResult, `"score":3`, `"score":0`),
 	} {
 		client := NewDeepSeekClient("https://example.invalid", "key", "model", 2, 256)
 		client.httpClient.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) { return jsonResponse(output), nil })
 		result, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
 		if err != nil || result.Evidence == nil || result.Status == "insufficient_evidence" && result.AIRate != nil {
 			t.Fatalf("valid zero or insufficient result rejected: %+v %v", result, err)
+		}
+	}
+}
+
+func TestAIDetectionAllowsNoAdditionalLimitationsWithoutForcingARate(t *testing.T) {
+	for _, output := range []string{
+		strings.Replace(validAIResult, `["无法获取实际编写过程"]`, `[]`, 1),
+		insufficientAIResult,
+	} {
+		client := NewDeepSeekClient("https://example.invalid", "key", "model", 2, 256)
+		client.httpClient.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) { return jsonResponse(output), nil })
+		result, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
+		if err != nil || result.Limitations == nil || len(result.Limitations) != 0 {
+			t.Fatalf("report requires boilerplate limitations: %+v %v", result, err)
+		}
+		if result.Status == "insufficient_evidence" && result.AIRate != nil {
+			t.Fatal("direct wording manufactured a rate for insufficient evidence")
 		}
 	}
 }
@@ -128,11 +154,11 @@ func TestAIDetectionRetriesInvalidEvidenceAndResetsOutput(t *testing.T) {
 		if calls == 1 {
 			return jsonResponse(strings.Replace(validAIResult, "print(value)", "invented()", 1)), nil
 		}
-		return jsonResponse(`{"status":"insufficient_evidence","aiRate":null,"confidence":0.1,"summary":"证据不足","limitations":["无法判断来源"]}`), nil
+		return jsonResponse(validAIResult), nil
 	})
 	result, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
-	if err != nil || result.ModelCalls != 2 || result.AIRate != nil || len(result.Evidence) != 0 {
-		t.Fatalf("invalid prior evidence retained: %+v %v", result, err)
+	if err != nil || result.ModelCalls != 2 || result.AIRate == nil || *result.AIRate != 3 || len(result.Evidence) != 2 {
+		t.Fatalf("corrected analysis not retained: %+v %v", result, err)
 	}
 }
 
@@ -202,19 +228,25 @@ func TestAIDetectionRepairsMiscountedLinesWithoutAnotherModelCall(t *testing.T) 
 		return jsonResponse(strings.ReplaceAll(validAIResult, `Line":2`, `Line":99`)), nil
 	})
 	result, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
-	if err != nil || result.ModelCalls != 1 || result.Evidence[0].StartLine != 2 || result.Evidence[0].EndLine != 2 {
+	if err != nil || result.ModelCalls != 1 || result.Evidence[1].StartLine != 2 || result.Evidence[1].EndLine != 2 {
 		t.Fatalf("repair failed: %+v %v", result, err)
 	}
 }
 
-func TestAIDetectionReportsTypedEvidenceError(t *testing.T) {
+func TestAIDetectionNeverSavesUnknownDimensionsAsCitationRecovery(t *testing.T) {
 	client := NewDeepSeekClient("https://example.invalid", "key", "model", 2, 256)
+	calls := 0
 	client.httpClient.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		calls++
 		return jsonResponse(strings.Replace(validAIResult, "print(value)", "print(fake)", 1)), nil
 	})
-	_, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
-	var outputError *ModelOutputError
-	if !errors.Is(err, ErrAIEvidence) || !errors.As(err, &outputError) {
-		t.Fatalf("lost error classification: %v", err)
+	result, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
+	if err == nil || result.ScoringVersion != "" || calls != 4 {
+		t.Fatalf("citation failure silently returned a partial success: %+v %v calls=%d", result, err, calls)
+	}
+	dimensions := aiDimensionFixture(t)
+	dimensions[1].Evidence[0].Quote = "invented()"
+	if err := validateAIDimensions(dimensions, []string{"value = 1", "print(value)"}); !errors.Is(err, ErrAIEvidence) {
+		t.Fatalf("strict validator accepted fabricated citations: %v", err)
 	}
 }

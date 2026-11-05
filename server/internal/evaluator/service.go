@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"codeeval/server/internal/config"
@@ -13,9 +14,25 @@ import (
 )
 
 type Service struct {
-	deepseek     *DeepSeekClient
-	maxCodeBytes int
-	sandbox      *sandbox.Client
+	deepseek        *DeepSeekClient
+	maxCodeBytes    int
+	sandbox         executionRunner
+	aiSampleStore   AISampleStore
+	aiSampleMu      sync.Mutex
+	aiSampleFlights map[string]chan struct{}
+}
+
+type AISampleStore interface {
+	LoadAISampleBank(context.Context, string, string) (*domain.AISampleBank, error)
+	SaveAISampleBank(context.Context, string, domain.AISampleBank) error
+}
+
+// SetAISampleStore is called once at server startup, before requests are served.
+func (s *Service) SetAISampleStore(repository AISampleStore) { s.aiSampleStore = repository }
+
+type executionRunner interface {
+	Enabled() bool
+	Run(context.Context, string, string, []domain.TestCase) (*domain.ExecutionEvidence, error)
 }
 
 func applyExecutionEvidence(result *domain.Evaluation, assignment domain.Assignment, execution *domain.ExecutionEvidence) {
@@ -91,15 +108,15 @@ func (s *Service) Evaluate(ctx context.Context, assignment domain.Assignment, co
 	return s.deepseek.Evaluate(ctx, assignment, code, history, execution)
 }
 
-func (s *Service) GenerateTestCases(ctx context.Context, title, language, description, referenceSolution string) ([]domain.TestCase, error) {
+func (s *Service) GenerateTestCases(ctx context.Context, title, language, description, _ string) ([]domain.TestCase, error) {
 	if s.deepseek.APIKeyMissing() {
 		return nil, fmt.Errorf("DeepSeek API key is not configured")
 	}
 	if strings.TrimSpace(title) == "" || strings.TrimSpace(language) == "" || strings.TrimSpace(description) == "" {
 		return nil, fmt.Errorf("title, language and description are required")
 	}
-	if len(description)+len(referenceSolution) > 200000 {
+	if len(description) > 200000 {
 		return nil, fmt.Errorf("assignment material exceeds 200000 bytes")
 	}
-	return s.deepseek.GenerateTestCases(ctx, title, language, description, referenceSolution)
+	return s.deepseek.GenerateTestCases(ctx, title, language, description, "")
 }

@@ -14,6 +14,7 @@ export type CreateAssignmentInput = Pick<
   rubric: Rubric[];
   testCases?: TestCase[];
   referenceSolution?: string;
+  starterCode?: string;
   knowledgeBase?: string;
 };
 export const listAssignments = (token: string) =>

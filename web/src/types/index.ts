@@ -57,6 +57,7 @@ export type Assignment = {
   testCases: TestCase[];
   hasHiddenTests: boolean;
   referenceSolution?: string;
+  starterCode?: string;
   knowledgeBase?: string;
 };
 export type Evaluation = {
@@ -162,22 +163,75 @@ export type View =
   | "similarity";
 
 export type SimilarityRange = { startLine: number; endLine: number };
+export type AIEvidence = {
+  citationId?: string;
+  matchId?: string;
+  startLine: number;
+  endLine: number;
+  quote: string;
+  explanation: string;
+  counted?: boolean;
+  sourceId?: string;
+  sourceCitationId?: string;
+  sourceStartLine?: number;
+  sourceEndLine?: number;
+  sourceQuote?: string;
+};
+export type AISampleLibrary = {
+  status: "missing" | "partial" | "ready";
+  expectedCount: number;
+  bank: {
+    fingerprint: string;
+    generatedAt: string;
+    samples: { id: string; approach: string; code: string }[];
+  } | null;
+};
+export type AIDimension = {
+  evidenceBasis?: "sample_comparison";
+  key: "task_fit" | "structure" | "comments" | "sample_match" | "history";
+  label: string;
+  weight: number;
+  status: "assessed" | "insufficient_evidence";
+  score: number | null;
+  effectiveScore: number | null;
+  strength: "none" | "weak" | "moderate" | "strong";
+  reason: string;
+  alternative: string;
+  evidence: AIEvidence[];
+  included: boolean;
+  exclusionReason?: string;
+};
 export type AIDetection = {
   submissionId: string;
   status: "estimated" | "insufficient_evidence";
   aiRate: number | null;
   confidence: number;
   summary: string;
-  evidence: {
-    startLine: number;
-    endLine: number;
-    quote: string;
-    explanation: string;
-  }[];
+  evidence: AIEvidence[];
   limitations: string[];
+  checks?: string[];
+  execution?: Evaluation["execution"];
   model: string;
   modelCalls: number;
   generatedAt: string;
+  scoringVersion?: string;
+  citationVersion?: string;
+  recalculatedFromVersion?: string;
+  dimensions?: AIDimension[];
+  coverage?: number;
+  aggregationNotes?: string[];
+  sampleComparison?: {
+    status: "unavailable" | "compared";
+    fingerprint?: string;
+    generatedAt?: string;
+    samples: {
+      id: string;
+      approach: string;
+      code?: string;
+      pair: SimilarityPair;
+    }[];
+    note: string;
+  };
 };
 export type SimilarityMatch = {
   a: SimilarityRange;

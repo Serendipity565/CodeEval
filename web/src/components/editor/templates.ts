@@ -8,8 +8,10 @@ const templates: Record<string, string> = {
   JavaScript: "// 在这里编写 JavaScript 代码\n",
 };
 
-export const editorTemplate = (language: string) =>
-  templates[language] ?? "// 在这里编写代码\n";
+export const editorTemplate = (language: string, starterCode?: string) =>
+  starterCode?.trim()
+    ? starterCode
+    : (templates[language] ?? "// 在这里编写代码\n");
 
 export const executionContract = (language: string) => {
   const entrypoints: Record<string, string> = {
