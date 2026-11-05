@@ -16,6 +16,7 @@ import (
 type Service struct {
 	deepseek        *DeepSeekClient
 	maxCodeBytes    int
+	detection       *detectionRouter
 	sandbox         executionRunner
 	aiSampleStore   AISampleStore
 	aiSampleMu      sync.Mutex
@@ -74,11 +75,15 @@ func applyExecutionEvidence(result *domain.Evaluation, assignment domain.Assignm
 }
 
 func NewService(cfg config.Config) *Service {
-	return &Service{
+	s := &Service{
 		deepseek:     NewDeepSeekClient(cfg.DeepSeek.BaseURL, cfg.DeepSeek.APIKey, cfg.DeepSeek.Model, cfg.DeepSeek.TimeoutSecs, cfg.DeepSeek.MaxTokens),
 		maxCodeBytes: cfg.DeepSeek.MaxCodeBytes,
 		sandbox:      sandbox.New(cfg.Sandbox.Enabled, cfg.Sandbox.RunnerURL, cfg.Sandbox.RunnerToken, time.Duration(cfg.Sandbox.JobTimeoutSeconds)*time.Second),
 	}
+	local := NewLocalDetectorClient(cfg.AIDetection.URL, cfg.AIDetection.Token, time.Duration(cfg.AIDetection.TimeoutSecs)*time.Second)
+	local.requiredDevice = cfg.AIDetection.Device
+	s.detection = newDetectionRouter(cfg.AIDetection.Provider, local, s)
+	return s
 }
 
 func (s *Service) Evaluate(ctx context.Context, assignment domain.Assignment, code string, history []domain.Submission) (result domain.Evaluation, err error) {

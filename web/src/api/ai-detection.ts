@@ -1,6 +1,23 @@
 import { apiRequest, ApiError } from "./client";
 import type { AIDetection, AISampleLibrary } from "../types";
 
+export type AIDetectionOptions = {
+  provider: "deepseek" | "droiddetect";
+  available: boolean;
+  requiresSamples: boolean;
+  description: string;
+};
+
+export const getAIDetectionOptions = (
+  token: string,
+  assignmentId: string,
+  signal?: AbortSignal,
+) => apiRequest<AIDetectionOptions>(
+  `/assignments/${encodeURIComponent(assignmentId)}/ai-detection/options`,
+  token,
+  { signal },
+);
+
 export const getAISampleLibrary = (
   token: string,
   assignmentId: string,

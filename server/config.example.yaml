@@ -33,6 +33,18 @@ deepseek:
   max_tokens: 4096
   max_code_bytes: 100000
 
+ai_detection:
+  # auto：Python、Java、C++、Go 用本地 DroidDetect，其他语言用 DeepSeek。
+  # droiddetect：只用本地分类器；deepseek（或 ds）：所有语言用 DeepSeek。
+  # 切换只需修改这一项，DeepSeek 连接与密钥复用上面的 deepseek 配置。
+  provider: auto
+  url: http://droiddetect:8010
+  # 内部令牌从 jwt.secret 自动派生，无需额外配置。
+  timeout_seconds: 180
+  # cuda：要求 NVIDIA GPU；不可用则明确报错。cpu：仅 CPU；auto：容器内自动选择。
+  device: cuda
+  cpu_threads: 4
+
 sandbox:
   enabled: true
   # 4C4G 建议保持 1，资源充足时最多设置为 2。

@@ -39,3 +39,47 @@ func writeConfig(t *testing.T, contents string) string {
 	}
 	return path
 }
+
+func TestDetectorReadsSharedYAMLAndDerivesInternalToken(t *testing.T) {
+	cfg, err := Load(writeConfig(t, "jwt:\n  secret: test-secret\nai_detection:\n  provider: auto\n  timeout_seconds: 240\n  cpu_threads: 6\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AIDetection.Provider != "auto" || cfg.AIDetection.URL != "http://droiddetect:8010" || cfg.AIDetection.TimeoutSecs != 240 || cfg.AIDetection.CPUThreads != 6 || cfg.AIDetection.Device != "cuda" || len(cfg.AIDetection.Token) != 64 {
+		t.Fatalf("unexpected detector settings: %+v", cfg.AIDetection)
+	}
+}
+
+func TestDetectorRejectsInvalidDevice(t *testing.T) {
+	_, err := Load(writeConfig(t, "jwt:\n  secret: test-secret\nai_detection:\n  device: invalid\n"))
+	if err == nil {
+		t.Fatal("expected unknown inference device to be rejected")
+	}
+}
+
+func TestDetectorAcceptsDSAliasWithoutLocalService(t *testing.T) {
+	cfg, err := Load(writeConfig(t, "jwt:\n  secret: test-secret\nai_detection:\n  provider: ds\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AIDetection.Provider != "deepseek" {
+		t.Fatalf("DS alias was not normalized: %s", cfg.AIDetection.Provider)
+	}
+}
+
+func TestDetectorRejectsInvalidLocalURL(t *testing.T) {
+	_, err := Load(writeConfig(t, "jwt:\n  secret: test-secret\nai_detection:\n  provider: auto\n  url: file:///models\n"))
+	if err == nil {
+		t.Fatal("expected non-HTTP local URL to be rejected")
+	}
+}
+
+func TestLegacyLocalDetectorConfigMigratesToDroidDetect(t *testing.T) {
+	cfg, err := Load(writeConfig(t, "jwt:\n  secret: test-secret\nai_detection:\n  provider: llmsniffer\n  url: http://llmsniffer:8010\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AIDetection.Provider != "droiddetect" || cfg.AIDetection.URL != "http://droiddetect:8010" {
+		t.Fatalf("legacy detector config was not migrated: %+v", cfg.AIDetection)
+	}
+}

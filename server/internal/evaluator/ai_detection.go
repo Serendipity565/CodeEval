@@ -20,18 +20,11 @@ func (s *Service) DetectAICode(ctx context.Context, assignment domain.Assignment
 	if strings.TrimSpace(code) == "" || len(code) > s.maxCodeBytes {
 		return domain.AIDetection{}, ErrAIInput
 	}
-	if s.deepseek.APIKeyMissing() {
-		return domain.AIDetection{}, ErrAIUnavailable
-	}
 	var material domain.AIDetectionContext
 	if len(materials) > 0 {
 		material = materials[0]
 	}
-	verification, err := s.prepareAIVerification(ctx, assignment, code, material)
-	if err != nil {
-		return domain.AIDetection{}, err
-	}
-	return s.deepseek.detectAICode(ctx, assignment, code, verification)
+	return s.detectionBackend(assignment.Language).Detect(ctx, assignment, code, material)
 }
 
 const aiDetectionPromptVersion = "source-review-direct-v3"

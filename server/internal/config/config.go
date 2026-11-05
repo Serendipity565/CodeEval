@@ -1,7 +1,11 @@
 package config
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -39,6 +43,14 @@ type Config struct {
 		MaxTokens    int    `yaml:"max_tokens"`
 		MaxCodeBytes int    `yaml:"max_code_bytes"`
 	} `yaml:"deepseek"`
+	AIDetection struct {
+		Provider    string `yaml:"provider"`
+		URL         string `yaml:"url"`
+		Token       string `yaml:"-"`
+		TimeoutSecs int    `yaml:"timeout_seconds"`
+		CPUThreads  int    `yaml:"cpu_threads"`
+		Device      string `yaml:"device"`
+	} `yaml:"ai_detection"`
 	Sandbox struct {
 		Enabled                bool     `yaml:"enabled"`
 		MaxConcurrentSandboxes int      `yaml:"max_concurrent_sandboxes"`
@@ -95,6 +107,52 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.DeepSeek.MaxCodeBytes == 0 {
 		cfg.DeepSeek.MaxCodeBytes = 100000
+	}
+	cfg.AIDetection.Provider = strings.ToLower(strings.TrimSpace(cfg.AIDetection.Provider))
+	if cfg.AIDetection.Provider == "" {
+		cfg.AIDetection.Provider = "auto"
+	}
+	if cfg.AIDetection.Provider == "ds" {
+		cfg.AIDetection.Provider = "deepseek"
+	}
+	if cfg.AIDetection.Provider == "llmsniffer" {
+		cfg.AIDetection.Provider = "droiddetect"
+	}
+	if cfg.AIDetection.Provider != "deepseek" && cfg.AIDetection.Provider != "auto" && cfg.AIDetection.Provider != "droiddetect" {
+		return cfg, fmt.Errorf("ai_detection.provider must be deepseek, auto or droiddetect")
+	}
+	if cfg.AIDetection.TimeoutSecs == 0 {
+		cfg.AIDetection.TimeoutSecs = 180
+	}
+	if cfg.AIDetection.TimeoutSecs < 1 || cfg.AIDetection.TimeoutSecs > 1800 {
+		return cfg, fmt.Errorf("ai_detection.timeout_seconds must be between 1 and 1800")
+	}
+	if cfg.AIDetection.URL == "" || cfg.AIDetection.URL == "http://llmsniffer:8010" {
+		cfg.AIDetection.URL = "http://droiddetect:8010"
+	}
+	if cfg.AIDetection.CPUThreads == 0 {
+		cfg.AIDetection.CPUThreads = 4
+	}
+	if cfg.AIDetection.CPUThreads < 1 || cfg.AIDetection.CPUThreads > 32 {
+		return cfg, fmt.Errorf("ai_detection.cpu_threads must be between 1 and 32")
+	}
+	cfg.AIDetection.Device = strings.ToLower(strings.TrimSpace(cfg.AIDetection.Device))
+	if cfg.AIDetection.Device == "" {
+		cfg.AIDetection.Device = "cuda"
+	}
+	if cfg.AIDetection.Device != "cuda" && cfg.AIDetection.Device != "cpu" && cfg.AIDetection.Device != "auto" {
+		return cfg, fmt.Errorf("ai_detection.device must be cuda, cpu or auto")
+	}
+	// The two services share config.yaml. Derive an internal credential rather
+	// than requiring an additional secret, env file or Compose interpolation.
+	mac := hmac.New(sha256.New, []byte(cfg.JWT.Secret))
+	mac.Write([]byte("codeeval-local-detector-v1"))
+	cfg.AIDetection.Token = hex.EncodeToString(mac.Sum(nil))
+	if cfg.AIDetection.Provider != "deepseek" {
+		u, parseErr := url.Parse(cfg.AIDetection.URL)
+		if parseErr != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return cfg, fmt.Errorf("local detector requires an HTTP(S) ai_detection.url")
+		}
 	}
 	if cfg.Sandbox.MaxConcurrentSandboxes == 0 {
 		cfg.Sandbox.MaxConcurrentSandboxes = 1

@@ -16,9 +16,14 @@ make dev
 
 Vite 默认地址为 `http://localhost:5173`，并把 `/api` 代理到 `http://localhost:8080`。`make dev` 同时启动 Go API 和 Vite；也可分别运行 `make server-dev`、`make web-dev`。如果本地已有 MySQL，可自行提供与配置一致的数据库，不必启动 Compose 的 `mysql` 服务。
 
+这套宿主机调试方式可将 `ai_detection.provider` 设为 `ds`，复用现有接口。
+使用默认本地分类器时优先按 [Docker 部署](docker-deployment.md) 启动完整服务；
+其 `http://droiddetect:8010` 地址仅在 Compose 网络内可达。
+
 ## 配置要点
 
-所有后端运行配置放在 `server/config.yaml`；模板为 `server/config.example.yaml`。Compose 给 API 和 Runner 挂载同一份配置。修改配置后，重新创建相关容器使其生效。
+所有后端运行配置放在 `server/config.yaml`；模板为 `server/config.example.yaml`。
+Compose 给 API、Runner、模型初始化和本地检测服务挂载同一份配置。修改配置后，重启相关服务使其生效。
 
 | 配置 | 用途 |
 | --- | --- |
@@ -29,6 +34,11 @@ Vite 默认地址为 `http://localhost:5173`，并把 `/api` 代理到 `http://l
 | `sandbox.supported_languages` | 教师可选的作业语言 |
 | `sandbox.max_concurrent_sandboxes` | API Worker 并发数，目前允许 1 或 2 |
 | `deepseek.*` | AI 用例生成、代码 AI 生成识别及启用大模型评估的作业所用配置 |
+| `ai_detection.*` | provider、内部分类器 URL、超时、计算设备和 CPU 线程；provider 默认 `auto`，device 默认 `cuda` |
+
+Docker 启动、切换与迁移步骤见 [Docker 部署与迁移](docker-deployment.md)。
+检测设置只读取 YAML；内部鉴权令牌从既有 `jwt.secret` 自动派生，无需额外填写。
+检测 provider 仅影响来源检测，不改变作业评分的 DeepSeek 配置。
 
 不启用 AI 评分的作业使用本地规则评估；教师使用“AI 生成用例”或为作业启用大模型评估时，需要可用的 DeepSeek API Key。AI 生成的用例是可编辑草稿，教师保存后才用于提交测试。
 

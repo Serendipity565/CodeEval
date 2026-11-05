@@ -64,6 +64,7 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	secured.GET("/assignments/:id", h.assignment)
 	secured.POST("/assignments/:id/similarity", h.requireRole("teacher"), h.assignmentSimilarity)
 	secured.GET("/assignments/:id/ai-detection", h.requireRole("teacher"), h.savedAssignmentAIDetection)
+	secured.GET("/assignments/:id/ai-detection/options", h.requireRole("teacher"), h.assignmentAIDetectionOptions)
 	secured.POST("/assignments/:id/ai-detection", h.requireRole("teacher"), h.assignmentAIDetection)
 	secured.GET("/assignments/:id/ai-samples", h.requireRole("teacher"), h.readAssignmentAISamples)
 	secured.POST("/assignments/:id/ai-samples", h.requireRole("teacher"), h.generateAssignmentAISamples)

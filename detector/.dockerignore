@@ -1,0 +1,5 @@
+__pycache__/
+.venv/
+*.pth
+*.bin
+.DS_Store

@@ -18,7 +18,8 @@ ENV SANDBOX_LANGUAGE=python PYTHONDONTWRITEBYTECODE=1 HOME=/tmp
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/sandbox-executor"]
 
-FROM eclipse-temurin:21-jdk-alpine AS java
+# Ubuntu-based Temurin provides both linux/arm64 and linux/amd64 images.
+FROM eclipse-temurin:21-jdk-jammy AS java
 COPY --from=executor-build /sandbox-executor /usr/local/bin/sandbox-executor
 ENV SANDBOX_LANGUAGE=java HOME=/tmp
 USER 65532:65532

@@ -45,6 +45,49 @@ services:
         condition: service_healthy
       sandbox-runner:
         condition: service_healthy
+      droiddetect:
+        condition: service_healthy
+
+  # Uses the same config.yaml as server. DS-only mode skips model downloads.
+  model-init:
+    image: codeeval-droiddetect:local
+    build:
+      context: ./detector
+    command: ["python", "download_models.py"]
+    volumes:
+      - ./server/config.yaml:/app/config.yaml:ro
+      - detector_models:/models
+    restart: "no"
+
+  droiddetect:
+    image: codeeval-droiddetect:local
+    build:
+      context: ./detector
+    restart: unless-stopped
+    volumes:
+      - ./server/config.yaml:/app/config.yaml:ro
+      - detector_models:/models:ro
+    cpus: 4
+    mem_limit: 6g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/healthz', timeout=5)"]
+      interval: 15s
+      timeout: 6s
+      retries: 8
+      start_period: 180s
+    depends_on:
+      model-init:
+        condition: service_completed_successfully
 
   sandbox-runner:
     build:
@@ -107,3 +150,4 @@ services:
 
 volumes:
   mysql_data:
+  detector_models:

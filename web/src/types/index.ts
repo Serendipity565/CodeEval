@@ -203,6 +203,31 @@ export type AIDimension = {
   exclusionReason?: string;
 };
 export type AIDetection = {
+
+  localDetection?: {
+    device?: string;
+    deviceName?: string;
+    precision?: string;
+    version: string;
+    language: string;
+    aiScore: number | null;
+    totalTokens: number;
+    coveredTokens: number;
+    truncated: boolean;
+    maxSequenceTokens: number;
+    overlapTokens: number;
+    encoderRevision: string;
+    checkpointRevision: string;
+    preprocessingVersion: string;
+    chunks: {
+      index: number;
+      startLine: number;
+      endLine: number;
+      tokenCount: number;
+      weightTokens: number;
+      aiScore: number;
+    }[];
+  };
   submissionId: string;
   status: "estimated" | "insufficient_evidence";
   aiRate: number | null;

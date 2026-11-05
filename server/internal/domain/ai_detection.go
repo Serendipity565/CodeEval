@@ -26,6 +26,36 @@ type AIDetection struct {
 	SampleComparison        *AISampleComparison `json:"sampleComparison,omitempty"`
 	CitationVersion         string              `json:"citationVersion,omitempty"`
 	CitationDiagnostics     []string            `json:"citationDiagnostics,omitempty"`
+	LocalDetection          *LocalDetection     `json:"localDetection,omitempty"`
+}
+
+// LocalDetection stores classifier outputs independently of LLM explanations.
+// AI scores range from 0 to 1 and are not calibrated source probabilities.
+type LocalDetection struct {
+	Device               string                `json:"device,omitempty"`
+	DeviceName           string                `json:"deviceName,omitempty"`
+	Precision            string                `json:"precision,omitempty"`
+	Version              string                `json:"version"`
+	Language             string                `json:"language"`
+	AIScore              *float64              `json:"aiScore"`
+	Chunks               []LocalDetectionChunk `json:"chunks"`
+	TotalTokens          int                   `json:"totalTokens"`
+	CoveredTokens        int                   `json:"coveredTokens"`
+	Truncated            bool                  `json:"truncated"`
+	MaxSequenceTokens    int                   `json:"maxSequenceTokens"`
+	OverlapTokens        int                   `json:"overlapTokens"`
+	EncoderRevision      string                `json:"encoderRevision"`
+	CheckpointRevision   string                `json:"checkpointRevision"`
+	PreprocessingVersion string                `json:"preprocessingVersion"`
+}
+
+type LocalDetectionChunk struct {
+	Index        int     `json:"index"`
+	StartLine    int     `json:"startLine"`
+	EndLine      int     `json:"endLine"`
+	TokenCount   int     `json:"tokenCount"`
+	WeightTokens int     `json:"weightTokens"`
+	AIScore      float64 `json:"aiScore"`
 }
 
 // Score is the model's ordinal assessment; EffectiveScore and Included are

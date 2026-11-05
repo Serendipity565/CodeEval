@@ -6,3 +6,6 @@ web/*.tsbuildinfo
 web/vite.config.js
 web/vite.config.d.ts
 /server/config.yaml
+/backups/
+/detector/.venv/
+/detector/__pycache__/

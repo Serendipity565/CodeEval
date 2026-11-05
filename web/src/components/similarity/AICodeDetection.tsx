@@ -3,6 +3,8 @@ import {
   detectAICode,
   getSavedAIDetections,
   prepareAISampleLibrary,
+  getAIDetectionOptions,
+  type AIDetectionOptions,
 } from "../../api/ai-detection";
 import { ApiError } from "../../api/client";
 import type { Assignment, Submission } from "../../types";
@@ -11,6 +13,7 @@ import CodeEditor from "../editor/CodeEditor";
 import AIDimensionAnalysis from "./AIDimensionAnalysis";
 import AIReportNotes from "./AIReportNotes";
 import AISampleLibraryPanel from "./AISampleLibraryPanel";
+import LocalDetectionAnalysis from "./LocalDetectionAnalysis";
 import { Empty, Icon } from "../ui";
 import Dialog from "../ui/Dialog";
 import {
@@ -49,6 +52,7 @@ export default function AICodeDetection({
   const [preparingSamples, setPreparingSamples] = useState(false);
   const [cacheLoading, setCacheLoading] = useState(true);
   const [cacheError, setCacheError] = useState("");
+  const [detectionOptions, setDetectionOptions] = useState<AIDetectionOptions>();
   const [cacheReload, setCacheReload] = useState(0);
   const [selectedId, setSelectedId] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(true);
@@ -135,24 +139,27 @@ export default function AICodeDetection({
     let active = true;
     setCacheLoading(true);
     setCacheError("");
+    setDetectionOptions(undefined);
     setRows([]);
     setSelectedId("");
     setReportMeta(undefined);
     setFilter("all");
     setPage(0);
     const sources = targets;
-    if (!sources.length) {
-      setCacheLoading(false);
-      return () => abort.abort();
-    }
-    void getSavedAIDetections(
-      token,
-      assignment.id,
-      mode === "single" ? submissionId : undefined,
-      abort.signal,
-    )
-      .then(({ results }) => {
+    void Promise.all([
+      getAIDetectionOptions(token, assignment.id, abort.signal),
+      sources.length
+        ? getSavedAIDetections(
+            token,
+            assignment.id,
+            mode === "single" ? submissionId : undefined,
+            abort.signal,
+          )
+        : Promise.resolve({ results: [] }),
+    ])
+      .then(([options, { results }]) => {
         if (!active) return;
+        setDetectionOptions(options);
         const saved = new Map(
           results.map((result) => [result.submissionId, result]),
         );
@@ -213,7 +220,10 @@ export default function AICodeDetection({
     );
   }
   async function run(sources: Submission[], retry = false, regenerate = false) {
-    if (!sources.length || loading || cacheLoading || cacheError) return;
+    if (
+      !sources.length || loading || cacheLoading || cacheError ||
+      !detectionOptions?.available
+    ) return;
     const current = ++runNumber.current;
     const activeController = new AbortController();
     controller.current = activeController;
@@ -253,12 +263,14 @@ export default function AICodeDetection({
         );
     };
     try {
-      setPreparingSamples(true);
-      await prepareAISampleLibrary(
-        token,
-        assignment.id,
-        activeController.signal,
-      );
+      if (detectionOptions.requiresSamples) {
+        setPreparingSamples(true);
+        await prepareAISampleLibrary(
+          token,
+          assignment.id,
+          activeController.signal,
+        );
+      }
       if (current !== runNumber.current) return;
       setPreparingSamples(false);
       for (const source of sources) {
@@ -416,7 +428,7 @@ export default function AICodeDetection({
           <button
             className={`${report && !settingsOpen ? "submission-action" : "primary"} ${loading ? "similarity-loading" : ""}`}
             disabled={
-              loading || cacheLoading || !!cacheError || !targets.length
+              loading || cacheLoading || !!cacheError || !targets.length || !detectionOptions?.available
             }
             onClick={() =>
               void run(targets, false, !!reportMeta || hasSavedResults)
@@ -474,17 +486,28 @@ export default function AICodeDetection({
             打开页面读取已保存结果；首次识别或点击“重新生成”时调用模型，成功后更新保存。
           </p>
         )}
+        {detectionOptions && (
+          <p
+            className="similarity-run-note"
+            role={detectionOptions.available ? undefined : "status"}
+          >
+            {detectionOptions.description}
+            {!detectionOptions.available && " 当前未启用检测，请联系管理员检查服务配置。"}
+          </p>
+        )}
       </section>
-      <AISampleLibraryPanel
-        token={token}
-        assignmentId={assignment.id}
-        language={assignment.language}
-        refreshKey={`${preparingSamples}:${rows.map((row) => row.result?.generatedAt ?? "").join(",")}`}
-        disabled={loading}
-        lastFailure={rows
-          .flatMap((row) => row.result?.checks ?? [])
-          .find((note) => note.includes("样本") && note.includes("失败"))}
-      />
+      {detectionOptions?.requiresSamples && (
+        <AISampleLibraryPanel
+          token={token}
+          assignmentId={assignment.id}
+          language={assignment.language}
+          refreshKey={`${preparingSamples}:${rows.map((row) => row.result?.generatedAt ?? "").join(",")}`}
+          disabled={loading}
+          lastFailure={rows
+            .flatMap((row) => row.result?.checks ?? [])
+            .find((note) => note.includes("样本") && note.includes("失败"))}
+        />
+      )}
       {cacheError && (
         <p role="alert">
           {cacheError}{" "}
@@ -648,7 +671,7 @@ export default function AICodeDetection({
                 <thead>
                   <tr>
                     <th>学生 / 提交</th>
-                    <th>AI 率（估计）</th>
+                    <th>生成倾向分</th>
                     <th>识别结论</th>
                     <th>操作</th>
                   </tr>
@@ -675,7 +698,7 @@ export default function AICodeDetection({
                           </div>
                         </div>
                       </td>
-                      <td data-label="AI 率（估计）">
+                      <td data-label="生成倾向分">
                         {row.result ? (
                           <>
                             <div className="ai-detection-rate">
@@ -699,7 +722,7 @@ export default function AICodeDetection({
                               </span>
                             )}
                             <small>{aiAnalysisLabel(row.result)}</small>
-                            {![
+                            {!row.result.localDetection && ![
                               "dimensions-v6",
                               "dimensions-v7",
                               "dimensions-v8",
@@ -787,7 +810,7 @@ export default function AICodeDetection({
                   ? formatAIRate(selected.result)
                   : "证据不足"}
               </strong>
-              <span>AI 率（估计） · {aiAnalysisLabel(selected.result)}</span>
+              <span>生成倾向分 · {aiAnalysisLabel(selected.result)}</span>
               {aiRateBand(selected.result) && (
                 <span
                   className={`similarity-risk risk-${aiRateBand(selected.result)!.tone}`}
@@ -830,10 +853,18 @@ export default function AICodeDetection({
               识别结论：{aiRateBand(selected.result)?.label ?? "证据不足"}
             </h3>
             <p>{selected.result.summary}</p>
-            <AIDimensionAnalysis
-              result={selected.result}
-              language={assignment.language}
-            />
+            {selected.result.localDetection ? (
+              <LocalDetectionAnalysis
+                result={selected.result}
+                language={assignment.language}
+                code={selected.source.code}
+              />
+            ) : (
+              <AIDimensionAnalysis
+                result={selected.result}
+                language={assignment.language}
+              />
+            )}
             {!selected.result.scoringVersion && (
               <>
                 <h3>代码依据</h3>

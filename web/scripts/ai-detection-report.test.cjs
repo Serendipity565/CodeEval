@@ -278,7 +278,7 @@ test("full reports preserve rate tags, confidence, source lines, limitations and
     "已停止",
     "未完成 2 份",
     "包含本次全部提交",
-    "分别分析五个维度，给出分数、判断理由和代码依据",
+    "报告可能采用代码分类检测或上下文多维度分析",
     "证据不足单独标记",
     "第 2 行",
   ])
@@ -556,7 +556,7 @@ test("old saved reports are explicitly identified and new insufficient reports n
   item.result.dimensions = [];
   const html = api.buildAIDetectionHTML("新报告", report([item]));
   assert.match(html, /维度覆盖率 0%/);
-  assert.match(html, /AI 率（估计）：—/);
+  assert.match(html, /生成倾向分：—/);
   assert.doesNotMatch(html, /判断置信度 60%|旧版报告：/);
 });
 
@@ -1048,3 +1048,42 @@ test("v7 zero matching statistics retain the independent LLM assessment and stre
   );
   assert.equal(item.result.dimensions[0].evidence.length, 0);
 });
+
+for (const version of ["llmsniffer-chunks-v1", "droiddetect-binary-chunks-v1"]) {
+test(`local classifier ${version} exports preserve coverage without fabricated explanations`, () => {
+  const item = row("51", 80);
+  item.result.scoringVersion = version;
+  item.result.evidence = [];
+  item.result.dimensions = [];
+  item.result.localDetection = {
+    version,
+    language: "python",
+    aiScore: 0.8,
+    totalTokens: 700,
+    coveredTokens: 700,
+    truncated: false,
+    maxSequenceTokens: 512,
+    overlapTokens: 64,
+    encoderRevision: "private-internal-encoder-revision",
+    checkpointRevision: "private-internal-checkpoint-revision",
+    preprocessingVersion: version.startsWith("droiddetect") ? "raw-source-v1" : "comments-preserve-strings-v1",
+    chunks: [
+      { index: 1, startLine: 1, endLine: 8, tokenCount: 510, weightTokens: 510, aiScore: 0.9 },
+      { index: 2, startLine: 7, endLine: 12, tokenCount: 254, weightTokens: 190, aiScore: 101 / 190 },
+    ],
+  };
+  item.result.aggregationNotes = ["综合分按新增覆盖词元加权，不代表 AI 编写行数占比"];
+  const original = JSON.stringify(item.result);
+  const html = api.buildAIDetectionHTML("分类检测", report([item]));
+  assert.match(html, /代码片段检测/);
+  assert.match(html, /词元覆盖 700\/700/);
+  assert.match(html, /510 \/ 510/);
+  assert.match(html, /254 \/ 190/);
+  assert.match(html, /90\.0%/);
+  assert.match(html, /新增覆盖词元加权/);
+  assert.doesNotMatch(html, /<h3>多维度分析<\/h3>|旧规则报告 · 重新生成后更新/);
+  assert.doesNotMatch(html, /private-internal-|DO-NOT-DISCLOSE-MODEL/);
+  assert.equal(JSON.stringify(item.result), original);
+});
+
+}

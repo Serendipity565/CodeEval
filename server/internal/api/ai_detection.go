@@ -61,6 +61,14 @@ func (h *Handler) assignmentAIDetection(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *Handler) assignmentAIDetectionOptions(c *gin.Context) {
+	a, ok := h.aiSampleAssignment(c)
+	if !ok {
+		return
+	}
+	c.JSON(http.StatusOK, h.evaluator.DetectionOptions(a))
+}
+
 // Reading saved reports never calls the model, including when no report exists.
 func (h *Handler) savedAssignmentAIDetection(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -115,9 +123,19 @@ func detectAndSaveAI(ctx context.Context, repository aiResultStore, detector aiC
 			return evaluator.RecalculateAIScoring(previous[0]), nil
 		}
 	}
-	material, err := repository.AIDetectionContext(ctx, assignmentID, submissionID)
-	if err != nil {
-		return domain.AIDetection{}, fmt.Errorf("%w: %v", errAIReportStorage, err)
+	var material domain.AIDetectionContext
+	requiresContext := true
+	if configurable, ok := detector.(interface {
+		DetectionOptions(domain.Assignment) evaluator.DetectionOptions
+	}); ok {
+		requiresContext = configurable.DetectionOptions(assignment).RequiresContext
+	}
+	if requiresContext {
+		var err error
+		material, err = repository.AIDetectionContext(ctx, assignmentID, submissionID)
+		if err != nil {
+			return domain.AIDetection{}, fmt.Errorf("%w: %v", errAIReportStorage, err)
+		}
 	}
 	result, err := detector.DetectAICode(ctx, assignment, code, material)
 	if err != nil {
@@ -142,6 +160,8 @@ func aiDetectionError(c *gin.Context, err error) {
 		status, code, message = http.StatusServiceUnavailable, "ai_unavailable", evaluator.ErrAIUnavailable.Error()
 	case errors.Is(err, evaluator.ErrAIInput):
 		status, code, message = http.StatusUnprocessableEntity, "ai_invalid_input", evaluator.ErrAIInput.Error()
+	case errors.Is(err, evaluator.ErrLocalDetectorInput):
+		status, code, message = http.StatusUnprocessableEntity, "ai_local_input_limit", evaluator.ErrLocalDetectorInput.Error()
 	case errors.As(err, &sampleError):
 		status, code, message = http.StatusServiceUnavailable, "ai_samples_not_ready", evaluator.AISampleFailureMessage(err)+"；本次识别未开始，请先完成样本准备后重试"
 	case errors.Is(err, evaluator.ErrAISampleAssessment):
