@@ -15,6 +15,7 @@ type AIDetection struct {
 	Checks                  []string            `json:"checks,omitempty"`
 	Execution               *ExecutionEvidence  `json:"execution,omitempty"`
 	Model                   string              `json:"model"`
+	PromptVersion           string              `json:"promptVersion,omitempty"`
 	ModelCalls              int                 `json:"modelCalls"`
 	GeneratedAt             time.Time           `json:"generatedAt"`
 	ScoringVersion          string              `json:"scoringVersion,omitempty"`
@@ -34,12 +35,13 @@ type AIDimension struct {
 	Key             string       `json:"key"`
 	Label           string       `json:"label"`
 	Weight          int          `json:"weight"`
+	EffectiveWeight float64      `json:"effectiveWeight,omitempty"`
 	Status          string       `json:"status"`
 	Score           *int         `json:"score"`
 	EffectiveScore  *int         `json:"effectiveScore"`
 	Strength        string       `json:"strength"`
 	Reason          string       `json:"reason"`
-	Alternative     string       `json:"alternative"`
+	Alternative     string       `json:"alternative,omitempty"`
 	Evidence        []AIEvidence `json:"evidence"`
 	Included        bool         `json:"included"`
 	ExclusionReason string       `json:"exclusionReason,omitempty"`

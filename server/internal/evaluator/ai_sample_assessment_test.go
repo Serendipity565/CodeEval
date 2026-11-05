@@ -69,7 +69,7 @@ func TestZeroTokenMatchesKeepIndependentLLMScoreAndAllSampleSources(t *testing.T
 		if d.Score == nil || *d.Score != want || d.EffectiveScore == nil || *d.EffectiveScore != want || !d.Included || d.Strength != "weak" || d.EvidenceBasis != "sample_comparison" || len(d.Evidence) != 0 {
 			t.Fatalf("LLM assessment was dropped or replaced by similarity: %+v", d)
 		}
-		wantRate := math.Round(float64(want+6)/3*10) / 10
+		wantRate := math.Round(float64(want+18)/7*10) / 10
 		if result.AIRate == nil || *result.AIRate != wantRate || result.Coverage != .6 || result.ModelCalls != 1 {
 			t.Fatalf("LLM sample value was not counted: %+v", result)
 		}

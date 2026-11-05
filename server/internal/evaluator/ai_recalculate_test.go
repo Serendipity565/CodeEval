@@ -41,7 +41,7 @@ func TestRecalculateSavedPercentagesIncludesOriginalWeakAndOverlappingValuesWith
 }
 
 func TestRecalculateKeepsHistoricalScalesAndInvalidReports(t *testing.T) {
-	for _, version := range []string{"", "dimensions-v1", "dimensions-v4", "dimensions-v7"} {
+	for _, version := range []string{"", "dimensions-v1", "dimensions-v4", "dimensions-v7", "dimensions-v8"} {
 		previous := domain.AIDetection{ScoringVersion: version, Dimensions: aiDimensionFixture(t)}
 		before, _ := json.Marshal(previous)
 		after, _ := json.Marshal(RecalculateAIScoring(previous))

@@ -79,7 +79,7 @@ func TestAIDetectionReusesConfiguredClientAndAssignmentContext(t *testing.T) {
 	})
 	service := &Service{deepseek: client, maxCodeBytes: 1000}
 	result, err := service.DetectAICode(context.Background(), domain.Assignment{Title: "输出", Language: "Python", Description: "输出一个整数", StarterCode: "pass # TODO", ReferenceSolution: "private-answer-marker"}, "value = 1\r\nprint(value)")
-	if err != nil || result.AIRate == nil || *result.AIRate != 3 || result.Model != "existing-model" || result.ModelCalls != 1 || result.GeneratedAt.IsZero() {
+	if err != nil || result.AIRate == nil || *result.AIRate != 3 || result.Model != "existing-model" || result.PromptVersion != aiDetectionPromptVersion || result.ModelCalls != 1 || result.GeneratedAt.IsZero() {
 		t.Fatalf("unexpected result: %+v %v", result, err)
 	}
 }
@@ -93,7 +93,6 @@ func TestAIDetectionRejectsUntrustedModelResults(t *testing.T) {
 		"unknown dimension":       strings.Replace(validAIResult, `"task_fit"`, `"made_up"`, 1),
 		"duplicate dimension":     strings.Replace(validAIResult, `"structure"`, `"task_fit"`, 1),
 		"missing dimensions":      `{"summary":"test","limitations":[]}`,
-		"missing alternative":     strings.ReplaceAll(validAIResult, `"alternative":"也可能是人工实现",`, ""),
 		"unknown strength":        strings.Replace(validAIResult, `"strength":"strong"`, `"strength":"certain"`, 1),
 		"insufficient with score": strings.Replace(validAIResult, `"status":"assessed"`, `"status":"insufficient_evidence"`, 1),
 		"invalid JSON":            `{"dimensions":`,
@@ -129,9 +128,10 @@ func TestAIDetectionInsufficientEvidenceAndExplicitZero(t *testing.T) {
 	}
 }
 
-func TestAIDetectionAllowsNoAdditionalLimitationsWithoutForcingARate(t *testing.T) {
+func TestAIDetectionAllowsDirectJudgmentWithoutBoilerplateOrForcingARate(t *testing.T) {
 	for _, output := range []string{
 		strings.Replace(validAIResult, `["无法获取实际编写过程"]`, `[]`, 1),
+		strings.ReplaceAll(strings.Replace(validAIResult, `["无法获取实际编写过程"]`, `[]`, 1), `"alternative":"也可能是人工实现",`, ""),
 		insufficientAIResult,
 	} {
 		client := NewDeepSeekClient("https://example.invalid", "key", "model", 2, 256)
@@ -139,6 +139,9 @@ func TestAIDetectionAllowsNoAdditionalLimitationsWithoutForcingARate(t *testing.
 		result, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
 		if err != nil || result.Limitations == nil || len(result.Limitations) != 0 {
 			t.Fatalf("report requires boilerplate limitations: %+v %v", result, err)
+		}
+		if result.ModelCalls != 1 {
+			t.Fatalf("direct judgment triggered an unnecessary retry: %+v", result)
 		}
 		if result.Status == "insufficient_evidence" && result.AIRate != nil {
 			t.Fatal("direct wording manufactured a rate for insufficient evidence")
@@ -159,6 +162,49 @@ func TestAIDetectionRetriesInvalidEvidenceAndResetsOutput(t *testing.T) {
 	result, err := client.DetectAICode(context.Background(), domain.Assignment{}, "value = 1\nprint(value)")
 	if err != nil || result.ModelCalls != 2 || result.AIRate == nil || *result.AIRate != 3 || len(result.Evidence) != 2 {
 		t.Fatalf("corrected analysis not retained: %+v %v", result, err)
+	}
+}
+
+func TestAIDetectionAllFiveDimensionsReturnDirectJudgments(t *testing.T) {
+	assignment := domain.Assignment{Language: "Python"}
+	code := "value = 1\nprint(value)\n# explanation"
+	material := domain.AIDetectionContext{
+		History: []domain.Submission{{ID: "previous", Code: "value = 0\nprint(value)"}},
+		SampleBank: &domain.AISampleBank{Samples: []domain.AISample{
+			{ID: "sample-1", Code: "print(1)"},
+			{ID: "sample-2", Code: "print(2)"},
+			{ID: "sample-3", Code: "print(3)"},
+		}},
+	}
+	for _, extraAlternative := range []string{"", "旧格式反向解释"} {
+		dimensions := []domain.AIDimension{}
+		for _, rule := range aiDimensionRules {
+			score := 72
+			d := domain.AIDimension{Key: rule.key, Status: "assessed", Score: &score, Strength: "moderate", Reason: "直接判断与具体代码特征", Alternative: extraAlternative, Evidence: []domain.AIEvidence{{CitationID: "code-001", Explanation: "对应代码特征"}}}
+			if rule.key == "sample_match" {
+				d.Evidence = []domain.AIEvidence{}
+			}
+			if rule.key == "history" {
+				d.Evidence[0].SourceID = "previous"
+				d.Evidence[0].SourceCitationID = "code-001"
+			}
+			dimensions = append(dimensions, d)
+		}
+		output := mustJSON(map[string]any{"summary": "直接判断", "dimensions": dimensions, "limitations": []string{}})
+		client := NewDeepSeekClient("https://example.invalid", "key", "model", 2, 256)
+		client.httpClient.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) { return jsonResponse(output), nil })
+		result, err := client.DetectAICode(context.Background(), assignment, code, material)
+		if err != nil || result.ModelCalls != 1 || result.Coverage != 1 || result.AIRate == nil || *result.AIRate != 72 || len(result.Dimensions) != 5 {
+			t.Fatalf("five direct judgments did not complete in one call: %+v %v", result, err)
+		}
+		for _, d := range result.Dimensions {
+			if !d.Included || d.Alternative != "" || d.Reason != "直接判断与具体代码特征" {
+				t.Fatalf("dimension did not retain a direct judgment: %+v", d)
+			}
+		}
+		if strings.Contains(mustJSON(result), `"alternative"`) {
+			t.Fatal("new report retained counterexplanation fields")
+		}
 	}
 }
 

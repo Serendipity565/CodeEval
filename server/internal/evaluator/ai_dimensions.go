@@ -8,7 +8,7 @@ import (
 	"codeeval/server/internal/domain"
 )
 
-const aiScoringVersion = "dimensions-v7"
+const aiScoringVersion = "dimensions-v8"
 const aiDimensionMaxScore = 100
 
 // These experimental product weights are not fitted probabilities.
@@ -51,8 +51,8 @@ func validateAIDimensionShapes(dimensions []domain.AIDimension) error {
 			continue
 		}
 		sampleAnalysis := d.Key == "sample_match" && d.EvidenceBasis == "sample_comparison"
-		if d.Status != "assessed" || d.Score == nil || *d.Score < 0 || *d.Score > aiDimensionMaxScore || strings.TrimSpace(d.Alternative) == "" || (!sampleAnalysis && len(d.Evidence) == 0) || len(d.Evidence) > 4 {
-			return fmt.Errorf("assessed dimension %s needs integer score 0..100, alternative explanation and 1..4 quotes (sample_comparison may have no matched quotes)", d.Key)
+		if d.Status != "assessed" || d.Score == nil || *d.Score < 0 || *d.Score > aiDimensionMaxScore || (!sampleAnalysis && len(d.Evidence) == 0) || len(d.Evidence) > 4 {
+			return fmt.Errorf("assessed dimension %s needs integer score 0..100 and 1..4 quotes (sample_comparison may have no matched quotes)", d.Key)
 		}
 		if strengthRank(d.Strength) == 0 {
 			return fmt.Errorf("invalid evidence strength for dimension %s", d.Key)
@@ -145,15 +145,24 @@ func normalizedAIQuote(quote string) string {
 }
 
 func aggregateAIDimensions(input []domain.AIDimension, _ string) domain.AIDetection {
+	return aggregateAIDimensionsWithPolicy(input, aiScoringVersion)
+}
+
+func aggregateAIDimensionsWithPolicy(input []domain.AIDimension, version string) domain.AIDetection {
+	dynamic := version == "dimensions-v8"
 	result := domain.AIDetection{
-		Status: "insufficient_evidence", ScoringVersion: aiScoringVersion,
+		Status: "insufficient_evidence", ScoringVersion: version,
 		Evidence: []domain.AIEvidence{}, Dimensions: []domain.AIDimension{},
 		AggregationNotes: []string{
-			"实验权重：题目契合、代码结构、注释关系、同题 AI 样本、历史演变各 20%；分数与证据强度来自模型分析，权重未经准确率校准。",
-			"各维度分别按原始分析值参与汇总；引用相同或行范围重叠不会排除维度。公共框架和标准算法本身不能证明来源，由各维度分析说明。",
+			"基础权重：题目契合、代码结构、注释关系、同题 AI 样本、历史演变各 20%。",
+			"各维度按原始分析值参与汇总；引用相同或行范围重叠时，各维度仍分别计分。",
 			"有已核验依据和分析值的维度均参与综合结果，不因证据强弱、低分或引用复用而排除；每维只按其基础权重计入一次。没有材料或引用未通过核验时标为无法判断，不捏造百分比、不记为零分。",
 			"同题样本维度由模型结合当前实现、三份样本源码和服务端比对统计给出 0–100% 的生成倾向值。没有连续匹配片段仍须评分并参与计算；匹配率不直接充当维度分数，零匹配不自动记零分。证据强度由模型单独评估。",
 		},
+	}
+	if dynamic {
+		result.AggregationNotes[0] = "基础权重各 20%；证据强度系数：强 3、中等 2、弱 1。实际占比 = 基础权重 × 强度系数 ÷ 所有参与维度的加权权重合计 × 100%。"
+		result.AggregationNotes[2] = "有已核验依据和分析值的维度按证据强弱分配实际占比；弱证据仍参与计分，缺少材料的维度占比为 0。原始分数保持不变，每个维度计入一次。"
 	}
 	// Canonical order, labels, weights and all calculated fields are server-owned.
 	for _, rule := range aiDimensionRules {
@@ -161,6 +170,7 @@ func aggregateAIDimensions(input []domain.AIDimension, _ string) domain.AIDetect
 			if supplied.Key == rule.key {
 				d := supplied
 				d.Label, d.Weight = rule.label, rule.weight
+				d.EffectiveWeight = 0
 				d.Included, d.EffectiveScore, d.ExclusionReason = false, nil, ""
 				d.Evidence = append([]domain.AIEvidence{}, supplied.Evidence...)
 				for i := range d.Evidence {
@@ -170,10 +180,13 @@ func aggregateAIDimensions(input []domain.AIDimension, _ string) domain.AIDetect
 			}
 		}
 	}
-	weight, weightedScore, includedCount := 0, 0, 0
+	weight, adjustedWeight, weightedScore, includedCount := 0, 0, 0, 0
 	for i := range result.Dimensions {
 		d := &result.Dimensions[i]
 		d.Included = d.Status == "assessed" && d.Score != nil && (len(d.Evidence) > 0 || d.EvidenceBasis == "sample_comparison")
+		if dynamic && strengthRank(d.Strength) == 0 {
+			d.Included = false
+		}
 		for j := range d.Evidence {
 			d.Evidence[j].Counted = d.Included
 			result.Evidence = append(result.Evidence, d.Evidence[j])
@@ -185,7 +198,12 @@ func aggregateAIDimensions(input []domain.AIDimension, _ string) domain.AIDetect
 		score := *d.Score
 		d.EffectiveScore = &score
 		weight += d.Weight
-		weightedScore += score * d.Weight
+		factor := 1
+		if dynamic {
+			factor = strengthRank(d.Strength)
+		}
+		adjustedWeight += d.Weight * factor
+		weightedScore += score * d.Weight * factor
 		includedCount++
 	}
 	result.Coverage = float64(weight) / 100
@@ -193,8 +211,18 @@ func aggregateAIDimensions(input []domain.AIDimension, _ string) domain.AIDetect
 		result.Summary = fmt.Sprintf("无法判断，暂不生成综合结果。%d/%d 个维度有可用分析值；缺少材料不代表低生成倾向。", includedCount, len(result.Dimensions))
 		return result
 	}
-	rate := math.Round(float64(weightedScore)/float64(aiDimensionMaxScore*weight)*1000) / 10
-	result.AggregationNotes = append(result.AggregationNotes, fmt.Sprintf("按参与维度重新归一化：Σ(维度生成倾向百分比 × 权重) ÷ 参与权重合计；本次 %d/%d 个维度参与，权重覆盖 %d%%，综合分为 %.1f%%。每维使用 0–100%% 的整数倾向值，仅作为统一量表，证据强度不改变计算。", includedCount, len(result.Dimensions), weight, rate))
+	for i := range result.Dimensions {
+		d := &result.Dimensions[i]
+		if dynamic && d.Included {
+			d.EffectiveWeight = float64(d.Weight*strengthRank(d.Strength)) / float64(adjustedWeight) * 100
+		}
+	}
+	rate := math.Round(float64(weightedScore)/float64(aiDimensionMaxScore*adjustedWeight)*1000) / 10
+	if dynamic {
+		result.AggregationNotes = append(result.AggregationNotes, fmt.Sprintf("综合分 = Σ(维度分 × 实际占比百分数) ÷ 100；本次 %d/%d 个维度参与，基础权重覆盖 %d%%，综合分 %.1f%%。实际占比按完整精度计算，展示保留一位小数。", includedCount, len(result.Dimensions), weight, rate))
+	} else {
+		result.AggregationNotes = append(result.AggregationNotes, fmt.Sprintf("按参与维度重新归一化：Σ(维度生成倾向百分比 × 权重) ÷ 参与权重合计；本次 %d/%d 个维度参与，权重覆盖 %d%%，综合分为 %.1f%%。每维使用 0–100%% 的整数倾向值，仅作为统一量表，证据强度不改变计算。", includedCount, len(result.Dimensions), weight, rate))
+	}
 	result.Status, result.AIRate = "estimated", &rate
 	label := "低生成倾向"
 	switch {

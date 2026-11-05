@@ -1,10 +1,6 @@
 import type { AIDetection } from "../../types";
 import TestResults from "../assessment/TestResults";
-import {
-  aiDetectionCaution,
-  aiLegacyChecksNote,
-  aiLegacyScoringNote,
-} from "./ai-report";
+import { aiLegacyChecksNote, aiLegacyScoringNote } from "./ai-report";
 
 const noteKey = (text: string) =>
   text.replace(/\s+/g, "").replace(/[。；;.!！]+$/, "");
@@ -60,7 +56,6 @@ export default function AIReportNotes({ result }: { result: AIDetection }) {
     [
       ...checks,
       ...rules,
-      aiDetectionCaution,
       result.summary,
       ...(result.dimensions ?? []).flatMap((dimension) => [
         dimension.reason,
@@ -142,7 +137,6 @@ export default function AIReportNotes({ result }: { result: AIDetection }) {
           )}
         </div>
       </details>
-      <p className="ai-report-footnote">{aiDetectionCaution}</p>
     </section>
   );
 }

@@ -191,12 +191,13 @@ export type AIDimension = {
   key: "task_fit" | "structure" | "comments" | "sample_match" | "history";
   label: string;
   weight: number;
+  effectiveWeight?: number;
   status: "assessed" | "insufficient_evidence";
   score: number | null;
   effectiveScore: number | null;
   strength: "none" | "weak" | "moderate" | "strong";
   reason: string;
-  alternative: string;
+  alternative?: string;
   evidence: AIEvidence[];
   included: boolean;
   exclusionReason?: string;
@@ -214,6 +215,7 @@ export type AIDetection = {
   model: string;
   modelCalls: number;
   generatedAt: string;
+  promptVersion?: string;
   scoringVersion?: string;
   citationVersion?: string;
   recalculatedFromVersion?: string;

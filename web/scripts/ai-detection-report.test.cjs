@@ -278,7 +278,7 @@ test("full reports preserve rate tags, confidence, source lines, limitations and
     "已停止",
     "未完成 2 份",
     "包含本次全部提交",
-    "不是实际 AI 生成代码占比",
+    "分别分析五个维度，给出分数、判断理由和代码依据",
     "证据不足单独标记",
     "第 2 行",
   ])
@@ -408,7 +408,7 @@ test("reports preserve actual verification facts, escape them and identify legac
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /此报告未记录核验材料/);
   assert.match(html, /请重新生成/);
-  assert.match(html, /未被测试覆盖的缺陷仅为静态推测/);
+  assert.doesNotMatch(html, /测试成败不能直接证明来源|未被测试覆盖的缺陷仅为静态推测/);
 });
 
 test("execution snapshots show failures, escape outputs and protect hidden cases", () => {
@@ -456,13 +456,16 @@ test("conclusions lead with a clear tendency and empty supplementary notes do no
   const html = api.buildAIDetectionHTML("测试", report([item]));
   assert.match(html, /识别结论：较高生成倾向/);
   assert.doesNotMatch(html, /<h3>补充说明<\/h3>|判断局限/);
-  assert.equal((html.match(/AI 率是来源倾向估计/g) || []).length, 1);
+  assert.doesNotMatch(
+    html,
+    /仅供复核|仅供参考|来源判断仍可能出错|经过校准的概率/,
+  );
   assert.ok(
     html.indexOf("识别结论：较高生成倾向") < html.indexOf("<h3>代码依据"),
   );
 });
 
-test("multi-dimension reports preserve calculation, exclusions and counterevidence without legacy confidence", () => {
+test("multi-dimension reports preserve judgments and calculations without counterexplanations", () => {
   const item = row();
   item.result.scoringVersion = "dimensions-v1";
   item.result.coverage = 0.7;
@@ -517,7 +520,6 @@ test("multi-dimension reports preserve calculation, exclusions and countereviden
     "不计分",
     "基础权重 30%",
     "分析原始分 3/4",
-    "反向解释：人工实现也可能出现",
     "未计分原因：缺少证据",
     "重复或公共框架引用，不计分",
     "维度覆盖率 70%",
@@ -526,6 +528,7 @@ test("multi-dimension reports preserve calculation, exclusions and countereviden
   ])
     assert.ok(html.includes(text), text);
   assert.doesNotMatch(html, /判断置信度 60%|旧版报告：|<h3>代码依据<\/h3>/);
+  assert.doesNotMatch(html, /反向解释|人工实现也可能出现|规范编程习惯/);
   assert.equal(api.aiAnalysisLabel(item.result), "维度覆盖率 70%");
   assert.equal(api.aiDimensionScoreLabel(item.result.dimensions[2]), "不计分");
   assert.equal(
@@ -667,7 +670,7 @@ test("v3 separates coverage, low scores and evidence strength while retaining ol
   assert.match(html, /证据强度：弱/);
   assert.match(html, /证据强度：无可用证据/);
   assert.match(html, /每维满分 4 分/);
-  assert.match(html, /不改变得分或决定是否出分/);
+  assert.match(html, /证据强度单独展示，不参与计分/);
   assert.doesNotMatch(html, /证据强度曾影响出分和分数上限/);
   const before = JSON.stringify(item.result);
   api.buildAIDetectionHTML("新规则", report([item]));

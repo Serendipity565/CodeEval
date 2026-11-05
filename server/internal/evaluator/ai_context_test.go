@@ -161,7 +161,7 @@ func TestPublicFrameworkIsExcludedFromTeacherReferenceComparison(t *testing.T) {
 		t.Fatalf("framework counted as copied implementation: %+v", verification)
 	}
 	input := aiDetectionInput(assignment, framework, verification)
-	if !strings.Contains(input, "starterCode") || !strings.Contains(strings.Join(verification.Checks, "\n"), "框架不是标准答案") {
+	if !strings.Contains(input, "starterCode") || !strings.Contains(strings.Join(verification.Checks, "\n"), "只分析学生新增实现") {
 		t.Fatal("public framework role missing from model context")
 	}
 }

@@ -14,7 +14,6 @@ import AISampleLibraryPanel from "./AISampleLibraryPanel";
 import { Empty, Icon } from "../ui";
 import Dialog from "../ui/Dialog";
 import {
-  aiDetectionCaution as caution,
   aiAnalysisLabel,
   aiScoringVersionNote,
   aiRateBand,
@@ -497,12 +496,6 @@ export default function AICodeDetection({
           </button>
         </p>
       )}
-      {!report && (
-        <p className="ai-reading-note-empty">
-          <Icon name="alert" />
-          识别结果仅供复核，AI 率不等于实际生成代码占比。
-        </p>
-      )}
       {!choices.length && (
         <Empty text="暂无学生提交，收到代码后即可开始识别。" />
       )}
@@ -568,14 +561,6 @@ export default function AICodeDetection({
               </div>
             ))}
           </dl>
-          <details className="ai-reading-note">
-            <summary>
-              <Icon name="alert" />
-              <span>AI 率仅供复核参考，不代表实际生成占比</span>
-              <Icon name="chevronRight" />
-            </summary>
-            <p>{caution}</p>
-          </details>
           {loading && (
             <p className="ai-overview-progress">
               正在识别，已完成 {stats.completed}/{stats.total}{" "}
@@ -714,9 +699,11 @@ export default function AICodeDetection({
                               </span>
                             )}
                             <small>{aiAnalysisLabel(row.result)}</small>
-                            {!["dimensions-v6", "dimensions-v7"].includes(
-                              row.result.scoringVersion ?? "",
-                            ) &&
+                            {![
+                              "dimensions-v6",
+                              "dimensions-v7",
+                              "dimensions-v8",
+                            ].includes(row.result.scoringVersion ?? "") &&
                               aiScoringVersionNote(row.result) && (
                                 <small>旧规则报告 · 重新生成后更新</small>
                               )}

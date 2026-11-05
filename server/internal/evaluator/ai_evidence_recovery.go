@@ -36,7 +36,7 @@ func (c *DeepSeekClient) repairAICitations(ctx context.Context, assignment domai
 	var repaired []domain.AIDimension
 	lines := strings.Split(code, "\n")
 	system := aiDetectionSystem + `
-本次为独立引用定位复核。只返回 dimensionsToReview 指定的维度，JSON为 {"dimensions":[...]}，不返回其他维度。重新阅读真实源码独立分析，不使用不存在的引用作为事实。task_fit、structure 有完整当前代码，必须重新给出 assessed、整数score、strength、reason、alternative 及1至4条真实依据，不因之前定位失败而标成无法判断。当前代码依据只返回 {"citationId":"从currentEvidence.id原样选择","explanation":"该代码与本维度的具体关系"}，不抄写quote或填写startLine/endLine。history 使用 citationId、sourceId、sourceCitationId 选择两侧真实片段，不自行抄写行号；sample_match遵守完整样本评分规则。真正没有注释或历史材料时相应维度可未知。`
+本次为独立引用定位复核。只返回 dimensionsToReview 指定的维度，JSON为 {"dimensions":[...]}，不返回其他维度。重新阅读真实源码，直接给出判断。task_fit、structure 必须给出 assessed、整数score、strength、reason 及1至4条真实依据。当前代码依据只返回 {"citationId":"从currentEvidence.id原样选择","explanation":"具体特征与判断"}。history 使用 citationId、sourceId、sourceCitationId 选择两侧真实片段；sample_match遵守完整样本评分规则。没有注释或历史材料时相应维度可未知。`
 	calls, err := c.completeValidated(ctx, system, mustJSON(input), &out, func() error {
 		if len(out.Dimensions) != len(keys) {
 			return fmt.Errorf("repair must return exactly the requested dimensions")

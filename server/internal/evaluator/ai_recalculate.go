@@ -14,7 +14,7 @@ func RecalculateAIScoring(previous domain.AIDetection) domain.AIDetection {
 		return previous
 	}
 	dimensions := append([]domain.AIDimension{}, previous.Dimensions...)
-	calculated := aggregateAIDimensions(dimensions, "")
+	calculated := aggregateAIDimensionsWithPolicy(dimensions, "dimensions-v6")
 	result := previous
 	result.Status, result.AIRate, result.Coverage = calculated.Status, calculated.AIRate, calculated.Coverage
 	result.Dimensions, result.Evidence = calculated.Dimensions, calculated.Evidence

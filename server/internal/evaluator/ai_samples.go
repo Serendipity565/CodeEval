@@ -210,6 +210,6 @@ func compareAISamples(ctx context.Context, a domain.Assignment, code string, ban
 		out.Samples = append(out.Samples, match)
 	}
 	out.Status = "compared"
-	out.Note = "已排除公共框架，按至少20个连续词元匹配（允许一致标识符替换）。最多展示每份样本前4个片段；相似度按完整匹配计算。样本由当前服务模型生成、未经过沙箱验证；匹配只能提供复核线索，低匹配不能证明人工来源。"
+	out.Note = "已排除公共框架，按至少20个连续词元匹配（允许一致标识符替换）。最多展示每份样本前4个片段；相似度按完整匹配计算。样本由当前服务模型生成，未经过沙箱验证。"
 	return out
 }

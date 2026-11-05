@@ -27,8 +27,8 @@ func completeAISampleComparison(comparison *domain.AISampleComparison) bool {
 	return true
 }
 
-// The server records the factual basis, but leaves score, strength, reasoning
-// and alternatives entirely as returned by the model. An omitted score retries
+// The server records the factual basis, but leaves score, strength and reasoning
+// entirely as returned by the model. An omitted score retries
 // the model; it is never replaced by zero, similarity, or a neutral default.
 func requireAISampleAssessment(dimensions []domain.AIDimension, comparison *domain.AISampleComparison) error {
 	if !completeAISampleComparison(comparison) {
@@ -40,7 +40,7 @@ func requireAISampleAssessment(dimensions []domain.AIDimension, comparison *doma
 			continue
 		}
 		if d.Status != "assessed" || d.Score == nil {
-			return fmt.Errorf("%w: sample_match must be assessed with an integer score 0..100; analyze all three numbered sampleSources and the comparison statistics even when sampleEvidence is empty; zero token matches do not require a zero score; return reason, alternative, weak/moderate/strong strength and evidence=[] when no verified matchId is available", ErrAISampleAssessment)
+			return fmt.Errorf("%w: sample_match must be assessed with an integer score 0..100; analyze all three numbered sampleSources and the comparison statistics even when sampleEvidence is empty; return a direct judgment in reason, weak/moderate/strong strength and evidence=[] when no verified matchId is available", ErrAISampleAssessment)
 		}
 		d.EvidenceBasis = "sample_comparison"
 		return nil

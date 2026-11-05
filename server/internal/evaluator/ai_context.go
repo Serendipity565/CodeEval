@@ -65,7 +65,7 @@ type aiVerification struct {
 func buildAIVerification(ctx context.Context, assignment domain.Assignment, code string, material domain.AIDetectionContext) aiVerification {
 	out := aiVerification{History: []aiPriorVersion{}, ExecutionSource: "unavailable"}
 	if strings.TrimSpace(assignment.StarterCode) != "" {
-		out.Checks = append(out.Checks, "公共框架：题目提供的参考代码仅为起始框架，其相同接口、TODO 和输入输出代码不作为 AI 生成或抄袭依据；框架不是标准答案。")
+		out.Checks = append(out.Checks, "公共框架：已提供题目的起始框架，只分析学生新增实现。")
 	}
 	if material.Execution != nil {
 		out.ExecutionSource = "saved_evaluation"
@@ -84,7 +84,7 @@ func buildAIVerification(ctx context.Context, assignment domain.Assignment, code
 		out.History = append(out.History, version)
 	}
 	if len(out.History) == 0 {
-		out.Checks = append(out.Checks, "提交历史：没有本份提交之前的同学生、同作业版本；平台提交记录不等于编辑过程或 AI 对话记录。")
+		out.Checks = append(out.Checks, "提交历史：没有本份提交之前的同学生、同作业版本。")
 	} else {
 		omitted := 0
 		for _, version := range out.History {
@@ -92,7 +92,7 @@ func buildAIVerification(ctx context.Context, assignment domain.Assignment, code
 				omitted++
 			}
 		}
-		out.Checks = append(out.Checks, fmt.Sprintf("提交历史：提供本份提交之前最近 %d 份同学生、同作业版本（最多 3 份）；其中 %d 份因超过 20000 字节仅提供编号与时间。版本变化不能直接证明 AI 来源，也不等于完整编辑或生成历史。", len(out.History), omitted))
+		out.Checks = append(out.Checks, fmt.Sprintf("提交历史：提供本份提交之前最近 %d 份同学生、同作业版本（最多 3 份）；其中 %d 份因超过 20000 字节仅提供编号与时间。", len(out.History), omitted))
 	}
 	out.ReferenceStatus = "not_used"
 	out.Checks = append(out.Checks, "参考代码：选填且仅作教师存档，不参与本次 AI 识别或比对。")
@@ -116,7 +116,7 @@ func (s *Service) prepareAIVerification(ctx context.Context, assignment domain.A
 				if ctx.Err() != nil {
 					return out, ctx.Err()
 				}
-				out.Checks = append(out.Checks, "运行核验：尝试沙箱执行失败，未取得运行结果；服务故障不能作为代码错误或 AI 来源依据。")
+				out.Checks = append(out.Checks, "运行核验：尝试沙箱执行失败，未取得运行结果。")
 			} else if execution != nil {
 				out.ExecutionSource = "sandbox_run"
 				out.Execution = compactAIExecution(execution)
@@ -129,9 +129,9 @@ func (s *Service) prepareAIVerification(ctx context.Context, assignment domain.A
 	if out.Execution != nil {
 		e := out.Execution
 		if e.CompileOK {
-			out.Checks = append(out.Checks, fmt.Sprintf("测试结果：编译通过，测试通过 %d/%d；向模型提供前 %d 项用例结果。测试仅覆盖已配置用例，未单独验证的边界只能表述为静态推测；通过或失败本身不能证明代码来源。", e.Passed, e.Total, len(e.Results)))
+			out.Checks = append(out.Checks, fmt.Sprintf("测试结果：编译通过，测试通过 %d/%d；向模型提供前 %d 项用例结果。", e.Passed, e.Total, len(e.Results)))
 		} else {
-			out.Checks = append(out.Checks, "测试结果：沙箱编译失败，不能据此推断 AI 来源。编译信息："+clipAIText(e.CompileError, 1000))
+			out.Checks = append(out.Checks, "测试结果：沙箱编译失败。编译信息："+clipAIText(e.CompileError, 1000))
 		}
 	}
 	if material.SampleBank == nil && s.aiSampleStore != nil && assignment.ID != "" {

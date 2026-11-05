@@ -72,7 +72,7 @@ func TestAIDimensionScoresRemainIncludedWithSharedSourceOrFramework(t *testing.T
 	}
 }
 
-func TestAIDimensionStrengthDoesNotAlterScoresOrAvailability(t *testing.T) {
+func TestAIDimensionEqualStrengthPreservesScoresAndAvailability(t *testing.T) {
 	for _, strength := range []string{"weak", "moderate", "strong"} {
 		for score := 0; score <= 100; score++ {
 			t.Run(fmt.Sprintf("%s-score-%d", strength, score), func(t *testing.T) {
@@ -115,12 +115,12 @@ func TestAIPercentageMixedScoresNormalizeOverAvailableDimensions(t *testing.T) {
 	d[0].Score, d[1].Score = &first, &second
 	d[2] = domain.AIDimension{Key: "comments", Status: "assessed", Score: &third, Strength: "weak", Evidence: []domain.AIEvidence{{StartLine: 3, EndLine: 3, Quote: "# explanation"}}}
 	result := aggregateAIDimensions(d, "")
-	if result.ScoringVersion != aiScoringVersion || result.Coverage != .6 || result.AIRate == nil || *result.AIRate != 43.3 {
+	if result.ScoringVersion != aiScoringVersion || result.Coverage != .6 || result.AIRate == nil || *result.AIRate != 42.9 {
 		t.Fatalf("percentage scale used the wrong denominator or counted missing dimensions as zero: %+v", result)
 	}
 	first++
 	changed := aggregateAIDimensions(d, "")
-	if changed.AIRate == nil || *changed.AIRate != 43.7 {
+	if changed.AIRate == nil || *changed.AIRate != 43.3 {
 		t.Fatalf("one percentage point difference was lost: %+v", changed)
 	}
 }

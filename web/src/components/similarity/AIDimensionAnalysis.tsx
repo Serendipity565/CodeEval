@@ -8,6 +8,9 @@ import {
   aiLegacyScoringNote,
   aiScoringVersionNote,
   aiSampleAnalysisLabel,
+  aiUsesDynamicWeights,
+  aiDimensionWeight,
+  aiDimensionWeightLabel,
 } from "./ai-report";
 
 function SampleMatchRecords({ result }: { result: AIDetection }) {
@@ -50,10 +53,13 @@ export default function AIDimensionAnalysis({
   const id = useId();
   const detailRefs = useRef(new Map<string, HTMLDetailsElement>());
   const dimensions = result.dimensions ?? [];
+  const dynamicWeights = aiUsesDynamicWeights(result);
+  const weightLabel = dynamicWeights ? "实际占比" : "基础权重";
   const percentageScale = [
     "dimensions-v5",
     "dimensions-v6",
     "dimensions-v7",
+    "dimensions-v8",
   ].includes(result.scoringVersion ?? "");
   const maxScore = aiDimensionMaxScore(result);
   const scoringNote = aiScoringVersionNote(result);
@@ -61,7 +67,7 @@ export default function AIDimensionAnalysis({
     (dimension) => dimension.included && dimension.effectiveScore !== null,
   ).length;
   const totalWeight = dimensions.reduce(
-    (sum, dimension) => sum + dimension.weight,
+    (sum, dimension) => sum + aiDimensionWeight(dimension, result),
     0,
   );
   let weightOffset = 0;
@@ -91,15 +97,18 @@ export default function AIDimensionAnalysis({
           ? "各维度使用 0–100% 表示生成倾向；"
           : `每维满分 ${maxScore} 分，分数表示生成倾向；`}
         证据强度由模型单独评估，表示依据的支持程度。
-        {[
-          "dimensions-v3",
-          "dimensions-v4",
-          "dimensions-v5",
-          "dimensions-v6",
-          "dimensions-v7",
-        ].includes(result.scoringVersion ?? "") &&
-          "强度不参与计分，低分也正常参与综合计算。"}
-        {["dimensions-v6", "dimensions-v7"].includes(
+        {dynamicWeights
+          ? "强／中／弱系数为 3／2／1，按实际占比汇总。"
+          : [
+              "dimensions-v3",
+              "dimensions-v4",
+              "dimensions-v5",
+              "dimensions-v6",
+              "dimensions-v7",
+              "dimensions-v8",
+            ].includes(result.scoringVersion ?? "") &&
+            "强度不参与计分，低分也正常参与综合计算。"}
+        {["dimensions-v6", "dimensions-v7", "dimensions-v8"].includes(
           result.scoringVersion ?? "",
         )
           ? "引用重叠也正常计分；缺少材料时标为无法判断。"
@@ -111,12 +120,12 @@ export default function AIDimensionAnalysis({
       {dimensions.length > 0 ? (
         <div className="ai-dimension-overview">
           <figure className="ai-weight-chart">
-            <figcaption>维度基础权重</figcaption>
+            <figcaption>维度{weightLabel}</figcaption>
             <div className="ai-weight-ring">
               <svg
                 viewBox="0 0 200 200"
                 role="img"
-                aria-label={`维度基础权重分布，${includedCount} 个维度已计分，共 ${dimensions.length} 个维度。各维度权重与得分见得分列表。`}
+                aria-label={`维度${weightLabel}分布，${includedCount} 个维度已计分，共 ${dimensions.length} 个维度。各维度权重与得分见得分列表。`}
               >
                 <circle
                   className="ai-weight-track"
@@ -129,7 +138,8 @@ export default function AIDimensionAnalysis({
                 {dimensions.map((dimension) => {
                   const share =
                     totalWeight > 0
-                      ? (dimension.weight / totalWeight) * 100
+                      ? (aiDimensionWeight(dimension, result) / totalWeight) *
+                        100
                       : 0;
                   const offset = weightOffset;
                   weightOffset += share;
@@ -149,7 +159,8 @@ export default function AIDimensionAnalysis({
                       transform="rotate(-90 100 100)"
                     >
                       <title>
-                        {dimension.label}：基础权重 {dimension.weight}%，
+                        {dimension.label}：
+                        {aiDimensionWeightLabel(dimension, result)}，
                         {aiDimensionScoreLabel(dimension, result)}
                       </title>
                     </circle>
@@ -165,14 +176,14 @@ export default function AIDimensionAnalysis({
               </div>
             </div>
             <p>
-              扇区表示基础权重，灰色为未计分。
-              <br />
-              权重不代表最终得分贡献。
+              {dynamicWeights
+                ? "扇区表示实际占比，按证据强弱分配；未计分维度占比为 0。"
+                : "扇区表示基础权重，灰色为未计分。"}
             </p>
           </figure>
           <div className="ai-dimension-scores" aria-label="维度得分对比">
             <div className="ai-dimension-scale">
-              <span>维度 / 基础权重</span>
+              <span>维度 / {weightLabel}</span>
               <span>{percentageScale ? "生成倾向（%）" : "生成倾向得分"}</span>
             </div>
             {dimensions.map((dimension) => {
@@ -185,13 +196,18 @@ export default function AIDimensionAnalysis({
                   data-dimension={dimension.key}
                   className={`ai-dimension-score-row${scored ? "" : " is-excluded"}`}
                   aria-controls={`${id}-${dimension.key}`}
-                  aria-label={`${dimension.label}，基础权重 ${dimension.weight}%，${aiDimensionScoreLabel(dimension, result)}，${aiDimensionStrengthLabel(dimension.strength)}，查看依据`}
+                  aria-label={`${dimension.label}，${aiDimensionWeightLabel(dimension, result)}，${aiDimensionScoreLabel(dimension, result)}，${aiDimensionStrengthLabel(dimension.strength)}，查看依据`}
                   onClick={() => showDimension(dimension.key)}
                 >
                   <span className="ai-dimension-score-title">
                     <span className="ai-dimension-dot" aria-hidden="true" />
                     <b>{dimension.label}</b>
-                    <small>{dimension.weight}%</small>
+                    <small>
+                      {dynamicWeights
+                        ? aiDimensionWeight(dimension, result).toFixed(1)
+                        : dimension.weight}
+                      %
+                    </small>
                   </span>
                   <span className="ai-dimension-score-value">
                     {aiDimensionScoreLabel(dimension, result)}
@@ -249,7 +265,7 @@ export default function AIDimensionAnalysis({
             <span className="ai-dimension-title">
               {dimension.label}
               <small>
-                基础权重 {dimension.weight}% ·{" "}
+                {aiDimensionWeightLabel(dimension, result)} ·{" "}
                 {dimension.evidenceBasis === "sample_comparison"
                   ? `${result.sampleComparison?.samples.length ?? 0} 份样本整体分析 · ${dimension.evidence.length} 条匹配引用`
                   : `${dimension.evidence.length} 条依据`}{" "}
@@ -281,16 +297,10 @@ export default function AIDimensionAnalysis({
                 : ""}
             </p>
             <p>{dimension.reason}</p>
-            {dimension.alternative && (
-              <p className="ai-dimension-context">
-                <b>反向解释</b>
-                {dimension.alternative}
-              </p>
-            )}
             {dimension.exclusionReason && (
               <p className="ai-dimension-context">
                 <b>
-                  {["dimensions-v6", "dimensions-v7"].includes(
+                  {["dimensions-v6", "dimensions-v7", "dimensions-v8"].includes(
                     result.scoringVersion ?? "",
                   )
                     ? "无法判断原因"
@@ -310,9 +320,11 @@ export default function AIDimensionAnalysis({
                   {" · "}
                   {item.counted
                     ? "参与计分"
-                    : ["dimensions-v6", "dimensions-v7"].includes(
-                          result.scoringVersion ?? "",
-                        )
+                    : [
+                          "dimensions-v6",
+                          "dimensions-v7",
+                          "dimensions-v8",
+                        ].includes(result.scoringVersion ?? "")
                       ? "引用未用于计算，原因见维度说明"
                       : "重复或公共框架引用，不计分"}
                 </b>
