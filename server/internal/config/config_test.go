@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -46,20 +45,8 @@ func TestDetectorReadsSharedYAMLAndDerivesInternalToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.AIDetection.Provider != "auto" || cfg.AIDetection.Model != "base" || cfg.AIDetection.URL != "http://droiddetect:8010" || cfg.AIDetection.TimeoutSecs != 240 || cfg.AIDetection.CPUThreads != 6 || cfg.AIDetection.Device != "cuda" || len(cfg.AIDetection.Token) != 64 {
+	if cfg.AIDetection.Provider != "auto" || cfg.AIDetection.URL != "http://droiddetect:8010" || cfg.AIDetection.TimeoutSecs != 240 || cfg.AIDetection.CPUThreads != 6 || cfg.AIDetection.Device != "cuda" || len(cfg.AIDetection.Token) != 64 {
 		t.Fatalf("unexpected detector settings: %+v", cfg.AIDetection)
-	}
-}
-
-func TestDetectorModelSelection(t *testing.T) {
-	for _, model := range []string{"base", "large", " LARGE "} {
-		cfg, err := Load(writeConfig(t, "jwt:\n  secret: test-secret\nai_detection:\n  model: '"+model+"'\n"))
-		if err != nil || cfg.AIDetection.Model != strings.ToLower(strings.TrimSpace(model)) {
-			t.Fatalf("model selection failed: %q, %v", cfg.AIDetection.Model, err)
-		}
-	}
-	if _, err := Load(writeConfig(t, "jwt:\n  secret: test-secret\nai_detection:\n  model: unknown\n")); err == nil {
-		t.Fatal("unknown model accepted")
 	}
 }
 

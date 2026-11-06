@@ -82,7 +82,6 @@ func NewService(cfg config.Config) *Service {
 	}
 	local := NewLocalDetectorClient(cfg.AIDetection.URL, cfg.AIDetection.Token, time.Duration(cfg.AIDetection.TimeoutSecs)*time.Second)
 	local.requiredDevice = cfg.AIDetection.Device
-	local.requiredModel = cfg.AIDetection.Model
 	s.detection = newDetectionRouter(cfg.AIDetection.Provider, local, s)
 	return s
 }

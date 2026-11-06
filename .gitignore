@@ -9,5 +9,3 @@ web/vite.config.d.ts
 /backups/
 /detector/.venv/
 /detector/__pycache__/
-/.deploy-venv/
-/__pycache__/

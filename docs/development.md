@@ -34,7 +34,7 @@ Compose 给 API、Runner、模型初始化和本地检测服务挂载同一份�
 | `sandbox.supported_languages` | 教师可选的作业语言 |
 | `sandbox.max_concurrent_sandboxes` | API Worker 并发数，目前允许 1 或 2 |
 | `deepseek.*` | AI 用例生成、代码 AI 生成识别及启用大模型评估的作业所用配置 |
-| `ai_detection.*` | provider、model（`base`／`large`）、内部分类器 URL、超时、计算设备和 CPU 线程；默认 `auto`／`base`／`cuda`；容器部署通过 `python3 deploy.py` 应用选择 |
+| `ai_detection.*` | provider、内部分类器 URL、超时、计算设备和 CPU 线程；provider 默认 `auto`，device 默认 `cuda` |
 
 Docker 启动、切换与迁移步骤见 [Docker 部署与迁移](docker-deployment.md)。
 检测设置只读取 YAML；内部鉴权令牌从既有 `jwt.secret` 自动派生，无需额外填写。
@@ -44,7 +44,7 @@ Docker 启动、切换与迁移步骤见 [Docker 部署与迁移](docker-deploym
 
 ## 体验演示数据
 
-将 `server/config.yaml` 的 `seed.enabled` 设为 `true`，停止旧后端进程后重新运行 `make server-dev`；Compose 部署执行 `python3 deploy.py up -d --build server`。需要启动最新代码，单独刷新网页不会触发初始化。
+将 `server/config.yaml` 的 `seed.enabled` 设为 `true`，停止旧后端进程后重新运行 `make server-dev`；Compose 部署执行 `docker compose up -d --build server`。需要启动最新代码，单独刷新网页不会触发初始化。
 
 初始教师账号为 `teacher01`、`teacher02`，学生账号为 `student01` 至 `student08`；新建演示账号的统一密码为 `CodeEval123!`。已有同名账号的密码不会重置。全部账号、选课情况与推荐演示步骤见[演示数据](demo-data.md#演示账号与密码)。
 

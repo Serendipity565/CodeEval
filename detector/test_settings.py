@@ -20,7 +20,6 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(settings.local_enabled)
         self.assertEqual(settings.cpu_threads, 4)
         self.assertEqual(settings.device, "cuda")
-        self.assertEqual(settings.model, "base")
         expected = hmac.new(b"shared-test-secret", b"codeeval-local-detector-v1", hashlib.sha256).hexdigest()
         self.assertEqual(settings.token, expected)
 
@@ -48,15 +47,6 @@ class SettingsTests(unittest.TestCase):
     def test_invalid_device_is_rejected(self):
         with self.assertRaises(RuntimeError):
             self.read("jwt:\n  secret: shared-test-secret\nai_detection:\n  device: invalid\n")
-
-    def test_base_and_large_are_selected_from_shared_yaml(self):
-        for name in ("base", "large", " LARGE "):
-            settings = self.read(f"jwt:\n  secret: test-secret\nai_detection:\n  model: '{name}'\n")
-            self.assertEqual(settings.model, name.strip().lower())
-
-    def test_unknown_model_is_rejected(self):
-        with self.assertRaisesRegex(RuntimeError, "model must be base or large"):
-            self.read("jwt:\n  secret: test-secret\nai_detection:\n  model: unknown\n")
 
 
 if __name__ == "__main__":

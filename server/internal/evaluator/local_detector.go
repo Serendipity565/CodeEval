@@ -20,7 +20,6 @@ var ErrLocalDetectorInput = errors.New("代码超出本地分类器处理范围�
 type LocalDetectorClient struct {
 	url, token     string
 	requiredDevice string
-	requiredModel  string
 	http           *http.Client
 }
 
@@ -72,17 +71,6 @@ func (c *LocalDetectorClient) Detect(ctx context.Context, language, code string)
 	if err := validateLocalDetection(local, language, code); err != nil {
 		return domain.AIDetection{}, err
 	}
-	modelSize := local.ModelSize
-	if modelSize == "" { // Legacy Base service/report compatibility.
-		modelSize = "base"
-	}
-	if c.requiredModel != "" && modelSize != c.requiredModel {
-		return domain.AIDetection{}, fmt.Errorf("configured %s model but detector reported %s", c.requiredModel, modelSize)
-	}
-	modelName := "DroidDetect-Base-Binary"
-	if modelSize == "large" {
-		modelName = "DroidDetect-Large-Binary"
-	}
 	if c.requiredDevice == "cuda" && !strings.HasPrefix(local.Device, "cuda:") {
 		return domain.AIDetection{}, fmt.Errorf("CUDA detection was requested but the detector did not report CUDA execution")
 	}
@@ -91,7 +79,7 @@ func (c *LocalDetectorClient) Detect(ctx context.Context, language, code string)
 	}
 	result := domain.AIDetection{
 		Status: "insufficient_evidence", Evidence: []domain.AIEvidence{}, LocalDetection: &local,
-		Model: modelName + "/" + local.CheckpointRevision, ModelCalls: len(local.Chunks),
+		Model: "DroidDetect-Base-Binary/" + local.CheckpointRevision, ModelCalls: len(local.Chunks),
 		ScoringVersion: local.Version, GeneratedAt: time.Now().UTC(),
 		Summary: "没有可检测的非空白源码，未生成倾向分。",
 		Checks: []string{
@@ -120,15 +108,6 @@ func (c *LocalDetectorClient) Detect(ctx context.Context, language, code string)
 
 func validateLocalDetection(r domain.LocalDetection, language, code string) error {
 	invalid := func() error { return fmt.Errorf("local detector returned inconsistent or incomplete coverage") }
-	expectedRepo := "project-droid/DroidDetect-Base-Binary"
-	if r.ModelSize == "large" {
-		expectedRepo = "project-droid/DroidDetect-Large-Binary"
-	} else if r.ModelSize != "" && r.ModelSize != "base" {
-		return invalid()
-	}
-	if r.ModelSize == "large" && r.ModelRepository == "" || r.ModelRepository != "" && r.ModelRepository != expectedRepo {
-		return invalid()
-	}
 	if r.Version != "droiddetect-binary-chunks-v1" || r.Language != language || r.Truncated || r.TotalTokens < 0 || r.CoveredTokens != r.TotalTokens || len(r.Chunks) > 64 || r.MaxSequenceTokens != 512 || r.OverlapTokens != 64 || r.EncoderRevision == "" || r.CheckpointRevision == "" || r.PreprocessingVersion != "raw-source-v1" {
 		return invalid()
 	}

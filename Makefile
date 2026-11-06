@@ -1,5 +1,4 @@
 SHELL := /bin/sh
-PYTHON ?= python3
 
 .PHONY: help install dev web-install web-dev web-build web-preview server-dev server-test sandbox-test sandbox-docker-test docker-build docker-up docker-down docker-logs
 
@@ -48,13 +47,13 @@ sandbox-docker-test:
 	cd sandbox && CODEEVAL_DOCKER_TEST=1 go test ./runner -run TestSandboxImagesEndToEnd -v
 
 docker-build:
-	$(PYTHON) deploy.py build
+	docker compose build
 
 docker-up:
-	$(PYTHON) deploy.py up --build -d
+	docker compose up --build -d
 
 docker-down:
-	$(PYTHON) deploy.py down
+	docker compose down
 
 docker-logs:
-	$(PYTHON) deploy.py logs -f
+	docker compose logs -f

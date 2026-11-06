@@ -4,7 +4,10 @@ import json
 
 from huggingface_hub import snapshot_download
 
-from model_sources import CHECKPOINT_FILES, model_source
+from model_sources import (
+    CHECKPOINT_FILES, CHECKPOINT_REPO, CHECKPOINT_REVISION,
+    ENCODER_REPO, ENCODER_REVISION,
+)
 from settings import load_settings
 
 
@@ -13,10 +16,11 @@ def download(settings=None):
     if not settings.local_enabled:
         print("DeepSeek detection selected; local model download skipped.", flush=True)
         return
-    source = model_source(settings.model)
-    root = source.directory(settings.model_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    expected = source.manifest()
+    root = settings.model_dir
+    expected = {
+        "encoder": {"repo": ENCODER_REPO, "revision": ENCODER_REVISION},
+        "checkpoint": {"repo": CHECKPOINT_REPO, "revision": CHECKPOINT_REVISION},
+    }
     # The fine-tuned state dictionary already contains the complete encoder.
     required = [root / "encoder" / "config.json"] + [root / "droiddetect" / name for name in CHECKPOINT_FILES]
     manifest_path = root / "manifest.json"
@@ -28,11 +32,11 @@ def download(settings=None):
         except (OSError, ValueError):
             pass
     snapshot_download(
-        source.encoder_repo, revision=source.encoder_revision, local_dir=root / "encoder",
+        ENCODER_REPO, revision=ENCODER_REVISION, local_dir=root / "encoder",
         allow_patterns=["config.json"],
     )
     snapshot_download(
-        source.checkpoint_repo, revision=source.checkpoint_revision, local_dir=root / "droiddetect",
+        CHECKPOINT_REPO, revision=CHECKPOINT_REVISION, local_dir=root / "droiddetect",
         allow_patterns=list(CHECKPOINT_FILES),
     )
     if not all(p.is_file() and p.stat().st_size > 0 for p in required):

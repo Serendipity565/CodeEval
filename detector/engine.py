@@ -11,7 +11,7 @@ import torch
 from torch import nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
-from model_sources import PREPROCESSING_VERSION, VERSION, model_source
+from model_sources import CHECKPOINT_REVISION, ENCODER_REVISION, PREPROCESSING_VERSION, VERSION
 from preprocessing import preprocess
 from runtime import select_device
 
@@ -26,13 +26,13 @@ class Classifier(nn.Module):
     The training loss serialized an alias of the same encoder. Retain that
     namespace for strict loading without importing the training loss library.
     """
-    def __init__(self, encoder, projection_dim=256):
+    def __init__(self, encoder):
         super().__init__()
         self.text_encoder = encoder
         self.additional_loss = nn.Module()
         self.additional_loss.sentence_embedder = encoder
-        self.text_projection = nn.Linear(encoder.config.hidden_size, projection_dim)
-        self.classifier = nn.Linear(projection_dim, 2)
+        self.text_projection = nn.Linear(encoder.config.hidden_size, 256)
+        self.classifier = nn.Linear(256, 2)
 
     def forward(self, input_ids, attention_mask):
         # One unpadded window per call, matching the model card's mean pooling.
@@ -42,8 +42,7 @@ class Classifier(nn.Module):
 
 class Engine:
     def __init__(self, settings):
-        self.source = model_source(settings.model)
-        self.root = self.source.directory(settings.model_dir)
+        self.root = settings.model_dir
         self.max_chunks = settings.max_chunks
         self.device = torch.device(select_device(settings.device, torch.cuda.is_available()))
         self.device_name = torch.cuda.get_device_name(self.device) if self.device.type == "cuda" else "CPU"
@@ -53,7 +52,8 @@ class Engine:
             self.device, self.device_name, self.precision,
         )
         manifest = json.loads((self.root / "manifest.json").read_text())
-        if manifest != self.source.manifest():
+        if (manifest["encoder"]["revision"] != ENCODER_REVISION
+                or manifest["checkpoint"]["revision"] != CHECKPOINT_REVISION):
             raise RuntimeError("Model volume revision differs; rerun model-init.")
         torch.set_num_threads(settings.cpu_threads)
         self.tokenizer = AutoTokenizer.from_pretrained(self.root / "droiddetect", local_files_only=True, use_fast=True)
@@ -68,19 +68,13 @@ class Engine:
             raise RuntimeError("Unexpected DroidDetect tokenizer special-token template")
         checkpoint_config = json.loads((self.root / "droiddetect" / "config.json").read_text())
         if checkpoint_config.get("num_classes") != 2:
-            raise RuntimeError("Expected a pinned DroidDetect Binary checkpoint")
+            raise RuntimeError("Expected the pinned DroidDetect Base Binary checkpoint")
         config = AutoConfig.from_pretrained(self.root / "encoder", local_files_only=True)
         # SDPA works on CPU/CUDA without optional FlashAttention or torch.compile.
         config.reference_compile = False
         encoder = AutoModel.from_config(config, attn_implementation="sdpa")
+        self.model = Classifier(encoder)
         state = torch.load(self.root / "droiddetect" / "pytorch_model.bin", map_location="cpu", weights_only=True)
-        if config.hidden_size != self.source.hidden_size:
-            raise RuntimeError("Encoder architecture differs from the selected model")
-        projection = state["text_projection.weight"]
-        if (projection.ndim != 2 or projection.shape[1] != config.hidden_size
-                or tuple(state["classifier.weight"].shape) != (2, projection.shape[0])):
-            raise RuntimeError("Checkpoint projection/classifier dimensions are inconsistent")
-        self.model = Classifier(encoder, projection_dim=projection.shape[0])
         for key, value in state.items():
             if key.startswith("text_encoder."):
                 alias = "additional_loss.sentence_embedder." + key.removeprefix("text_encoder.")
@@ -141,9 +135,8 @@ class Engine:
             "version": VERSION, "language": language, "aiScore": score,
             "chunks": chunks, "totalTokens": total, "coveredTokens": total,
             "truncated": False, "maxSequenceTokens": TOKEN_LIMIT,
-            "overlapTokens": OVERLAP, "encoderRevision": self.source.encoder_revision,
-            "checkpointRevision": self.source.checkpoint_revision,
-            "modelSize": self.source.size, "modelRepository": self.source.checkpoint_repo,
+            "overlapTokens": OVERLAP, "encoderRevision": ENCODER_REVISION,
+            "checkpointRevision": CHECKPOINT_REVISION,
             "preprocessingVersion": PREPROCESSING_VERSION,
             "device": str(self.device), "deviceName": self.device_name,
             "precision": self.precision,
@@ -151,9 +144,6 @@ class Engine:
 
     def runtime_info(self):
         result = {
-            "modelSize": self.source.size, "modelRepository": self.source.checkpoint_repo,
-            "encoderRevision": self.source.encoder_revision,
-            "checkpointRevision": self.source.checkpoint_revision,
             "device": str(self.device), "deviceName": self.device_name,
             "precision": self.precision, "cudaRuntime": torch.version.cuda,
         }
