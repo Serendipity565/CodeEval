@@ -222,7 +222,7 @@ export function aiDimensionScoreLabel(
 }
 export const aiLegacyChecksNote =
   "此报告未记录核验材料；如需纳入运行结果、历史版本与代码框架，请重新生成。";
-export function aiRateBand(result?: AIDetection) {
+export function aiRateBand(result?: Pick<AIDetection, "status" | "aiRate">) {
   if (
     result?.status !== "estimated" ||
     result.aiRate === null ||
@@ -244,7 +244,7 @@ export function aiRowLabel(row: AIDetectionRow) {
     done: "结果缺失",
   }[row.state];
 }
-export function formatAIRate(result?: AIDetection) {
+export function formatAIRate(result?: Pick<AIDetection, "status" | "aiRate">) {
   const band = aiRateBand(result);
   if (!band) return "—";
   const rate = result!.aiRate!;

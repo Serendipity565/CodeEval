@@ -14,6 +14,7 @@ import AIDimensionAnalysis from "./AIDimensionAnalysis";
 import AIReportNotes from "./AIReportNotes";
 import AISampleLibraryPanel from "./AISampleLibraryPanel";
 import LocalDetectionAnalysis from "./LocalDetectionAnalysis";
+import AIDetectionOverview from "./AIDetectionOverview";
 import { Empty, Icon } from "../ui";
 import Dialog from "../ui/Dialog";
 import {
@@ -799,28 +800,18 @@ export default function AICodeDetection({
       {selected?.result && (
         <Dialog
           wide
+          className="ai-evidence-dialog"
           title={`${selected.source.studentName} · AI 生成识别`}
           note={`提交 #${selected.source.id} · ${date(selected.result.generatedAt)}`}
           onClose={() => setSelectedId("")}
         >
           <div className="ai-detection-detail">
-            <div className="ai-detection-score">
-              <strong>
-                {aiRateBand(selected.result)
-                  ? formatAIRate(selected.result)
-                  : "证据不足"}
-              </strong>
-              <span>生成倾向分 · {aiAnalysisLabel(selected.result)}</span>
-              {aiRateBand(selected.result) && (
-                <span
-                  className={`similarity-risk risk-${aiRateBand(selected.result)!.tone}`}
-                >
-                  {aiRateBand(selected.result)!.label}
-                </span>
-              )}
-            </div>
+            <AIDetectionOverview
+              result={selected.result}
+              language={assignment.language}
+            />
             {report && (
-              <div className="ai-detection-export">
+              <div className="ai-detection-export ai-evidence-export">
                 <button
                   className="submission-action"
                   onClick={() =>
@@ -849,10 +840,6 @@ export default function AICodeDetection({
                 </button>
               </div>
             )}
-            <h3>
-              识别结论：{aiRateBand(selected.result)?.label ?? "证据不足"}
-            </h3>
-            <p>{selected.result.summary}</p>
             {selected.result.localDetection ? (
               <LocalDetectionAnalysis
                 result={selected.result}
@@ -897,13 +884,25 @@ export default function AICodeDetection({
               </>
             )}
             <AIReportNotes result={selected.result} />
-            <CodeEditor
-              language={assignment.language}
-              value={selected.source.code}
-              readOnly
-              allowFullscreen={false}
-              label={`提交 #${selected.source.id} 原始代码`}
-            />
+            <details className="ai-evidence-original ai-report-note">
+              <summary>
+                <span className="ai-report-note-label">完整原始代码</span>
+                <span className="ai-report-note-meta">
+                  {assignment.language} ·{" "}
+                  {selected.source.code.split("\n").length} 行
+                </span>
+                <span className="ai-report-note-chevron" aria-hidden="true" />
+              </summary>
+              <div className="ai-report-note-body">
+                <CodeEditor
+                  language={assignment.language}
+                  value={selected.source.code}
+                  readOnly
+                  allowFullscreen={false}
+                  label={`提交 #${selected.source.id} 原始代码`}
+                />
+              </div>
+            </details>
           </div>
         </Dialog>
       )}

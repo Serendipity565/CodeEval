@@ -538,24 +538,6 @@
 .ai-detection-detail h3 {
   font-size: var(--font-size-subheading);
 }
-.ai-detection-score {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-subtle);
-}
-.ai-detection-score strong {
-  font: 600 var(--font-size-page) var(--font-sans);
-  font-variant-numeric: tabular-nums;
-}
-.ai-detection-score > span:not(.similarity-risk) {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-small);
-}
 .ai-detection-evidence {
   display: grid;
   gap: var(--space-3);
@@ -1202,4 +1184,255 @@
 
 .ai-dimensions[data-score-max="100"] .ai-dimension-meter::after {
   display: none;
+}
+
+/* Evidence report: reuse the weight chart's ring and the report's risk palette. */
+.ai-evidence-overview,
+.ai-chunk-evidence {
+  --evidence-color: var(--color-brand);
+}
+:is(.ai-evidence-overview, .ai-chunk-evidence)[data-tone="low"] {
+  --evidence-color: var(--color-teal);
+}
+:is(.ai-evidence-overview, .ai-chunk-evidence)[data-tone="moderate"] {
+  --evidence-color: var(--color-info);
+}
+:is(.ai-evidence-overview, .ai-chunk-evidence)[data-tone="suspected"] {
+  --evidence-color: var(--color-warning);
+}
+:is(.ai-evidence-overview, .ai-chunk-evidence)[data-tone="high"] {
+  --evidence-color: var(--color-danger);
+}
+.ai-evidence-overview[data-tone="neutral"] {
+  --evidence-color: var(--color-text-secondary);
+}
+.submission-dialog.ai-evidence-dialog {
+  width: min(1040px, calc(100vw - 40px));
+}
+.ai-evidence-dialog .submission-dialog-header h2 {
+  overflow-wrap: anywhere;
+}
+.ai-evidence-dialog .ai-detection-detail {
+  gap: var(--space-6);
+}
+.ai-evidence-overview {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.ai-evidence-chart {
+  display: grid;
+  justify-items: center;
+  margin: 0;
+}
+.ai-evidence-chart figcaption {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+.ai-evidence-ring-track {
+  stroke: var(--color-surface-subtle);
+}
+.ai-evidence-ring-value {
+  stroke: var(--evidence-color);
+}
+.ai-evidence-chart .ai-weight-center strong {
+  color: var(--evidence-color);
+  letter-spacing: -0.04em;
+}
+.ai-evidence-conclusion {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ai-evidence-conclusion-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.ai-evidence-conclusion > p {
+  max-width: 68ch;
+}
+.ai-evidence-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.ai-evidence-facts > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ai-evidence-facts dt,
+.ai-evidence-facts dd small,
+.ai-evidence-conclusion .ai-evidence-reading-note {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  font-weight: 400;
+}
+.ai-evidence-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ai-evidence-export {
+  justify-content: flex-end;
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.ai-chunk-list {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: clip;
+}
+.ai-chunk-evidence + .ai-chunk-evidence {
+  border-top: 1px solid var(--color-border);
+}
+.ai-chunk-evidence > summary {
+  display: grid;
+  grid-template-columns: 32px minmax(108px, 1fr) minmax(64px, 1fr) 110px 16px;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  min-height: 76px;
+  list-style: none;
+  cursor: pointer;
+}
+.ai-chunk-evidence > summary::-webkit-details-marker {
+  display: none;
+}
+.ai-chunk-evidence > summary:hover,
+.ai-chunk-evidence[open] > summary {
+  background: var(--color-surface-subtle);
+}
+.ai-chunk-evidence > summary:focus-visible,
+.ai-evidence-original > summary:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: -3px;
+}
+.ai-chunk-index {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+.ai-chunk-title,
+.ai-chunk-score {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ai-chunk-title b,
+.ai-chunk-score b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ai-chunk-title small,
+.ai-chunk-score small,
+.ai-chunk-context,
+.ai-chunk-body > p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+.ai-chunk-score {
+  text-align: right;
+}
+.ai-chunk-score b {
+  color: var(--evidence-color);
+  font-size: var(--font-size-subheading);
+}
+.ai-chunk-meter {
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--color-border);
+}
+.ai-chunk-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--evidence-color);
+  border-radius: inherit;
+}
+.ai-chunk-evidence[open] > summary .ai-report-note-chevron {
+  transform: rotate(90deg);
+}
+.ai-chunk-body {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+}
+.ai-chunk-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+}
+.ai-chunk-context b {
+  color: var(--color-text);
+  font-weight: 500;
+}
+.ai-chunk-empty {
+  padding: var(--space-5);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+.ai-evidence-original {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .submission-dialog.ai-evidence-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 24px);
+  }
+  .ai-evidence-dialog .submission-dialog-header {
+    padding: var(--space-4);
+  }
+  .ai-evidence-dialog .submission-dialog-header h2 {
+    font-size: var(--font-size-subheading);
+  }
+  .ai-evidence-dialog .submission-dialog-body {
+    padding: var(--space-4);
+  }
+  .ai-evidence-overview {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    padding: var(--space-5) var(--space-4);
+  }
+  .ai-evidence-chart .ai-weight-ring {
+    width: 180px;
+  }
+  .ai-evidence-facts {
+    gap: var(--space-3) var(--space-5);
+  }
+  .ai-evidence-export {
+    justify-content: flex-start;
+    gap: var(--space-2);
+  }
+  .ai-evidence-export button {
+    font-size: var(--font-size-small);
+  }
+  .ai-chunk-evidence > summary {
+    grid-template-columns: minmax(0, 1fr) 98px 16px;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+  .ai-chunk-index {
+    display: none;
+  }
+  .ai-chunk-title { grid-column: 1; grid-row: 1; }
+  .ai-chunk-score { grid-column: 2; grid-row: 1; }
+  .ai-chunk-evidence > summary > .ai-report-note-chevron { grid-column: 3; grid-row: 1; }
+  .ai-chunk-meter { grid-column: 1 / -1; grid-row: 2; }
+  .ai-chunk-body {
+    padding: var(--space-3);
+  }
 }
