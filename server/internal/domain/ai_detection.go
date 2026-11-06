@@ -32,6 +32,8 @@ type AIDetection struct {
 // LocalDetection stores classifier outputs independently of LLM explanations.
 // AI scores range from 0 to 1 and are not calibrated source probabilities.
 type LocalDetection struct {
+	ModelSize            string                `json:"modelSize,omitempty"`
+	ModelRepository      string                `json:"modelRepository,omitempty"`
 	Device               string                `json:"device,omitempty"`
 	DeviceName           string                `json:"deviceName,omitempty"`
 	Precision            string                `json:"precision,omitempty"`

@@ -5,11 +5,12 @@ CodeEval 是面向编程课程的作业发布与自动评估项目。教师可�
 当前仓库包含可运行的 Web、API、MySQL 和 Docker 沙箱，不是独立的论文复现项目。
 
 本地检测服务已纳入同一个 `docker-compose.yaml`，统一通过 `server/config.yaml` 配置。
-本地分类默认使用 NVIDIA CUDA（包括 RTX 4060 Laptop GPU），Compose 已声明一张 GPU；
+本地分类默认使用 NVIDIA CUDA（包括 RTX 4060 Laptop GPU），启动脚本按配置选择检测容器和 GPU；
 运行前需让 Docker 能访问 NVIDIA 显卡。推理逐块执行，保留 CPU 配置选项。
 Windows、16 GB 内存、RTX 4060 笔记本的目标配置与 WSL2 准备步骤见
 [Windows GPU 部署](docs/docker-deployment.md#目标机器windows16-gb-内存rtx-4060)。
-默认 Python、Java、C++、Go 使用本地 DroidDetect-Base-Binary，其他语言使用 DeepSeek；将 `ai_detection.provider` 改为
+默认 Python、Java、C++、Go 使用本地 DroidDetect-Base-Binary，可用 `ai_detection.model: large` 切换 Large-Binary。
+其他语言使用 DeepSeek；将 `ai_detection.provider` 改为
 `ds` 即可全部切到 DeepSeek，无需修改前端或部署入口。见 [Docker 部署与迁移](docs/docker-deployment.md)。
 已完成固定权重 CPU 加载与推理验证；Docker 构建和 NVIDIA GPU 运行仍需在目标环境验收。
 
@@ -24,7 +25,16 @@ Windows、16 GB 内存、RTX 4060 笔记本的目标配置与 WSL2 准备步骤�
 
 ## 快速启动：Docker Compose
 
-需要 Docker 和 Docker Compose。在本目录执行：
+需要 Docker、Docker Compose、Python 3 和 PyYAML。Windows 建议在 WSL2 中执行。
+在本目录准备启动脚本依赖（不需要在宿主机安装 PyTorch）：
+
+```bash
+python3 -m venv .deploy-venv
+source .deploy-venv/bin/activate
+python3 -m pip install -r requirements-deploy.txt
+```
+
+以后打开新终端先激活这个虚拟环境。首次创建应用配置：
 
 ```bash
 cp server/config.example.yaml server/config.yaml
@@ -33,24 +43,28 @@ cp server/config.example.yaml server/config.yaml
 启动前编辑 `server/config.yaml`：设置 `jwt.secret` 和 `sandbox.runner_token`；如需 DeepSeek 检测、AI 用例生成或 AI 评分，再填写 `deepseek.api_key`。同时修改 `docker-compose.yaml` 中的 MySQL 密码，并让 `database.password` 与 `MYSQL_PASSWORD` 一致。`server/config.yaml` 已被 Git 忽略。
 
 ```bash
-docker compose up -d --build
-docker compose ps
+python3 deploy.py up -d --build
+python3 deploy.py ps
 ```
 
 打开 `http://localhost:3000`，用页面注册教师或学生账号。后端健康检查是 `http://localhost:8080/healthz`。首次启动时 API 会通过 GORM `AutoMigrate` 创建数据库表；无须手工导入 SQL。
 
-首次本地检测部署会自动下载固定版本权重，`model-init` 成功退出后，检测服务及 API 才启动。
-切到 `ds` 时跳过本地权重下载和加载。模型保存在 `detector_models` 命名卷，后续启动复用缓存。
+首次本地检测部署会自动下载所选模型的固定版本权重，`model-init` 成功退出后，检测服务及 API 才启动。
+`ai_detection.model: base` 启动 `codeeval-droiddetect-base`；改为 `large` 启动 `codeeval-droiddetect-large`。
+修改后再次执行 `python3 deploy.py up -d --build`，只保留所选检测容器。
+切到 `provider: ds` 时不创建本地检测和初始化容器，并移除旧检测容器，释放显存。
+两种权重分别缓存在 `detector_models` 命名卷，切回时复用；切换不重算历史报告。
+启动脚本从应用 YAML 生成临时 Compose 配置；直接执行 `docker compose up` 不会应用容器选择和 CPU／DS 的 GPU 处理。
 
 > 当前 Compose 示例把 3000、8080、8090 和 3306 端口绑定到宿主机所有网络接口。部署到服务器前，请按网络环境限制 API、Runner 和 MySQL 端口的访问；Runner 挂载 Docker socket，不能直接暴露给不可信客户端。
 
 停止服务：
 
 ```bash
-docker compose down
+python3 deploy.py down
 ```
 
-`docker compose down -v` 会删除 MySQL 和模型数据卷，请仅在确定不需要数据时使用。
+`python3 deploy.py down -v` 会删除 MySQL 和模型数据卷，请仅在确定不需要数据时使用。
 
 ## 演示账号
 
@@ -62,7 +76,7 @@ seed:
 ```
 
 ```bash
-docker compose up -d --build server
+python3 deploy.py up -d --build server
 ```
 
 新建演示账号的统一密码为 **`CodeEval123!`**（末尾为英文感叹号）。已有同名账号的密码不会被重置。
@@ -87,7 +101,7 @@ docker compose up -d --build server
 | `web/` | React、TypeScript、Vite 前端；教师和学生界面 |
 | `server/` | Go、Gin API；鉴权、作业、提交、评估队列与 MySQL 持久化 |
 | `sandbox/` | Docker Runner 和 Go、Python、Java、C++ 执行镜像 |
-| `detector/` | DroidDetect-Base-Binary CUDA/CPU HTTP 服务、固定版本权重初始化及模型来源说明 |
+| `detector/` | DroidDetect Base/Large Binary CUDA/CPU HTTP 服务、固定版本权重初始化及模型来源说明 |
 | [docs/](docs/README.md) | 开发配置、评估流程、数据库、演示数据和设计规范 |
 
 ## 文档

@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from model_sources import model_source
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -17,6 +19,7 @@ class Settings:
     device: str = "cuda"
     model_dir: Path = Path("/models")
     max_chunks: int = 64
+    model: str = "base"
 
     @property
     def local_enabled(self):
@@ -37,6 +40,8 @@ def load_settings(path="/app/config.yaml"):
         provider = "droiddetect"
     if provider not in ("auto", "droiddetect", "deepseek"):
         raise RuntimeError("ai_detection.provider must be auto, droiddetect or deepseek (ds)")
+    model = str(detection.get("model") or "base").strip().lower() or "base"
+    model_source(model)
     threads = int(detection.get("cpu_threads") or 4)
     if not 1 <= threads <= 32:
         raise RuntimeError("ai_detection.cpu_threads must be between 1 and 32")
@@ -48,4 +53,4 @@ def load_settings(path="/app/config.yaml"):
     if max_bytes < 1:
         raise RuntimeError("deepseek.max_code_bytes must be positive")
     token = hmac.new(secret.encode(), b"codeeval-local-detector-v1", hashlib.sha256).hexdigest()
-    return Settings(provider=provider, token=token, cpu_threads=threads, max_code_bytes=max_bytes, device=device)
+    return Settings(provider=provider, token=token, cpu_threads=threads, max_code_bytes=max_bytes, device=device, model=model)

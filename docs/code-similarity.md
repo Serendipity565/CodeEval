@@ -11,7 +11,9 @@
 ### 检测方式
 
 统一 Docker 部署默认使用 `auto`：
-Python、Java、C++、Go 使用本地 DroidDetect-Base-Binary 代码分类。其他语言使用上下文分析。
+Python、Java、C++、Go 使用本地 DroidDetect 二分类，默认 Base-Binary，
+可通过 `ai_detection.model: large` 切换 Large-Binary。其他语言使用上下文分析。
+修改配置后执行 `python3 deploy.py up -d --build`，按配置替换检测容器。
 本地分类无需 DeepSeek 密钥和同题样本；页面根据服务端能力隐藏样本准备步骤，
 报告展示完整代码分块、词元覆盖及片段分数，不生成虚构的五维度解释。
 本地分类故障不会自动转发给外部模型。切换配置不重算旧报告，须显式重新生成。

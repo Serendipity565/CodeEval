@@ -2,11 +2,12 @@
 
 [项目首页](../README.md) · [代码检测](code-similarity.md)
 
-只使用项目根目录的 `docker-compose.yaml` 和 `server/config.yaml`。
-部署入口保持统一，镜像按容器的原生架构构建。
-当前 Compose 给检测服务开放一张 NVIDIA GPU，本地分类器默认使用 CUDA 计算。
-CPU 模式仍在同一份配置中保留；不要求在宿主机安装 Python 或完整 CUDA 开发工具包。
-已在隔离环境验证固定版本权重的 CPU 加载与推理，并运行相关回归测试。当前主机没有 Docker / NVIDIA GPU，容器构建与 CUDA 推理留待目标环境验收。
+配置来源是项目根目录的 `docker-compose.yaml` 和 `server/config.yaml`。
+统一使用 `python3 deploy.py` 调用 Compose；脚本生成临时部署配置，镜像按容器的原生架构构建。
+本地分类器默认使用 CUDA，CPU 模式不请求 GPU，DS 模式不启动本地检测容器。
+宿主机需要 Python 3 和 PyYAML，不需要安装 PyTorch 或完整 CUDA 开发工具包。
+Base 已有固定权重 CPU 验证；Large 已核实官方权重头部的分类头尺寸，并以小模型验证加载路径。
+Large 完整权重推理、Docker 构建和 NVIDIA GPU 运行仍需在目标环境验收。
 
 ## GPU 环境准备
 
@@ -14,15 +15,16 @@ CPU 模式仍在同一份配置中保留；不要求在宿主机安装 Python �
 
 这里的 16 GB 按系统内存理解，显卡可用显存以实际机器为准。
 使用 Docker Desktop 的 Linux 容器与 WSL2 后端，并让 Docker 能访问 NVIDIA GPU。
-无需在 Windows 宿主机安装 Python、PyTorch 或完整 CUDA Toolkit；检测依赖在镜像内安装。
+在 WSL2 中安装 Python 3 和 PyYAML 运行启动脚本；PyTorch 和 CUDA 运行依赖在镜像内安装。
 
 当前配置保持：
 
-- `ai_detection.provider: auto`：Python、Java、C++、Go 均使用 DroidDetect-Base-Binary。
+- `ai_detection.provider: auto`：Python、Java、C++、Go 均使用本地分类器。
+- `ai_detection.model: base`：默认 Base-Binary；设为 `large` 使用 Large-Binary。
 - `ai_detection.device: cuda`：明确要求 GPU，不可用时报告错误。
 - 单个共享模型、float32、每次一份提交、每次一个最多 512 词元的窗口。
-- 检测容器最多使用 4 个 CPU 核心和 6 GB 系统内存；这是上限，不是预分配。
-- 一张 NVIDIA GPU；不配置并行批量推理，不要求运行 Large 版本。
+- 检测容器最多使用 4 个 CPU 核心，Base／Large 的系统内存上限分别为 6／8 GB；这是上限，不是预分配，也不是显存配额。
+- 一张 NVIDIA GPU；不配置并行批量推理，同一时间只运行所选模型。
 
 16 GB 系统内存还需要供 Windows、WSL2、MySQL 和代码沙箱使用，
 不要把全部内存分配给 WSL2 或提高检测并发。当前设置是部署起点，
@@ -43,6 +45,14 @@ GPU 必须先能被 Docker 访问，应用内的设备选择才能生效。
 
 ## 启动
 
+在源码目录准备脚本依赖，后续终端先激活虚拟环境：
+
+```bash
+python3 -m venv .deploy-venv
+source .deploy-venv/bin/activate
+python3 -m pip install -r requirements-deploy.txt
+```
+
 首次部署，先创建现有的应用配置文件；已有配置时保留原文件，不覆盖密钥：
 
 ```bash
@@ -53,31 +63,31 @@ cp server/config.example.yaml server/config.yaml
 启用 DeepSeek 的功能时填写 `deepseek.api_key`，不需要额外的配置文件或检测令牌。
 
 ```bash
-docker compose up -d --build
-docker compose ps -a
-docker compose logs -f model-init droiddetect server
+python3 deploy.py up -d --build
+python3 deploy.py ps -a
+python3 deploy.py logs -f model-init droiddetect server
 ```
 
 打开 [http://localhost:3000](http://localhost:3000)。
-第一次会构建依赖并下载固定版本的 DroidDetect-Base-Binary 权重（约 600 MB），需要能访问镜像仓库、包源及 Hugging Face。
+第一次会构建依赖并下载所选固定版本权重（Base 约 600 MB，Large 约 1.58 GB），需要能访问镜像仓库、包源及 Hugging Face。
 `model-init` 显示 `Exited (0)` 是正常完成；后端等待检测服务健康后启动。
 完整且版本匹配的模型卷会被复用，后续启动跳过下载。模型下载失败时查看初始化日志，再次启动即可续用已完成文件。
 
 已有部署从 LLMSniffer 切换时，重建并清理旧服务容器（保留数据库和模型卷）：
 
 ```bash
-docker compose up -d --build --remove-orphans
+python3 deploy.py up -d --build --remove-orphans
 ```
 
 新初始化器根据 manifest 下载新权重，不复用旧分类器；旧权重文件可保留，不影响加载。
 旧配置的 `provider: llmsniffer` 以及默认 `http://llmsniffer:8010` 地址会兼容映射到 DroidDetect。
 历史报告保留原版本和结果，点击“重新生成”才会使用 DroidDetect。
 
-已有部署更新 CUDA 版本时，同样执行 `docker compose up -d --build`，需要重新构建检测镜像，
+已有部署更新 CUDA 版本时，同样执行 `python3 deploy.py up -d --build`，需要重新构建检测镜像，
 仅重启旧容器不会把 CPU 版 PyTorch 换成 CUDA 版。已有模型权重卷继续复用。
 
 业务数据和模型分别保存到 `mysql_data`、`detector_models` 命名卷。
-停止用 `docker compose down`；`down -v` 会删除这两类持久数据。
+停止用 `python3 deploy.py down`；`down -v` 会删除这两类持久数据。
 源码目录名称影响 Compose 默认项目名，迁移时保留相同目录名；若需更改项目名，先按下文迁移数据。
 
 ## 切换底层检测实现
@@ -87,6 +97,7 @@ docker compose up -d --build --remove-orphans
 ```yaml
 ai_detection:
   provider: auto
+  model: large
   url: http://droiddetect:8010
   timeout_seconds: 180
   device: cuda
@@ -97,7 +108,16 @@ ai_detection:
 | --- | --- |
 | `auto`（默认） | Python、Java、C++、Go 使用本地分类器，其他语言使用 DeepSeek |
 | `droiddetect` | 只用本地分类器，其他语言明确显示不可用 |
-| `deepseek` 或 `ds` | 全部使用 DeepSeek，跳过本地模型下载和加载 |
+| `deepseek` 或 `ds` | 全部使用 DeepSeek，不创建本地初始化和检测容器 |
+
+`model` 选择具体的二分类权重：
+
+| model | 检测容器名称 | 权重缓存 |
+| --- | --- | --- |
+| `base`（未配置时默认） | `codeeval-droiddetect-base` | `/models/`，兼容已有缓存 |
+| `large` | `codeeval-droiddetect-large` | `/models/large/`，与 Base 分开 |
+
+两个容器共用镜像和内部服务名 `droiddetect`，API URL 无须变动；同一时间只启动一个。
 
 计算设备由同一 YAML 中的 `device` 选择：
 
@@ -108,10 +128,8 @@ ai_detection:
 | `auto` | 容器内部能使用 CUDA 时选 CUDA，否则选 CPU |
 
 `auto` 只影响容器内的选择，不能解决 Docker 宿主机的 GPU 透传问题。
-若迁移到没有 NVIDIA GPU 的主机，在同一 `docker-compose.yaml` 中删除
-`droiddetect.deploy.resources.reservations.devices` GPU 声明，并把 `device` 设为 `cpu`。
-DS-only 的无 GPU 部署也需移除该声明，因为 Docker 在应用读取 provider 之前就会请求 GPU。
-保留同一部署文件，不添加系统专用入口或额外配置文件。
+若迁移到没有 NVIDIA GPU 的主机，把 `device` 设为 `cpu`，脚本自动移除 GPU 请求。
+DS-only 不创建本地容器，无须 GPU，不需要手改 Compose。
 
 例如以后全部切换 DS，只改为：
 
@@ -135,13 +153,14 @@ deepseek:
 保留其余应用配置。切换后执行：
 
 ```bash
-docker compose run --rm model-init
-docker compose up -d --force-recreate droiddetect server
+python3 deploy.py up -d --build
 ```
 
-第一条在本地检测模式准备或复用权重，在 DS 模式直接跳过；第二条让两项服务读取新配置。
-DS 模式的本地 HTTP 容器保持轻量待机，健康检查返回 `disabled`，不导入 PyTorch、不加载权重，
-也不会承接分类任务。安装依赖的镜像仍保留，便于以后切回，不需要删除模型卷。
+脚本根据配置生成临时 Compose 文件，并加入配置摘要，让 API、检测服务和已完成的初始化器
+在配置变化后重新创建。切换 Base／Large 会替换旧检测容器；切到 DS 自动移除本地容器。
+脚本使用 `--remove-orphans` 清理同一 Compose 项目中的旧服务，保留数据库和模型卷。
+停止时也使用 `python3 deploy.py down`；直接 `docker compose up` 不执行上述部署选择。
+只读取状态或日志时继续使用 `python3 deploy.py ps`、`python3 deploy.py logs -f server`。
 
 切换不修改历史报告、不自动重算；需要新方法的结果时由教师显式点击“重新生成”。
 AI 评分、生成测试用例等功能仍按原 DeepSeek 配置运行，不受检测 provider 选择影响。
@@ -176,22 +195,22 @@ API 与检测服务读取同一 YAML，从 `jwt.secret` 使用固定域分隔的
 
 ```bash
 mkdir -p backups
-docker compose stop web server
-docker compose exec -T mysql sh -c 'exec mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --single-transaction --no-tablespaces --set-gtid-purged=OFF "$MYSQL_DATABASE"' > backups/codeeval.sql
+python3 deploy.py stop web server
+python3 deploy.py exec -T mysql sh -c 'exec mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --single-transaction --no-tablespaces --set-gtid-purged=OFF "$MYSQL_DATABASE"' > backups/codeeval.sql
 ```
 
 确认转储成功后，把源码、配置和 SQL 备份复制到目标部署目录。
-若仍需使用旧环境，执行 `docker compose up -d server web`。
+若仍需使用旧环境，执行 `python3 deploy.py up -d server web`。
 
 目标机先设 `seed.enabled: false`，导入时不启动 API。以下用于目标机新建的空数据库；
 若已有数据，应先备份，再决定如何合并：
 
 ```bash
-docker compose up -d mysql
-docker compose ps
+python3 deploy.py up -d mysql
+python3 deploy.py ps
 # 等数据库 healthy 后导入
-docker compose exec -T mysql sh -c 'exec mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < backups/codeeval.sql
-docker compose up -d --build
+python3 deploy.py exec -T mysql sh -c 'exec mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < backups/codeeval.sql
+python3 deploy.py up -d --build
 ```
 
 首次本地部署自动重新下载模型。需要搬运已有模型缓存时，应单独导出
@@ -203,29 +222,33 @@ docker compose up -d --build
 下列检查本次未执行，留给目标部署环境：
 
 ```bash
-docker compose ps -a
-docker compose logs --tail=100 model-init droiddetect server
-docker compose exec -T droiddetect python -m unittest test_preprocessing test_settings test_runtime -v
+python3 deploy.py ps -a
+python3 deploy.py logs --tail=100 model-init droiddetect server
+python3 deploy.py exec -T droiddetect python -m unittest test_preprocessing test_settings test_runtime -v
 ```
 
 固定版本模型准备好后，可在目标笔记本运行完整检测服务回归，包含实际权重、
 原始输入的直接推理对照、四种语言、中文注释行号、长代码覆盖与超限失败检查：
 
 ```bash
-docker compose exec -T -e CODEEVAL_TEST_MODEL_DIR=/models droiddetect python -m unittest discover -v
+python3 deploy.py exec -T -e CODEEVAL_TEST_MODEL_DIR=/models -e CODEEVAL_TEST_MODEL=large droiddetect python -m unittest discover -v
 ```
+
+上例针对 Large；Base 改为 `CODEEVAL_TEST_MODEL=base`。
+没有上述环境变量时，实际权重测试跳过，小模型加载测试仍执行。
 
 CUDA 模式下检查实际设备（在目标机器运行）：
 
 ```bash
-docker compose exec -T droiddetect python -c "import torch; print('CUDA build:', torch.version.cuda); print('GPU visible:', torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'No CUDA GPU')"
-docker compose exec -T droiddetect python -c "import json,urllib.request; print(json.loads(urllib.request.urlopen('http://localhost:8010/healthz').read()))"
+python3 deploy.py exec -T droiddetect python -c "import torch; print('CUDA build:', torch.version.cuda); print('GPU visible:', torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'No CUDA GPU')"
+python3 deploy.py exec -T droiddetect python -c "import json,urllib.request; print(json.loads(urllib.request.urlopen('http://localhost:8010/healthz').read()))"
 ```
 
 应同时看到 `GPU visible: True`、实际的 RTX 4060 Laptop GPU 名称，以及服务健康响应
 `device: cuda:0`。健康响应还记录 float32 精度及总显存；保存报告的 JSON 中包含实际设备信息。
 后端在明确要求 CUDA 时拒绝接收 CPU 运行报告，避免误用旧 CPU 镜像。
-DS 模式健康响应为 `disabled` / `device: none`，表示没有加载本地模型。
+健康响应还包含 `modelSize`、模型仓库及权重版本，Large 应显示 `large`。
+DS 模式不会创建本地检测容器，不执行检测服务的健康检查。
 
 启动失败时先检查 Docker 的 NVIDIA GPU 支持和驱动版本；显存不足时明确报错，不返回占位分。
 在目标机对比少量 CPU/GPU 同输入结果与耗时；不能假定两种设备逐位相同，也不能把加速等同于识别率提升。

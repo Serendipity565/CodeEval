@@ -38,6 +38,9 @@ ai_detection:
   # droiddetect：只用本地分类器；deepseek（或 ds）：所有语言用 DeepSeek。
   # 切换只需修改这一项，DeepSeek 连接与密钥复用上面的 deepseek 配置。
   provider: auto
+  # base：约 1.49 亿参数；large：约 3.95 亿参数。旧配置默认 base。
+  # 修改后用 python3 deploy.py up -d --build，自动选择对应检测容器。
+  model: base
   url: http://droiddetect:8010
   # 内部令牌从 jwt.secret 自动派生，无需额外配置。
   timeout_seconds: 180

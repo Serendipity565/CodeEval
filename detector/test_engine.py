@@ -13,6 +13,7 @@ class EngineTests(unittest.TestCase):
         from settings import Settings
         cls.engine = Engine(Settings(provider='droiddetect', token='test', cpu_threads=2,
                                      max_code_bytes=100000, device='cpu',
+                                     model=os.environ.get('CODEEVAL_TEST_MODEL', 'base'),
                                      model_dir=Path(os.environ['CODEEVAL_TEST_MODEL_DIR'])))
 
     def test_project_languages_use_binary_score_and_original_lines(self):
@@ -47,7 +48,7 @@ class EngineTests(unittest.TestCase):
             logits = model.classifier(torch.relu(model.text_projection(hidden)))
             expected = torch.softmax(logits, dim=-1)[0, 1].item()
         self.assertAlmostEqual(self.engine.detect(code, 'python')['aiScore'], expected, places=6)
-        self.assertEqual(tuple(model.text_projection.weight.shape), (256, 768))
+        self.assertEqual(tuple(model.text_projection.weight.shape), (256, self.engine.source.hidden_size))
         self.assertEqual(tuple(model.classifier.weight.shape), (2, 256))
 
     def test_long_unicode_source_has_complete_nonduplicated_coverage(self):

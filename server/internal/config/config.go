@@ -45,6 +45,7 @@ type Config struct {
 	} `yaml:"deepseek"`
 	AIDetection struct {
 		Provider    string `yaml:"provider"`
+		Model       string `yaml:"model"`
 		URL         string `yaml:"url"`
 		Token       string `yaml:"-"`
 		TimeoutSecs int    `yaml:"timeout_seconds"`
@@ -120,6 +121,13 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.AIDetection.Provider != "deepseek" && cfg.AIDetection.Provider != "auto" && cfg.AIDetection.Provider != "droiddetect" {
 		return cfg, fmt.Errorf("ai_detection.provider must be deepseek, auto or droiddetect")
+	}
+	cfg.AIDetection.Model = strings.ToLower(strings.TrimSpace(cfg.AIDetection.Model))
+	if cfg.AIDetection.Model == "" {
+		cfg.AIDetection.Model = "base"
+	}
+	if cfg.AIDetection.Model != "base" && cfg.AIDetection.Model != "large" {
+		return cfg, fmt.Errorf("ai_detection.model must be base or large")
 	}
 	if cfg.AIDetection.TimeoutSecs == 0 {
 		cfg.AIDetection.TimeoutSecs = 180

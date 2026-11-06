@@ -205,6 +205,8 @@ export type AIDimension = {
 export type AIDetection = {
 
   localDetection?: {
+    modelSize?: "base" | "large";
+    modelRepository?: string;
     device?: string;
     deviceName?: string;
     precision?: string;
